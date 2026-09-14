@@ -1,0 +1,46 @@
+{
+  "name": "wordcloud",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc -b --pretty false",
+    "lint": "tsc -b --pretty false",
+    "format": "prettier --write 'src/**/*.{ts,tsx,css}' 'tests/**/*.{ts,tsx}' '*.json' '*.jsonc' '*.ts' 'eslint.config.js' 'index.html'",
+    "format:check": "prettier --check 'src/**/*.{ts,tsx,css}' 'tests/**/*.{ts,tsx}' '*.json' '*.jsonc' '*.ts' 'eslint.config.js' 'index.html'",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:browser": "playwright test",
+    "test:integration": "vitest run tests/integration",
+    "test:security": "vitest run tests/security",
+    "test:stress": "vitest run tests/stress",
+    "wrangler:dry-run": "wrangler deploy --dry-run",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv src/worker-configuration.d.ts"
+  },
+  "dependencies": {
+    "pako": "3.0.2",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@cloudflare/vite-plugin": "1.15.2",
+    "@playwright/test": "1.55.0",
+    "@types/node": "24.5.0",
+    "@types/pako": "2.0.3",
+    "@types/react": "19.1.13",
+    "@types/react-dom": "19.1.9",
+    "@vitejs/plugin-react": "5.0.4",
+    "eslint": "9.39.5",
+    "prettier": "3.6.2",
+    "typescript": "5.9.2",
+    "typescript-eslint": "8.70.0",
+    "vite": "7.1.5",
+    "vitest": "3.2.4",
+    "wrangler": "4.36.0"
+  }
+}
