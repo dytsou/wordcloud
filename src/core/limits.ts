@@ -4,6 +4,7 @@ export const LIMITS = {
   maxUniqueTerms: 500,
   maxCustomRules: 100,
   maxLiteralScalars: 128,
+  maxLayoutProbes: 100_000,
 } as const;
 
 export function utf8ByteLength(value: string): number {
