@@ -1,0 +1,187 @@
+import { deflate, Inflate } from "pako";
+import { canonicalStringify, parseStrictJson } from "./canonical-json";
+import { LIMITS, utf8ByteLength } from "./limits";
+
+export const SNAPSHOT_PREFIX = "#wc-pako:v1:";
+export const CODEC_VERSION = "wc-pako-v1";
+
+export type CodecErrorCode =
+  | "PREFIX"
+  | "BASE64"
+  | "PAYLOAD_LIMIT"
+  | "INFLATE_LIMIT"
+  | "UTF8"
+  | "JSON"
+  | "NONCANONICAL"
+  | "URL_LIMIT";
+
+export class CodecError extends Error {
+  public constructor(
+    public readonly code: CodecErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = "CodecError";
+  }
+}
+
+export interface EncodedJsonFragment {
+  fragment: string;
+  jsonBytes: number;
+  compressedBytes: number;
+}
+
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/u, "");
+}
+
+function base64UrlToBytes(payload: string): Uint8Array {
+  if (!/^[A-Za-z0-9_-]+$/u.test(payload) || payload.length % 4 === 1) {
+    throw new CodecError("BASE64", "V payload 不是合法的 URL-safe Base64。 ");
+  }
+  const padded =
+    payload.replaceAll("-", "+").replaceAll("_", "/") +
+    "=".repeat((4 - (payload.length % 4)) % 4);
+  try {
+    const binary = atob(padded);
+    return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  } catch {
+    throw new CodecError("BASE64", "V payload 的 Base64 編碼無法解析。");
+  }
+}
+
+function inflateBounded(compressed: Uint8Array): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const ratioLimit = Math.max(
+    compressed.byteLength * LIMITS.maxInflateRatio,
+    1,
+  );
+  const inflater = new Inflate({ chunkSize: 16 * 1024 });
+  inflater.onData = (chunk) => {
+    if (typeof chunk === "string") {
+      throw new CodecError("INFLATE_LIMIT", "解壓縮結果不是二進位資料。");
+    }
+    total += chunk.byteLength;
+    if (total > LIMITS.maxInflatedJsonBytes || total > ratioLimit) {
+      throw new CodecError(
+        "INFLATE_LIMIT",
+        "V payload inflate/解壓縮後超過安全大小或膨脹比例上限。",
+      );
+    }
+    chunks.push(chunk);
+  };
+  try {
+    const ok = inflater.push(compressed, true);
+    if (!ok || inflater.err !== 0) {
+      throw new CodecError("INFLATE_LIMIT", "V payload inflate/解壓縮失敗。");
+    }
+  } catch (error) {
+    if (error instanceof CodecError) throw error;
+    throw new CodecError("INFLATE_LIMIT", "V payload inflate/解壓縮失敗。");
+  }
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
+}
+
+function encodeJson(
+  value: unknown,
+  maxEncodedBytes: number,
+): EncodedJsonFragment {
+  const json = canonicalStringify(value);
+  const jsonBytes = new TextEncoder().encode(json);
+  const compressed = deflate(jsonBytes, { level: 9 });
+  const fragment = `${SNAPSHOT_PREFIX}${bytesToBase64Url(compressed)}`;
+  if (utf8ByteLength(fragment) > maxEncodedBytes) {
+    throw new CodecError(
+      "PAYLOAD_LIMIT",
+      `V fragment 超過 ${maxEncodedBytes} bytes 上限。`,
+    );
+  }
+  return {
+    fragment,
+    jsonBytes: jsonBytes.byteLength,
+    compressedBytes: compressed.byteLength,
+  };
+}
+
+export function encodeJsonFragment(
+  value: unknown,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+): EncodedJsonFragment {
+  return encodeJson(value, maxEncodedBytes);
+}
+
+export function decodeJsonFragment(
+  fragment: string,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+): unknown {
+  if (!fragment.startsWith(SNAPSHOT_PREFIX)) {
+    throw new CodecError("PREFIX", "V URL prefix 或版本不支援。");
+  }
+  if (utf8ByteLength(fragment) > maxEncodedBytes) {
+    throw new CodecError(
+      "PAYLOAD_LIMIT",
+      `V fragment 超過 ${maxEncodedBytes} bytes 上限。`,
+    );
+  }
+  const payload = fragment.slice(SNAPSHOT_PREFIX.length);
+  if (!payload) throw new CodecError("BASE64", "V payload 不可為空。");
+  const compressed = base64UrlToBytes(payload);
+  const inflated = inflateBounded(compressed);
+  let json: string;
+  try {
+    json = new TextDecoder("utf-8", { fatal: true }).decode(inflated);
+  } catch {
+    throw new CodecError("UTF8", "V payload 不是合法的 UTF-8 JSON。");
+  }
+  let value: unknown;
+  try {
+    value = parseStrictJson(json);
+  } catch (error) {
+    throw new CodecError(
+      "JSON",
+      error instanceof Error ? error.message : "V payload JSON 無效。",
+    );
+  }
+  if (canonicalStringify(value) !== json) {
+    throw new CodecError(
+      "NONCANONICAL",
+      "V payload 不是 canonical JSON 表示。",
+    );
+  }
+  return value;
+}
+
+export function buildShareUrl(baseUrl: string, fragment: string): string {
+  if (!fragment.startsWith("#"))
+    throw new CodecError("PREFIX", "fragment 必須以 # 開頭。");
+  if (utf8ByteLength(fragment) > LIMITS.maxEncodedFragmentBytes)
+    throw new CodecError(
+      "PAYLOAD_LIMIT",
+      `V fragment 超過 ${LIMITS.maxEncodedFragmentBytes} bytes 上限。`,
+    );
+  const url = new URL(baseUrl);
+  url.hash = fragment.slice(1);
+  const result = url.toString();
+  if (utf8ByteLength(result) > LIMITS.maxShareUrlBytes) {
+    throw new CodecError(
+      "URL_LIMIT",
+      `完整分享 URL 超過 ${LIMITS.maxShareUrlBytes} bytes 上限。`,
+    );
+  }
+  return result;
+}

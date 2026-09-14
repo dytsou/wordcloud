@@ -5,6 +5,13 @@ export const LIMITS = {
   maxCustomRules: 100,
   maxLiteralScalars: 128,
   maxLayoutProbes: 100_000,
+  maxEncodedFragmentBytes: 8 * 1024,
+  maxShareUrlBytes: 12 * 1024,
+  maxSnapshotFileBytes: 512 * 1024,
+  maxInflatedJsonBytes: 256 * 1024,
+  maxInflateRatio: 64,
+  maxCanvasDimension: 4096,
+  maxExportPixels: 16_000_000,
 } as const;
 
 export function utf8ByteLength(value: string): number {
