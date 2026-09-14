@@ -1,0 +1,73 @@
+import { LIMITS } from "./limits";
+import type { Token, Word, WordSet } from "./types";
+
+interface WordModelSettings {
+  caseMode: "preserve" | "lower" | "upper";
+  locale: string;
+  tokenizerVersion: string;
+}
+
+function normalizeTerm(
+  term: string,
+  caseMode: WordModelSettings["caseMode"],
+): string {
+  const normalized = term.normalize("NFKC").trim();
+  if (caseMode === "lower") return normalized.toLocaleLowerCase();
+  if (caseMode === "upper") return normalized.toLocaleUpperCase();
+  return normalized;
+}
+
+function compareUnicode(left: string, right: string): number {
+  const leftScalars = [...left];
+  const rightScalars = [...right];
+  const length = Math.min(leftScalars.length, rightScalars.length);
+  for (let index = 0; index < length; index += 1) {
+    const difference =
+      leftScalars[index].codePointAt(0)! - rightScalars[index].codePointAt(0)!;
+    if (difference !== 0) return difference;
+  }
+  return leftScalars.length - rightScalars.length;
+}
+
+export function buildWordSet(
+  tokens: Token[],
+  settings: WordModelSettings,
+): WordSet {
+  const byTerm = new Map<string, Word>();
+  for (const [index, token] of tokens.entries()) {
+    const term = normalizeTerm(token.term, settings.caseMode);
+    if (!term) continue;
+    const existing = byTerm.get(term);
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+    if (byTerm.size >= LIMITS.maxUniqueTerms) {
+      throw new Error(`UNIQUE_TERM_LIMIT: ${LIMITS.maxUniqueTerms}`);
+    }
+    byTerm.set(term, {
+      term,
+      count: 1,
+      firstSeen: token.sourceIndex ?? index,
+      rank: 0,
+      locale: token.locale,
+    });
+  }
+
+  const words = [...byTerm.values()].sort(
+    (left, right) =>
+      right.count - left.count ||
+      left.firstSeen - right.firstSeen ||
+      compareUnicode(left.term, right.term),
+  );
+  words.forEach((word, index) => {
+    word.rank = index + 1;
+  });
+
+  return {
+    words,
+    totalTokens: tokens.length,
+    tokenizerVersion: settings.tokenizerVersion,
+    locale: settings.locale,
+  };
+}
