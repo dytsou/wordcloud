@@ -1,5 +1,6 @@
 import type { SceneModel } from "../core/scene";
 import type { WordSet } from "../core/types";
+import { getAccessibleWords, placementLabel } from "../render/accessibility";
 
 interface WordTableProps {
   wordSet?: WordSet;
@@ -8,7 +9,11 @@ interface WordTableProps {
 }
 
 export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
-  const placement = new Map(scene?.words.map((word) => [word.term, word]));
+  const placement = new Map(
+    scene
+      ? getAccessibleWords(scene).map((word) => [word.term, word] as const)
+      : [],
+  );
   return (
     <section className="panel table-panel" aria-labelledby="table-heading">
       <div className="panel-heading">
@@ -60,7 +65,7 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
                       <span
                         className={`placement-state ${placed?.status ?? "pending"}`}
                       >
-                        {placed?.status ?? "pending"}
+                        {placed ? placementLabel(placed) : "pending"}
                       </span>
                     </td>
                   </tr>

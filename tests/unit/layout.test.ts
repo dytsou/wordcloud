@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { layoutWordCloud, type LayoutStyle } from "../../src/core/layout";
+import {
+  layoutWordCloud,
+  layoutWordCloudAsync,
+  type LayoutStyle,
+} from "../../src/core/layout";
 import type { FontMetricsTable } from "../../src/core/metrics";
 import type { WordSet } from "../../src/core/types";
 
@@ -71,5 +75,59 @@ describe("layoutWordCloud", () => {
       const scene = layoutWordCloud(wordSet, { ...style, scale }, metrics);
       expect(scene.words.map((word) => word.rank)).toEqual([1, 2]);
     }
+  });
+
+  it("uses axis-aligned bounds for arbitrary rotation angles", () => {
+    const scene = layoutWordCloud(
+      wordSet,
+      { ...style, rotations: [30] },
+      metrics,
+    );
+
+    expect(scene.words[0]?.width).toBeGreaterThan(115);
+    expect(scene.words[0]?.height).toBeGreaterThan(54);
+  });
+
+  it("checks cancellation while consuming the async layout steps", async () => {
+    const crowded: WordSet = {
+      ...wordSet,
+      words: Array.from({ length: 20 }, (_, index) => ({
+        term: `word-${index}`,
+        count: 20 - index,
+        firstSeen: index,
+        rank: index + 1,
+        locale: "en",
+      })),
+    };
+    let checks = 0;
+    const scene = await layoutWordCloudAsync(
+      crowded,
+      { ...style, canvas: { width: 120, height: 120 } },
+      metrics,
+      { maxProbes: 1000, shouldCancel: () => ++checks > 4 },
+    );
+
+    expect(scene.layoutStatus).toBe("cancelled");
+    expect(scene.words.some((word) => word.reason === "cancelled")).toBe(true);
+  });
+
+  it("bounds oversized unplaceable geometry for rendering", () => {
+    const scene = layoutWordCloud(
+      {
+        ...wordSet,
+        words: [
+          {
+            ...wordSet.words[0],
+            term: "a".repeat(128),
+          },
+        ],
+      },
+      { ...style, canvas: { width: 120, height: 120 } },
+      metrics,
+      { maxProbes: 2 },
+    );
+
+    expect(scene.words[0]?.width).toBeLessThanOrEqual(4096);
+    expect(scene.words[0]?.height).toBeLessThanOrEqual(4096);
   });
 });

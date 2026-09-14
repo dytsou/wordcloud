@@ -1,9 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { EngineClient } from "../../src/app/engine-client";
+import { describe, expect, it, vi } from "vitest";
+import {
+  createBrowserEngineClient,
+  EngineClient,
+} from "../../src/app/engine-client";
 import type {
   EngineRequest,
   EngineResponse,
 } from "../../src/app/engine-client";
+import { snapshotLayoutInput } from "../fixtures/snapshots";
 
 class FakeWorker {
   private listener: ((event: MessageEvent<EngineResponse>) => void) | undefined;
@@ -33,17 +37,55 @@ class FakeWorker {
   }
 }
 
+class ErrorWorker {
+  onerror: ((event: ErrorEvent) => void) | null = null;
+  onmessageerror: ((event: MessageEvent) => void) | null = null;
+
+  addEventListener() {}
+
+  removeEventListener() {}
+
+  postMessage(request: EngineRequest) {
+    if (request.type === "generate")
+      queueMicrotask(() =>
+        this.onerror?.({ message: "worker crashed" } as ErrorEvent),
+      );
+  }
+}
+
 describe("EngineClient", () => {
   it("rejects a stale result when a newer job is submitted", async () => {
     const client = new EngineClient(new FakeWorker());
     const first = client
-      .submit({} as never)
+      .submit(snapshotLayoutInput)
       .catch((error: Error) => error.message);
     const second = client
-      .submit({} as never)
+      .submit(snapshotLayoutInput)
       .catch((error: Error) => error.message);
 
     await expect(first).resolves.toContain("superseded");
     await expect(second).resolves.toBe("fake worker response");
+  });
+
+  it("rejects the active job when the native worker reports an error", async () => {
+    const client = new EngineClient(new ErrorWorker());
+
+    await expect(client.submit(snapshotLayoutInput)).rejects.toThrow(
+      "layout worker failed",
+    );
+    client.dispose();
+  });
+
+  it("falls back when Worker construction throws", () => {
+    class ThrowingWorker {
+      public constructor() {
+        throw new Error("worker unavailable");
+      }
+    }
+    vi.stubGlobal("Worker", ThrowingWorker);
+
+    expect(createBrowserEngineClient()).toBeNull();
+
+    vi.unstubAllGlobals();
   });
 });

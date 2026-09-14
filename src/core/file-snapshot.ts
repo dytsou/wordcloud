@@ -21,12 +21,7 @@ export function encodeSnapshotFile(
     scene,
     LIMITS.maxSnapshotFileBytes,
   ).fragment;
-  const bytes = new TextEncoder().encode(fragment);
-  if (bytes.byteLength > LIMITS.maxSnapshotFileBytes)
-    throw new Error(
-      `snapshot file exceeds ${LIMITS.maxSnapshotFileBytes} bytes`,
-    );
-  return bytes;
+  return new TextEncoder().encode(fragment);
 }
 
 export function decodeSnapshotFile(

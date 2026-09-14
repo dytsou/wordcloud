@@ -1,5 +1,6 @@
 import type { FontMetricsTable } from "./metrics";
 import type { LayoutStyle } from "./layout";
+import { safeBackground, safePalette } from "./style-safety";
 
 export const SCENE_VERSION = "scene-v1";
 
@@ -38,13 +39,13 @@ export function recolorScene(
   palette: string[],
   background: string,
 ): SceneModel {
-  const safePalette = palette.length > 0 ? palette : ["#111111"];
+  const colors = safePalette(palette);
   return {
     ...scene,
-    background,
+    background: safeBackground(background),
     words: scene.words.map((word) => ({
       ...word,
-      color: safePalette[(word.rank - 1) % safePalette.length],
+      color: colors[(word.rank - 1) % colors.length],
     })),
   };
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LIMITS } from "../core/limits";
 import type { TokenRule, TokenizerSettings } from "../core/types";
 
 interface TokenRulesPanelProps {
@@ -38,7 +39,9 @@ export function TokenRulesPanel({
           <p className="section-kicker">02 / VOCABULARY</p>
           <h2 id="rules-heading">Give phrases a role.</h2>
         </div>
-        <span className="count-badge">{rules.length}/100</span>
+        <span className="count-badge">
+          {rules.length}/{LIMITS.maxCustomRules}
+        </span>
       </div>
       <div className="field">
         <label className="field-label" htmlFor="dictionary">
@@ -179,7 +182,7 @@ export function TokenRulesPanel({
         <button
           className="button button-quiet"
           type="button"
-          disabled={disabled || rules.length >= 100}
+          disabled={disabled || rules.length >= LIMITS.maxCustomRules}
           onClick={() =>
             onSettingsChange({
               ...settings,

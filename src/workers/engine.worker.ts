@@ -1,7 +1,8 @@
-import { layoutWordCloud } from "../core/layout";
+import { layoutWordCloudAsync } from "../core/layout";
 import type { EngineRequest, EngineResponse } from "../app/engine-client";
 
 const cancelled = new Set<number>();
+const activeJobs = new Set<number>();
 let latestJobId = 0;
 
 const scope: {
@@ -13,15 +14,19 @@ const scope: {
 } = self;
 
 scope.addEventListener("message", (event: MessageEvent<EngineRequest>) => {
-  const request = event.data;
+  void handleMessage(event.data);
+});
+
+async function handleMessage(request: EngineRequest): Promise<void> {
   if (request.type === "cancel") {
-    cancelled.add(request.jobId);
+    if (activeJobs.has(request.jobId)) cancelled.add(request.jobId);
     return;
   }
 
   latestJobId = Math.max(latestJobId, request.jobId);
+  activeJobs.add(request.jobId);
   try {
-    const scene = layoutWordCloud(
+    const scene = await layoutWordCloudAsync(
       request.wordSet,
       request.style,
       request.metrics,
@@ -52,6 +57,7 @@ scope.addEventListener("message", (event: MessageEvent<EngineRequest>) => {
     };
     scope.postMessage(response);
   } finally {
+    activeJobs.delete(request.jobId);
     cancelled.delete(request.jobId);
   }
-});
+}

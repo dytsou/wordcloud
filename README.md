@@ -1,0 +1,51 @@
+# Wordcloud Studio
+
+Wordcloud Studio is a local-first word-cloud generator for individual creators. Paste multilingual text, preview the tokenizer output, tune the visual treatment, and share a reproducible V link without uploading the source text.
+
+## Privacy and data flow
+
+All source analysis, counting, font measurement, layout, rendering, and export happen in the browser. The Cloudflare Worker serves the static application and has no source-text API, database, KV, R2, analytics, or telemetry path. The browser layout engine uses a Web Worker when available and falls back to the same bounded core algorithm if it cannot start.
+
+The V link uses the fixed fragment format `#wc-pako:v1:<payload>`:
+
+1. Snapshot data is canonical JSON with sorted object keys.
+2. Pako DEFLATE level 9 compresses the JSON with a zlib wrapper.
+3. The bytes become unpadded URL-safe Base64 (`+` → `-`, `/` → `_`).
+
+A V contains normalized terms, counts, ranks, style, and derived placements. It never contains the raw source or editable tokenizer rule bodies, and it is not a secret-bearing link. A loaded V remains style-remixable and can produce another V. The `.wc` download is the larger local fallback when a URL would exceed the safe share limit.
+
+## Tokenization and ranking
+
+The selected locale is the default lane for `Intl.Segmenter`; mixed scripts are routed to fixed English, Traditional/Simplified Han, Japanese, or Thai lanes. Users can normalize case, keep numbers/symbols, add stop words, protect a dictionary phrase, split a literal into terms, or merge a literal sequence into one term. Rules are validated for length, conflicts, cycles, and count before analysis.
+
+The word size is a visual mapping of frequency, not a second count. By default it uses a square-root scale between the configured minimum and maximum font sizes; linear and logarithmic mappings are also available. Ranking is deterministic: count descending, first occurrence ascending, then normalized Unicode scalar order. Ranks are one-based and preserved in the table, SceneModel, SVG metadata, PNG render plan, and V snapshot.
+
+## Safety limits
+
+The application rejects or bounds work at the following product limits:
+
+- 1 MiB UTF-8 source; 200,000 candidate tokens; 500 unique terms.
+- 100 custom rules; 128 Unicode scalars per literal term.
+- 8 KiB encoded URL fragment; 12 KiB complete share URL; 512 KiB `.wc` file.
+- 256 KiB inflated JSON; 64× inflate ratio; 4,096 px canvas dimension; 16 MP export.
+- 100,000 layout probes and a 2-second layout safety budget.
+
+Unplaceable terms are retained in the ranked table with a reason. SVG and PNG use the same validated SceneModel as the live preview; SVG writes terms as text nodes/escaped text and permits no scripts, event attributes, external URLs, `foreignObject`, or arbitrary CSS.
+
+## Local development and deployment
+
+The intended package/script entry point is `aube`, with the committed `aube-lock.yaml`:
+
+```sh
+aube install
+aube run dev
+aube run test
+aube run test:browser
+aube run build
+aube run wrangler:dry-run
+aube run deploy
+```
+
+Cloudflare Static Assets serves `dist` and uses SPA fallback for direct application paths. Configure Wrangler authentication before `aube run deploy`; v1 does not require a Worker binding or secret. The runtime capability gates are `Intl.Segmenter`, Canvas 2D, Web Worker, font readiness, SVG, Blob, and clipboard. Unsupported analysis capabilities produce an actionable local error; a valid V can still be opened when source analysis is unavailable.
+
+The repository keeps MCP integration deferred to the next implementation; v1 intentionally exposes no MCP endpoint or tool surface.

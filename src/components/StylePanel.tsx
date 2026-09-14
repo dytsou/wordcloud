@@ -1,4 +1,5 @@
 import type { LayoutStyle } from "../core/layout";
+import { LIMITS } from "../core/limits";
 
 interface StylePanelProps {
   presentation: LayoutStyle;
@@ -13,8 +14,30 @@ export function StylePanel({
 }: StylePanelProps) {
   const update = (patch: Partial<LayoutStyle>) =>
     onChange({ ...presentation, ...patch });
-  const updateCanvas = (key: "width" | "height", value: string) =>
-    update({ canvas: { ...presentation.canvas, [key]: Number(value) || 1 } });
+  const updateCanvas = (key: "width" | "height", value: string) => {
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < 1) return;
+    const other =
+      key === "width" ? presentation.canvas.height : presentation.canvas.width;
+    const maxForDimension = Math.min(
+      LIMITS.maxCanvasDimension,
+      Math.floor(LIMITS.maxExportPixels / other),
+    );
+    const next = Math.min(parsed, maxForDimension);
+    update({ canvas: { ...presentation.canvas, [key]: next } });
+  };
+  const updateFontRange = (
+    key: "minFontSize" | "maxFontSize",
+    value: string,
+  ) => {
+    const next = Number(value);
+    if (!Number.isFinite(next)) return;
+    if (key === "minFontSize") {
+      update({ minFontSize: Math.min(next, presentation.maxFontSize) });
+    } else {
+      update({ maxFontSize: Math.max(next, presentation.minFontSize) });
+    }
+  };
   return (
     <section className="panel style-panel" aria-labelledby="style-heading">
       <div className="panel-heading">
@@ -72,7 +95,7 @@ export function StylePanel({
             value={presentation.minFontSize}
             disabled={disabled}
             onChange={(event) =>
-              update({ minFontSize: Number(event.target.value) })
+              updateFontRange("minFontSize", event.target.value)
             }
           />
         </label>
@@ -87,7 +110,7 @@ export function StylePanel({
             value={presentation.maxFontSize}
             disabled={disabled}
             onChange={(event) =>
-              update({ maxFontSize: Number(event.target.value) })
+              updateFontRange("maxFontSize", event.target.value)
             }
           />
         </label>
@@ -145,7 +168,7 @@ export function StylePanel({
             id="canvas-width"
             type="number"
             min="120"
-            max="4096"
+            max={LIMITS.maxCanvasDimension}
             value={presentation.canvas.width}
             disabled={disabled}
             onChange={(event) => updateCanvas("width", event.target.value)}
@@ -159,7 +182,7 @@ export function StylePanel({
             id="canvas-height"
             type="number"
             min="120"
-            max="4096"
+            max={LIMITS.maxCanvasDimension}
             value={presentation.canvas.height}
             disabled={disabled}
             onChange={(event) => updateCanvas("height", event.target.value)}

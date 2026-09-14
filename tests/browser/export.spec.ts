@@ -1,0 +1,33 @@
+import { readFile } from "node:fs/promises";
+import { expect, test } from "@playwright/test";
+
+test("exports the current SceneModel as safe SVG and PNG downloads", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByLabel("原文").fill("export export 文字雲");
+  await page.getByRole("button", { name: "產生文字雲" }).click();
+  await expect(page.getByRole("table")).toBeVisible();
+
+  const svgDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下載 SVG" }).click();
+  const svgDownload = await svgDownloadPromise;
+  const svgPath = await svgDownload.path();
+  expect(svgDownload.suggestedFilename()).toBe("wordcloud.svg");
+  const svg = await readFile(svgPath!);
+  const svgText = svg.toString("utf8");
+  expect(svgText).toContain("export");
+  expect(svgText).toContain("文字雲");
+  expect(svgText).not.toMatch(/foreignObject|url\(|<script|on[a-z]+=/iu);
+
+  const pngDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下載 PNG" }).click();
+  const pngDownload = await pngDownloadPromise;
+  const pngPath = await pngDownload.path();
+  expect(pngDownload.suggestedFilename()).toBe("wordcloud.png");
+  const png = await readFile(pngPath!);
+  expect(png.byteLength).toBeGreaterThan(100);
+  expect([...png.subarray(0, 8)]).toEqual([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  ]);
+});

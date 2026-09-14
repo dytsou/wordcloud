@@ -1,4 +1,6 @@
+import type { LayoutInput } from "../../src/app/engine-client";
 import type { LayoutStyle } from "../../src/core/layout";
+import type { FontMetricsTable } from "../../src/core/metrics";
 import type { SceneModel } from "../../src/core/scene";
 import type { WordSet } from "../../src/core/types";
 
@@ -48,4 +50,16 @@ export const snapshotScene: SceneModel = {
       status: "placed",
     },
   ],
+};
+
+export const snapshotMetrics: FontMetricsTable = {
+  baseFontSize: 16,
+  fingerprint: "font:test",
+  words: { hello: { width: 80, height: 40 } },
+};
+
+export const snapshotLayoutInput: LayoutInput = {
+  wordSet: snapshotWordSet,
+  style: snapshotStyle,
+  metrics: snapshotMetrics,
 };

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { SceneModel } from "../core/scene";
+import { renderAccessibleSummary } from "../render/accessibility";
+import { placedSceneWords } from "../render/safe-scene";
 
 interface CloudPreviewProps {
   scene?: SceneModel;
@@ -8,6 +10,15 @@ interface CloudPreviewProps {
 
 export function CloudPreview({ scene, highlightedTerm }: CloudPreviewProps) {
   const [zoom, setZoom] = useState(1);
+  const placedWords = scene ? placedSceneWords(scene) : [];
+  const accessibleSummary = scene ? renderAccessibleSummary(scene) : undefined;
+  const omittedCount = scene ? scene.words.length - placedWords.length : 0;
+  const activeHighlight =
+    scene &&
+    highlightedTerm &&
+    scene.words.some((word) => word.term === highlightedTerm)
+      ? highlightedTerm
+      : undefined;
   return (
     <section className="preview-stage" aria-labelledby="preview-heading">
       <div className="preview-topline">
@@ -38,20 +49,20 @@ export function CloudPreview({ scene, highlightedTerm }: CloudPreviewProps) {
         style={{ background: scene?.background ?? "#f7f0df" }}
       >
         {scene ? (
-          <svg
-            className="cloud-svg"
-            viewBox={`0 0 ${scene.canvas.width} ${scene.canvas.height}`}
-            role="img"
-            aria-label="文字雲預覽"
-            style={{
-              transform: `scale(${zoom})`,
-              fontFamily: scene.fontFamily,
-            }}
-          >
-            <title>文字雲預覽</title>
-            {scene.words
-              .filter((word) => word.status === "placed")
-              .map((word) => (
+          <>
+            <svg
+              className="cloud-svg"
+              viewBox={`0 0 ${scene.canvas.width} ${scene.canvas.height}`}
+              role="img"
+              aria-label="文字雲預覽"
+              aria-describedby="preview-description"
+              style={{
+                transform: `scale(${zoom})`,
+                fontFamily: scene.fontFamily,
+              }}
+            >
+              <title>文字雲預覽</title>
+              {placedWords.map((word) => (
                 <text
                   key={`${word.term}-${word.rank}`}
                   x={word.x + word.width / 2}
@@ -61,13 +72,17 @@ export function CloudPreview({ scene, highlightedTerm }: CloudPreviewProps) {
                   fontSize={word.fontSize}
                   transform={`rotate(${word.angle} ${word.x + word.width / 2} ${word.y + word.height / 2})`}
                   opacity={
-                    highlightedTerm && highlightedTerm !== word.term ? 0.28 : 1
+                    activeHighlight && activeHighlight !== word.term ? 0.28 : 1
                   }
                 >
                   {word.term}
                 </text>
               ))}
-          </svg>
+            </svg>
+            <p id="preview-description" className="sr-only">
+              {accessibleSummary}
+            </p>
+          </>
         ) : (
           <div className="canvas-empty">
             <span className="empty-orbit">✳</span>
@@ -78,10 +93,9 @@ export function CloudPreview({ scene, highlightedTerm }: CloudPreviewProps) {
             </p>
           </div>
         )}
-        {scene && scene.words.some((word) => word.status !== "placed") && (
+        {omittedCount > 0 && (
           <p className="canvas-warning">
-            {scene.words.filter((word) => word.status !== "placed").length}{" "}
-            個詞語未能放入目前畫布，請查看下方索引。
+            {omittedCount} 個詞語未能放入目前畫布，請查看下方索引。
           </p>
         )}
       </div>

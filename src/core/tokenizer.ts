@@ -35,7 +35,7 @@ export const DEFAULT_TOKENIZER_SETTINGS: TokenizerSettings = {
 
 const FIXED_LOCALES = ["en", "zh-Hant", "zh-Hans", "ja", "th"] as const;
 const SIMPLIFIED_MARKERS = new Set(
-  "们这個个学习国发发现数据云网与为说".split(""),
+  "们这个学习国发发现数据云网与为说".split(""),
 );
 
 type Lane = "latin" | "han" | "japanese" | "thai" | "other";
@@ -75,6 +75,7 @@ function diagnostic(
 }
 
 function classifyCharacter(character: string): Lane {
+  if (character === "ー") return "japanese";
   if (/\p{Script=Thai}/u.test(character)) return "thai";
   if (/\p{Script=Hiragana}|\p{Script=Katakana}/u.test(character))
     return "japanese";
@@ -84,6 +85,13 @@ function classifyCharacter(character: string): Lane {
 }
 
 function localeForSegment(segment: string, selectedLocale: string): string {
+  if (
+    [...segment].some((character) =>
+      /\p{Script=Hiragana}|\p{Script=Katakana}/u.test(character),
+    )
+  ) {
+    return "ja";
+  }
   const lanes = new Set<Lane>();
   for (const character of segment) {
     const lane = classifyCharacter(character);
@@ -96,11 +104,85 @@ function localeForSegment(segment: string, selectedLocale: string): string {
   if (lane === "thai") return "th";
   if (lane === "japanese") return "ja";
   if (lane === "han") {
+    if (selectedLocale === "ja") return "ja";
     return [...segment].some((character) => SIMPLIFIED_MARKERS.has(character))
       ? "zh-Hans"
       : "zh-Hant";
   }
   return selectedLocale;
+}
+
+function mergeLanes(left: Lane, right: Lane): Lane | undefined {
+  if (left === right) return left;
+  if (left === "other") return right;
+  if (right === "other") return left;
+  if (
+    (left === "han" && right === "japanese") ||
+    (left === "japanese" && right === "han")
+  ) {
+    return "japanese";
+  }
+  return undefined;
+}
+
+interface SourceRun {
+  start: number;
+  end: number;
+  lane: Lane;
+}
+
+function sourceRuns(source: string): SourceRun[] {
+  const runs: SourceRun[] = [];
+  let runStart = 0;
+  let runLane: Lane | undefined;
+  let neutralGap = false;
+  let offset = 0;
+
+  for (const character of source) {
+    const characterStart = offset;
+    offset += character.length;
+    let lane = classifyCharacter(character);
+    if (
+      /\p{Mark}/u.test(character) &&
+      runLane !== undefined &&
+      runLane !== "other"
+    ) {
+      lane = runLane;
+    }
+
+    if (runLane === undefined) {
+      runStart = characterStart;
+      runLane = lane;
+      continue;
+    }
+
+    if (
+      lane !== "other" &&
+      neutralGap &&
+      (runLane !== lane || runLane === "han")
+    ) {
+      runs.push({ start: runStart, end: characterStart, lane: runLane });
+      runStart = characterStart;
+      runLane = lane;
+      neutralGap = false;
+      continue;
+    }
+
+    const merged = mergeLanes(runLane, lane);
+    if (merged === undefined) {
+      runs.push({ start: runStart, end: characterStart, lane: runLane });
+      runStart = characterStart;
+      runLane = lane;
+      neutralGap = false;
+    } else {
+      runLane = merged;
+      if (lane === "other" && runLane !== "other") neutralGap = true;
+    }
+  }
+
+  if (runLane !== undefined)
+    runs.push({ start: runStart, end: offset, lane: runLane });
+  return runs;
 }
 
 function createSegmenter(locale: string): Intl.Segmenter | null {
@@ -120,28 +202,39 @@ function appendSegmentedTokens(
   source: string,
   sourceOffset: number,
   selectedLocale: string,
+  symbolPolicy: TokenizerSettings["symbolPolicy"],
   tokens: Token[],
 ): void {
   if (!source) return;
-  const locale = localeForSegment(source, selectedLocale);
-  const segmenter = createSegmenter(locale) ?? createSegmenter(selectedLocale);
-  if (!segmenter) return;
-  for (const part of segmenter.segment(source) as Iterable<SegmenterSegment>) {
-    if (!part.isWordLike) continue;
-    const start = sourceOffset + part.index;
-    tokens.push({
-      term: part.segment,
-      locale,
-      sourceIndex: tokens.length,
-      sourceStart: start,
-      sourceEnd: start + part.segment.length,
-    });
+  const segmenters = new Map<string, Intl.Segmenter>();
+  for (const run of sourceRuns(source)) {
+    const value = source.slice(run.start, run.end);
+    const locale = localeForSegment(value, selectedLocale);
+    const segmenter =
+      segmenters.get(locale) ??
+      createSegmenter(locale) ??
+      createSegmenter(selectedLocale);
+    if (!segmenter) continue;
+    segmenters.set(locale, segmenter);
+    for (const part of segmenter.segment(value) as Iterable<SegmenterSegment>) {
+      if (!part.segment.trim()) continue;
+      if (!part.isWordLike && symbolPolicy === "exclude") continue;
+      const start = sourceOffset + run.start + part.index;
+      tokens.push({
+        term: part.segment,
+        locale,
+        sourceIndex: tokens.length,
+        sourceStart: start,
+        sourceEnd: start + part.segment.length,
+      });
+    }
   }
 }
 
 function addProtectedAndUnprotectedTokens(
   source: string,
   selectedLocale: string,
+  symbolPolicy: TokenizerSettings["symbolPolicy"],
   protectedSpans: ReturnType<typeof findProtectedSpans>["spans"],
 ): Token[] {
   const tokens: Token[] = [];
@@ -151,6 +244,7 @@ function addProtectedAndUnprotectedTokens(
       source.slice(cursor, span.start),
       cursor,
       selectedLocale,
+      symbolPolicy,
       tokens,
     );
     tokens.push({
@@ -164,7 +258,13 @@ function addProtectedAndUnprotectedTokens(
     });
     cursor = span.end;
   }
-  appendSegmentedTokens(source.slice(cursor), cursor, selectedLocale, tokens);
+  appendSegmentedTokens(
+    source.slice(cursor),
+    cursor,
+    selectedLocale,
+    symbolPolicy,
+    tokens,
+  );
   return tokens;
 }
 
@@ -251,9 +351,18 @@ export function tokenize(
   }
 
   const protectedResult = findProtectedSpans(source, compiled.protectedRules);
+  if (protectedResult.exceededLimit) {
+    return emptyResult("error", [
+      diagnostic(
+        "TOKEN_LIMIT",
+        `候選詞超過 ${LIMITS.maxCandidateTokens} 個上限。`,
+      ),
+    ]);
+  }
   const rawTokens = addProtectedAndUnprotectedTokens(
     source,
     settings.locale,
+    settings.symbolPolicy,
     protectedResult.spans,
   );
   if (rawTokens.length > LIMITS.maxCandidateTokens) {

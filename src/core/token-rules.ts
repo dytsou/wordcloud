@@ -155,7 +155,7 @@ export function compileTokenRules(
 export function findProtectedSpans(
   source: string,
   rules: Extract<TokenRule, { kind: "protected" }>[],
-): { spans: ProtectedSpan[]; traces: RuleTrace[] } {
+): { spans: ProtectedSpan[]; traces: RuleTrace[]; exceededLimit: boolean } {
   const candidates: ProtectedSpan[] = [];
   const traces: RuleTrace[] = [];
 
@@ -170,6 +170,9 @@ export function findProtectedSpans(
         start,
         end: start + rule.phrase.length,
       });
+      if (candidates.length > LIMITS.maxCandidateTokens) {
+        return { spans: [], traces: [], exceededLimit: true };
+      }
       start = source.indexOf(rule.phrase, start + 1);
     }
   });
@@ -209,7 +212,7 @@ export function findProtectedSpans(
   }
 
   selected.sort((a, b) => a.start - b.start);
-  return { spans: selected, traces };
+  return { spans: selected, traces, exceededLimit: false };
 }
 
 function sameTerms(left: string[], right: string[]): boolean {
@@ -235,14 +238,14 @@ export function applyTokenRules(
       continue;
     }
 
-    const candidates = compiled.patterns.filter((pattern) =>
-      sameTerms(
-        tokens
-          .slice(index, index + pattern.input.length)
-          .map((item) => normalizeLiteral(item.term)),
+    const candidates = compiled.patterns.filter((pattern) => {
+      const source = tokens.slice(index, index + pattern.input.length);
+      if (source.some((item) => item.ruleKind === "protected")) return false;
+      return sameTerms(
+        source.map((item) => normalizeLiteral(item.term)),
         pattern.input,
-      ),
-    );
+      );
+    });
     const pattern = candidates.sort(
       (a, b) =>
         b.priority - a.priority ||

@@ -1,10 +1,11 @@
 import { CODEC_VERSION, decodeJsonFragment, encodeJsonFragment } from "./codec";
 import { LIMITS, scalarLength } from "./limits";
+import { isSafeFontFamily, isSafeHexColor } from "./style-safety";
 import { SCENE_VERSION, type SceneModel, type SceneWord } from "./scene";
 import type { LayoutStyle } from "./layout";
 import type { Word, WordSet } from "./types";
 
-export interface Presentation extends LayoutStyle {}
+export type Presentation = LayoutStyle;
 
 export interface SnapshotPayload {
   schemaVersion: "wc-snapshot-v1";
@@ -55,7 +56,9 @@ function stringValue(
   if (typeof value !== "string" || !value.trim() || scalarLength(value) > max) {
     throw new SnapshotValidationError(`${label} 必須是受長度限制的非空文字。`);
   }
+  // The control-character range is intentional: snapshots cross an untrusted boundary.
   if (
+    // eslint-disable-next-line no-control-regex
     /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u202A-\u202E\u2066-\u2069]/u.test(
       value,
     )
@@ -87,10 +90,7 @@ function numberValue(
 }
 
 function colorValue(value: unknown, label: string): string {
-  if (
-    typeof value !== "string" ||
-    !/^#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?$/u.test(value)
-  ) {
+  if (!isSafeHexColor(value)) {
     throw new SnapshotValidationError(`${label} 必須是安全的 hex 顏色。`);
   }
   return value;
@@ -124,6 +124,7 @@ function validateWordSet(value: unknown): WordSet {
     throw new SnapshotValidationError("wordSet.words 超出上限。");
   }
   const ranks = new Set<number>();
+  const terms = new Set<string>();
   const words: Word[] = object.words.map((value, index) => {
     const item = record(value, `wordSet.words[${index}]`);
     exactKeys(
@@ -153,7 +154,10 @@ function validateWordSet(value: unknown): WordSet {
     };
     if (ranks.has(word.rank))
       throw new SnapshotValidationError("word ranks 必須唯一。");
+    if (terms.has(word.term))
+      throw new SnapshotValidationError("word terms 必須唯一。");
     ranks.add(word.rank);
+    terms.add(word.term);
     return word;
   });
   if (words.some((word, index) => word.rank !== index + 1)) {
@@ -212,12 +216,8 @@ function validatePresentation(value: unknown): Presentation {
     object.palette.length > 16
   )
     throw new SnapshotValidationError("palette 無效。");
-  const fontFamily = stringValue(
-    object.fontFamily,
-    "presentation.fontFamily",
-    128,
-  );
-  if (!/^[\p{L}\p{N}\s,'"()-]+$/u.test(fontFamily))
+  const fontFamily = stringValue(object.fontFamily, "presentation.fontFamily");
+  if (!isSafeFontFamily(fontFamily))
     throw new SnapshotValidationError("fontFamily 含有不允許的 CSS 值。");
   const minFontSize = numberValue(object.minFontSize, "minFontSize", 1, 512);
   const maxFontSize = numberValue(object.maxFontSize, "maxFontSize", 1, 512);
@@ -242,7 +242,11 @@ function validatePresentation(value: unknown): Presentation {
   };
 }
 
-function validateSceneWord(value: unknown, index: number): SceneWord {
+function validateSceneWord(
+  value: unknown,
+  index: number,
+  canvas: { width: number; height: number },
+): SceneWord {
   const object = record(value, `scene.words[${index}]`);
   exactKeys(
     object,
@@ -282,7 +286,7 @@ function validateSceneWord(value: unknown, index: number): SceneWord {
   }
   if (status !== "placed" && reason === undefined)
     throw new SnapshotValidationError("未放置詞語必須有 reason。");
-  return {
+  const word: SceneWord = {
     term: stringValue(object.term, "scene.word.term"),
     count: numberValue(
       object.count,
@@ -319,6 +323,15 @@ function validateSceneWord(value: unknown, index: number): SceneWord {
     status,
     ...(reason ? { reason } : {}),
   };
+  if (
+    status === "placed" &&
+    (word.x + word.width > canvas.width || word.y + word.height > canvas.height)
+  ) {
+    throw new SnapshotValidationError(
+      `scene.words[${index}] 超出 scene 畫布範圍。`,
+    );
+  }
+  return word;
 }
 
 function validateScene(value: unknown): SceneModel {
@@ -375,11 +388,12 @@ function validateScene(value: unknown): SceneModel {
     fontMetricsFingerprint: stringValue(
       object.fontMetricsFingerprint,
       "scene.fontMetricsFingerprint",
-      128,
     ),
-    seed: stringValue(object.seed, "scene.seed", 128),
+    seed: stringValue(object.seed, "scene.seed"),
     layoutStatus,
-    words: object.words.map(validateSceneWord),
+    words: object.words.map((word, index) =>
+      validateSceneWord(word, index, presentation.canvas),
+    ),
   };
 }
 
@@ -423,8 +437,17 @@ export function validateSnapshot(value: unknown): SnapshotPayload {
     throw new SnapshotValidationError(
       "scene 必須為每個 WordSet 詞語保留 placement 狀態。",
     );
+  if (
+    scene.canvas.width !== presentation.canvas.width ||
+    scene.canvas.height !== presentation.canvas.height
+  ) {
+    throw new SnapshotValidationError(
+      "scene 與 presentation 的畫布尺寸必須一致。",
+    );
+  }
   const wordByRank = new Map(wordSet.words.map((word) => [word.rank, word]));
   const sceneRanks = new Set<number>();
+  const sceneTerms = new Set<string>();
   for (const word of scene.words) {
     const source = wordByRank.get(word.rank);
     if (!source || source.term !== word.term || source.count !== word.count) {
@@ -432,7 +455,10 @@ export function validateSnapshot(value: unknown): SnapshotPayload {
     }
     if (sceneRanks.has(word.rank))
       throw new SnapshotValidationError("scene ranks 必須唯一。");
+    if (sceneTerms.has(word.term))
+      throw new SnapshotValidationError("scene terms 必須唯一。");
     sceneRanks.add(word.rank);
+    sceneTerms.add(word.term);
   }
   return {
     schemaVersion: "wc-snapshot-v1",

@@ -1,4 +1,5 @@
 import { LIMITS } from "./limits";
+import { safeBackground, safeFontFamily, safePalette } from "./style-safety";
 import {
   metricsFingerprint,
   SCENE_VERSION,
@@ -86,9 +87,15 @@ function rotatedSize(
   angle: number,
 ): { width: number; height: number } {
   const normalized = Math.abs(angle) % 180;
-  return normalized === 90
-    ? { width: height, height: width }
-    : { width, height };
+  if (normalized === 0) return { width, height };
+  if (normalized === 90) return { width: height, height: width };
+  const radians = (normalized * Math.PI) / 180;
+  const cosine = Math.abs(Math.cos(radians));
+  const sine = Math.abs(Math.sin(radians));
+  return {
+    width: width * cosine + height * sine,
+    height: width * sine + height * cosine,
+  };
 }
 
 function keyForCell(x: number, y: number): string {
@@ -159,6 +166,14 @@ function makeUnplaceable(
   color: string,
   reason: SceneWord["reason"],
 ): SceneWord {
+  const renderWidth = Math.min(
+    LIMITS.maxCanvasDimension,
+    Math.max(0, quantize(size.width)),
+  );
+  const renderHeight = Math.min(
+    LIMITS.maxCanvasDimension,
+    Math.max(0, quantize(size.height)),
+  );
   return {
     term: word.term,
     count: word.count,
@@ -168,8 +183,8 @@ function makeUnplaceable(
     angle: 0,
     x: 0,
     y: 0,
-    width: quantize(size.width),
-    height: quantize(size.height),
+    width: renderWidth,
+    height: renderHeight,
     color,
     status:
       reason === "probe-budget" || reason === "cancelled"
@@ -179,19 +194,19 @@ function makeUnplaceable(
   };
 }
 
-export function layoutWordCloud(
+function* layoutWordCloudSteps(
   wordSet: WordSet,
   style: LayoutStyle,
   metrics: FontMetricsTable,
   options: LayoutOptions = {},
-): SceneModel {
+): Generator<void, SceneModel, void> {
   const maxProbes = Math.min(
-    options.maxProbes ?? LIMITS.maxLayoutProbes ?? 100_000,
-    100_000,
+    options.maxProbes ?? LIMITS.maxLayoutProbes,
+    LIMITS.maxLayoutProbes,
   );
   const maxLayoutMs = options.maxLayoutMs ?? 2_000;
   const startedAt = globalThis.performance?.now() ?? 0;
-  const palette = style.palette.length > 0 ? style.palette : ["#111111"];
+  const palette = safePalette(style.palette);
   const counts = wordSet.words.map((word) => word.count);
   const minimum = Math.min(...counts, 0);
   const maximum = Math.max(...counts, 0);
@@ -200,6 +215,12 @@ export function layoutWordCloud(
   const words: SceneWord[] = [];
   let probes = 0;
   let layoutStatus: SceneModel["layoutStatus"] = "complete";
+  const invalidCanvas =
+    style.canvas.width <= 0 ||
+    style.canvas.height <= 0 ||
+    style.canvas.width > LIMITS.maxCanvasDimension ||
+    style.canvas.height > LIMITS.maxCanvasDimension ||
+    style.canvas.width * style.canvas.height > LIMITS.maxExportPixels;
 
   for (const word of [...wordSet.words].sort((a, b) => a.rank - b.rank)) {
     const fontSize = mapFrequency(
@@ -224,13 +245,7 @@ export function layoutWordCloud(
       angle,
     );
 
-    if (
-      style.canvas.width <= 0 ||
-      style.canvas.height <= 0 ||
-      style.canvas.width > 4096 ||
-      style.canvas.height > 4096 ||
-      style.canvas.width * style.canvas.height > 16_000_000
-    ) {
+    if (invalidCanvas) {
       words.push(
         makeUnplaceable(word, fontSize, size, color, "invalid-canvas"),
       );
@@ -247,7 +262,7 @@ export function layoutWordCloud(
         break;
       }
       if (
-        probes > 100_000 ||
+        probes > LIMITS.maxLayoutProbes ||
         (globalThis.performance?.now() ?? 0) - startedAt > maxLayoutMs
       ) {
         words.push(
@@ -268,8 +283,10 @@ export function layoutWordCloud(
       };
       if (withinCanvas(rect, style.canvas) && !grid.collides(rect)) {
         placed = rect;
+        yield;
         break;
       }
+      yield;
     }
 
     if (layoutStatus === "cancelled" || layoutStatus === "budget-limited") {
@@ -300,13 +317,25 @@ export function layoutWordCloud(
     version: SCENE_VERSION,
     layoutVersion: style.version,
     canvas: { ...style.canvas },
-    background: style.background,
-    fontFamily: style.fontFamily,
+    background: safeBackground(style.background),
+    fontFamily: safeFontFamily(style.fontFamily),
     fontMetricsFingerprint: metricsFingerprint(metrics),
     seed: style.seed,
     layoutStatus,
     words,
   };
+}
+
+export function layoutWordCloud(
+  wordSet: WordSet,
+  style: LayoutStyle,
+  metrics: FontMetricsTable,
+  options: LayoutOptions = {},
+): SceneModel {
+  const steps = layoutWordCloudSteps(wordSet, style, metrics, options);
+  let result = steps.next();
+  while (!result.done) result = steps.next();
+  return result.value;
 }
 
 export async function layoutWordCloudAsync(
@@ -315,6 +344,15 @@ export async function layoutWordCloudAsync(
   metrics: FontMetricsTable,
   options: LayoutOptions = {},
 ): Promise<SceneModel> {
-  await new Promise<void>((resolve) => setTimeout(resolve, 0));
-  return layoutWordCloud(wordSet, style, metrics, options);
+  const steps = layoutWordCloudSteps(wordSet, style, metrics, options);
+  let result = steps.next();
+  let yieldedSteps = 0;
+  while (!result.done) {
+    yieldedSteps += 1;
+    if (yieldedSteps % 256 === 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
+    result = steps.next();
+  }
+  return result.value;
 }

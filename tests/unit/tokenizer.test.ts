@@ -105,4 +105,64 @@ describe("tokenize", () => {
       diagnostics: [{ code: "NO_WORDS" }],
     });
   });
+
+  it("routes fixed language lanes and does not classify Traditional 個 as simplified", () => {
+    const result = tokenize("English 雲端 データ ภาษาไทย 個 这个", {
+      ...DEFAULT_TOKENIZER_SETTINGS,
+      locale: "en",
+    });
+
+    expect(result.status).toBe("ok");
+    expect(result.tokens.map((token) => token.term)).toEqual([
+      "English",
+      "雲端",
+      "データ",
+      "ภาษา",
+      "ไทย",
+      "個",
+      "这个",
+    ]);
+    expect(result.tokens.map((token) => token.locale)).toEqual([
+      "en",
+      "zh-Hant",
+      "ja",
+      "th",
+      "th",
+      "zh-Hant",
+      "zh-Hans",
+    ]);
+  });
+
+  it("retains symbol segments when symbol policy is include", () => {
+    const result = tokenize("alpha !!!", {
+      ...DEFAULT_TOKENIZER_SETTINGS,
+      locale: "en",
+      symbolPolicy: "include",
+    });
+
+    expect(result.tokens.map((token) => token.term)).toEqual([
+      "alpha",
+      "!",
+      "!",
+      "!",
+    ]);
+  });
+
+  it("never lets a merge rule consume a protected token", () => {
+    const result = tokenize("alpha beta", {
+      ...DEFAULT_TOKENIZER_SETTINGS,
+      locale: "en",
+      rules: [
+        { id: "protect-beta", kind: "protected", phrase: "beta" },
+        {
+          id: "merge-alpha-beta",
+          kind: "merge",
+          source: "alpha beta",
+          term: "joined",
+        },
+      ],
+    });
+
+    expect(result.tokens.map((token) => token.term)).toEqual(["alpha", "beta"]);
+  });
 });

@@ -12,8 +12,13 @@ import {
   isGeometryChanging,
   type EditorState,
 } from "./app/editor-state";
-import { decodeSnapshotFile, encodeSnapshotFile } from "./core/file-snapshot";
-import { layoutWordCloud, type LayoutStyle } from "./core/layout";
+import {
+  decodeSnapshotFile,
+  encodeSnapshotFile,
+  SNAPSHOT_FILE_EXTENSION,
+} from "./core/file-snapshot";
+import { LIMITS } from "./core/limits";
+import type { LayoutStyle } from "./core/layout";
 import { recolorScene } from "./core/scene";
 import { decodeSnapshotFragment, encodeSnapshot } from "./core/snapshot";
 import { tokenize } from "./core/tokenizer";
@@ -30,6 +35,8 @@ import {
   EngineClient,
   runLayoutFallback,
 } from "./app/engine-client";
+import { renderScenePng } from "./render/png";
+import { renderSceneSvg } from "./render/svg";
 
 function measureWithCanvas(term: string, font: string): FontMetric {
   const canvas = document.createElement("canvas");
@@ -54,34 +61,48 @@ function errorText(error: unknown): string {
 export function App() {
   const [state, setState] = useState<EditorState>(createInitialEditorState);
   const [status, setStatus] = useState("準備就緒。原文只會留在這個瀏覽器裡。");
+  const [exporting, setExporting] = useState(false);
   const clientRef = useRef<EngineClient | null>(null);
   const generationRef = useRef(0);
+
+  const invalidatePendingWork = useCallback(() => {
+    generationRef.current += 1;
+    clientRef.current?.cancel();
+    setExporting(false);
+  }, []);
 
   useEffect(() => {
     const client = createBrowserEngineClient();
     clientRef.current = client;
     return () => {
+      invalidatePendingWork();
       client?.dispose();
       clientRef.current = null;
     };
-  }, []);
+  }, [invalidatePendingWork]);
 
   useEffect(() => {
-    const hash = window.location.hash;
-    if (!hash.startsWith("#wc-pako:")) return;
-    try {
-      const snapshot = decodeSnapshotFragment(hash);
-      setState(fromSnapshot(snapshot));
-      setStatus("已載入 V 快照；目前是僅樣式編輯模式。");
-    } catch (error) {
-      setState({
-        ...createInitialEditorState(),
-        mode: "error",
-        error: `無法載入 V 快照：${errorText(error)}`,
-      });
-      setStatus("V 快照無效，原本狀態未被部分還原。");
-    }
-  }, []);
+    const loadHash = () => {
+      const hash = window.location.hash;
+      if (!hash.startsWith("#wc-pako:")) return;
+      invalidatePendingWork();
+      try {
+        const snapshot = decodeSnapshotFragment(hash);
+        setState(fromSnapshot(snapshot));
+        setStatus("已載入 V 快照；目前是僅樣式編輯模式。");
+      } catch (error) {
+        setState((current) => ({
+          ...current,
+          mode: "error",
+          error: `無法載入 V 快照：${errorText(error)}`,
+        }));
+        setStatus("V 快照無效，原本狀態未被部分還原。");
+      }
+    };
+    loadHash();
+    window.addEventListener("hashchange", loadHash);
+    return () => window.removeEventListener("hashchange", loadHash);
+  }, [invalidatePendingWork]);
 
   const tokenPreview = useMemo(() => {
     if (!state.sourceText || state.mode === "remix") return undefined;
@@ -123,6 +144,7 @@ export function App() {
         error: undefined,
         shareUrl: undefined,
         shareError: undefined,
+        scene: undefined,
       }));
       setStatus("正在本機分頁排版⋯");
       try {
@@ -181,6 +203,7 @@ export function App() {
   );
 
   const handleGenerate = useCallback(() => {
+    invalidatePendingWork();
     const result = tokenize(state.sourceText, state.settings);
     setState((current) => ({ ...current, tokenization: result }));
     if (result.status !== "ok") {
@@ -213,40 +236,57 @@ export function App() {
       }));
       setStatus(message);
     }
-  }, [runLayout, state.presentation, state.settings, state.sourceText]);
+  }, [
+    invalidatePendingWork,
+    runLayout,
+    state.presentation,
+    state.settings,
+    state.sourceText,
+  ]);
 
-  const handleSourceChange = useCallback((sourceText: string) => {
-    generationRef.current += 1;
-    clientRef.current?.cancel();
-    setState((current) => ({
-      ...current,
-      mode: sourceText ? "source" : "empty",
-      sourceText,
-      wordSet: undefined,
-      scene: undefined,
-      error: undefined,
-      shareUrl: undefined,
-      shareError: undefined,
-    }));
-    setStatus(
-      sourceText ? "原文已更新，請預覽分詞後產生文字雲。" : "請輸入文字開始。 ",
-    );
-  }, []);
+  const handleSourceChange = useCallback(
+    (sourceText: string) => {
+      invalidatePendingWork();
+      setState((current) => ({
+        ...current,
+        mode: sourceText ? "source" : "empty",
+        sourceText,
+        wordSet: undefined,
+        scene: undefined,
+        error: undefined,
+        shareUrl: undefined,
+        shareError: undefined,
+      }));
+      setStatus(
+        sourceText
+          ? "原文已更新，請預覽分詞後產生文字雲。"
+          : "請輸入文字開始。 ",
+      );
+    },
+    [invalidatePendingWork],
+  );
 
   const handleSettingsChange = useCallback(
     (settings: EditorState["settings"]) => {
+      invalidatePendingWork();
       setState((current) => ({
         ...current,
         settings,
         mode: current.sourceText ? "source" : "empty",
+        wordSet: undefined,
+        scene: undefined,
+        tokenization: undefined,
         error: undefined,
+        shareUrl: undefined,
+        shareError: undefined,
       }));
     },
-    [],
+    [invalidatePendingWork],
   );
 
   const handlePresentationChange = useCallback(
     (presentation: LayoutStyle) => {
+      invalidatePendingWork();
       const previous = state.presentation;
       setState((current) => ({
         ...current,
@@ -278,6 +318,7 @@ export function App() {
     },
     [
       runLayout,
+      invalidatePendingWork,
       state.mode,
       state.presentation,
       state.scene,
@@ -287,7 +328,7 @@ export function App() {
   );
 
   const handleCreateLink = useCallback(() => {
-    if (!state.wordSet || !state.scene) return;
+    if (state.mode === "generating" || !state.wordSet || !state.scene) return;
     try {
       const fragment = encodeSnapshot(
         state.wordSet,
@@ -312,7 +353,7 @@ export function App() {
       }));
       setStatus("V 連結超過安全長度，完整視覺仍保留在本機。");
     }
-  }, [state.presentation, state.scene, state.wordSet]);
+  }, [state.mode, state.presentation, state.scene, state.wordSet]);
 
   const handleCopy = useCallback(async () => {
     if (!state.shareUrl) return;
@@ -335,10 +376,7 @@ export function App() {
     }
   }, [state.shareUrl]);
 
-  const downloadBytes = useCallback((bytes: Uint8Array, name: string) => {
-    const copy = new ArrayBuffer(bytes.byteLength);
-    new Uint8Array(copy).set(bytes);
-    const blob = new Blob([copy], { type: "application/octet-stream" });
+  const downloadBlob = useCallback((blob: Blob, name: string) => {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -347,12 +385,24 @@ export function App() {
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }, []);
 
+  const downloadBytes = useCallback(
+    (bytes: Uint8Array, name: string) => {
+      const copy = new ArrayBuffer(bytes.byteLength);
+      new Uint8Array(copy).set(bytes);
+      downloadBlob(
+        new Blob([copy], { type: "application/octet-stream" }),
+        name,
+      );
+    },
+    [downloadBlob],
+  );
+
   const handleDownload = useCallback(() => {
-    if (!state.wordSet || !state.scene) return;
+    if (state.mode === "generating" || !state.wordSet || !state.scene) return;
     try {
       downloadBytes(
         encodeSnapshotFile(state.wordSet, state.presentation, state.scene),
-        "wordcloud.wc",
+        `wordcloud${SNAPSHOT_FILE_EXTENSION}`,
       );
       setStatus("完整 .wc 快照已下載。");
     } catch (error) {
@@ -362,20 +412,72 @@ export function App() {
       }));
       setStatus("快照下載失敗。");
     }
-  }, [downloadBytes, state.presentation, state.scene, state.wordSet]);
+  }, [
+    downloadBytes,
+    state.mode,
+    state.presentation,
+    state.scene,
+    state.wordSet,
+  ]);
+
+  const handleExportSvg = useCallback(() => {
+    if (state.mode === "generating" || !state.scene) return;
+    try {
+      const svg = renderSceneSvg(state.scene);
+      downloadBlob(new Blob([svg], { type: "image/svg+xml" }), "wordcloud.svg");
+      setStatus("SVG 已下載；它與目前畫布使用同一份 SceneModel。 ");
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        shareError: `SVG 匯出失敗：${errorText(error)}`,
+      }));
+      setStatus("SVG 匯出失敗。");
+    }
+  }, [downloadBlob, state.mode, state.scene]);
+
+  const handleExportPng = useCallback(async () => {
+    if (state.mode === "generating" || !state.scene || exporting) return;
+    invalidatePendingWork();
+    const exportGeneration = generationRef.current;
+    const scene = state.scene;
+    setExporting(true);
+    setStatus("正在本機產生 PNG⋯");
+    try {
+      const png = await renderScenePng(scene);
+      if (exportGeneration !== generationRef.current) return;
+      downloadBlob(png, "wordcloud.png");
+      setStatus("PNG 已下載；它與目前畫布使用同一份 SceneModel。 ");
+    } catch (error) {
+      if (exportGeneration !== generationRef.current) return;
+      setState((current) => ({
+        ...current,
+        shareError: `PNG 匯出失敗：${errorText(error)}`,
+      }));
+      setStatus("PNG 匯出失敗。");
+    } finally {
+      if (exportGeneration === generationRef.current) setExporting(false);
+    }
+  }, [downloadBlob, exporting, invalidatePendingWork, state.mode, state.scene]);
 
   const handleImport = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       event.target.value = "";
       if (!file) return;
+      invalidatePendingWork();
+      const importGeneration = generationRef.current;
       try {
+        if (file.size > LIMITS.maxSnapshotFileBytes) {
+          throw new Error(
+            `snapshot file exceeds ${LIMITS.maxSnapshotFileBytes} bytes`,
+          );
+        }
         const snapshot = decodeSnapshotFile(await file.arrayBuffer());
-        generationRef.current += 1;
-        clientRef.current?.cancel();
+        if (importGeneration !== generationRef.current) return;
         setState(fromSnapshot(snapshot));
         setStatus("快照已匯入；現在可以調整樣式並產生新的 V。 ");
       } catch (error) {
+        if (importGeneration !== generationRef.current) return;
         setState((current) => ({
           ...current,
           mode: "error",
@@ -384,15 +486,14 @@ export function App() {
         setStatus("快照匯入失敗，原本畫面仍保持不變。");
       }
     },
-    [],
+    [invalidatePendingWork],
   );
 
   const handleNewSource = useCallback(() => {
-    generationRef.current += 1;
-    clientRef.current?.cancel();
+    invalidatePendingWork();
     setState(createInitialEditorState());
     setStatus("已開始新的文字雲，請輸入原文。 ");
-  }, []);
+  }, [invalidatePendingWork]);
 
   const [highlightedTerm, setHighlightedTerm] = useState<string>();
   const focusWord = useCallback((term: string) => {
@@ -478,10 +579,13 @@ export function App() {
           <SharePanel
             shareUrl={state.shareUrl}
             shareError={state.shareError}
-            disabled={!state.scene}
+            disabled={!state.scene || state.mode === "generating"}
             onCreateLink={handleCreateLink}
             onCopy={handleCopy}
             onDownload={handleDownload}
+            onExportSvg={handleExportSvg}
+            onExportPng={handleExportPng}
+            exporting={exporting}
             onImport={handleImport}
             onNewSource={handleNewSource}
           />

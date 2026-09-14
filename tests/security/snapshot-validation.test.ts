@@ -49,4 +49,15 @@ describe("snapshot validation", () => {
       "<script>alert(1)</script>",
     );
   });
+
+  it("rejects placed scene geometry outside the declared canvas", () => {
+    const snapshot = decodeSnapshotFragment(valid());
+    snapshot.scene.words[0] = {
+      ...snapshot.scene.words[0],
+      x: snapshot.scene.canvas.width,
+    };
+    const tampered = encodeJsonFragment(snapshot).fragment;
+
+    expect(() => decodeSnapshotFragment(tampered)).toThrow(/canvas|範圍/iu);
+  });
 });

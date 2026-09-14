@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import type { ChangeEvent } from "react";
+import { SNAPSHOT_FILE_EXTENSION } from "../core/file-snapshot";
 
 interface SharePanelProps {
   shareUrl?: string;
@@ -8,6 +9,9 @@ interface SharePanelProps {
   onCreateLink: () => void;
   onCopy: () => void;
   onDownload: () => void;
+  onExportSvg: () => void;
+  onExportPng: () => void;
+  exporting?: boolean;
   onImport: (event: ChangeEvent<HTMLInputElement>) => void;
   onNewSource: () => void;
 }
@@ -19,6 +23,9 @@ export function SharePanel({
   onCreateLink,
   onCopy,
   onDownload,
+  onExportSvg,
+  onExportPng,
+  exporting = false,
   onImport,
   onNewSource,
 }: SharePanelProps) {
@@ -73,31 +80,45 @@ export function SharePanel({
         <button
           className="button button-quiet"
           type="button"
-          disabled={disabled}
+          disabled={disabled || exporting}
           onClick={onDownload}
         >
-          下載完整 .wc 快照
+          下載完整 {SNAPSHOT_FILE_EXTENSION} 快照
+        </button>
+        <button
+          className="button button-quiet"
+          type="button"
+          disabled={disabled || exporting}
+          onClick={onExportSvg}
+        >
+          下載 SVG
+        </button>
+        <button
+          className="button button-quiet"
+          type="button"
+          disabled={disabled || exporting}
+          onClick={onExportPng}
+        >
+          {exporting ? "PNG 產生中⋯" : "下載 PNG"}
         </button>
         <button
           className="button button-quiet"
           type="button"
           onClick={() => inputRef.current?.click()}
         >
-          匯入 .wc
+          匯入 {SNAPSHOT_FILE_EXTENSION}
         </button>
         <input
           ref={inputRef}
           className="sr-only"
           type="file"
-          accept=".wc,application/octet-stream,text/plain"
+          accept={`${SNAPSHOT_FILE_EXTENSION},application/octet-stream,text/plain`}
           onChange={onImport}
         />
       </div>
-      {disabled && (
-        <button className="text-button" type="button" onClick={onNewSource}>
-          ← 開始新的文字雲
-        </button>
-      )}
+      <button className="text-button" type="button" onClick={onNewSource}>
+        {disabled ? "← 開始新的文字雲" : "＋ 開始新的文字雲"}
+      </button>
     </section>
   );
 }
