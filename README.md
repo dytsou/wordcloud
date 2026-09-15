@@ -34,18 +34,18 @@ Unplaceable terms are retained in the ranked table with a reason. SVG and PNG us
 
 ## Local development and deployment
 
-The intended package/script entry point is the [aube package manager](https://github.com/aubepkg/aube), with the committed `aube-lock.yaml`:
+The intended package/script entry point is the [pnpm package manager](https://pnpm.io/) (pinned to pnpm 11), with the committed `pnpm-lock.yaml`:
 
 ```sh
-aube install
-aube run dev
-aube run test
-aube run test:browser
-aube run build
-aube run wrangler:dry-run
-aube run deploy
+pnpm install
+pnpm run dev
+pnpm run test
+pnpm run test:browser
+pnpm run build
+pnpm run wrangler:dry-run
+pnpm run deploy
 ```
 
-Cloudflare Static Assets serves `dist` and uses SPA fallback for direct application paths. Configure Wrangler authentication before `aube run deploy`; v1 does not require a Worker binding or secret. The runtime capability gates are `Intl.Segmenter`, Canvas 2D, Web Worker, font readiness, SVG, Blob, and clipboard. Unsupported analysis capabilities produce an actionable local error; a valid V can still be opened when source analysis is unavailable.
+Cloudflare Static Assets serves `dist` and uses SPA fallback for direct application paths. Configure Wrangler authentication before `pnpm run deploy`; v1 does not require a Worker binding or secret. The runtime capability gates are `Intl.Segmenter`, Canvas 2D, Web Worker, font readiness, SVG, Blob, and clipboard. Unsupported analysis capabilities produce an actionable local error; a valid V can still be opened when source analysis is unavailable.
 
 The repository keeps MCP integration deferred to the next implementation; v1 intentionally exposes no MCP endpoint or tool surface.
