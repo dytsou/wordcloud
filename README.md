@@ -34,7 +34,7 @@ Unplaceable terms are retained in the ranked table with a reason. SVG and PNG us
 
 ## Local development and deployment
 
-The intended package/script entry point is `aube`, with the committed `aube-lock.yaml`:
+The intended package/script entry point is the [aube package manager](https://github.com/aubepkg/aube), with the committed `aube-lock.yaml`:
 
 ```sh
 aube install
