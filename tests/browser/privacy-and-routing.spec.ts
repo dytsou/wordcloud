@@ -44,3 +44,17 @@ test("shows an actionable error for a malformed V fragment", async ({
   await expect(page.getByRole("alert")).not.toBeVisible();
   await expect(page.getByLabel("原文")).toHaveValue("");
 });
+
+test("keeps hidden file controls inside a narrow viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/studio");
+
+  const dimensions = await page.evaluate(() => ({
+    viewport: window.innerWidth,
+    documentWidth: document.documentElement.scrollWidth,
+  }));
+
+  expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewport);
+});

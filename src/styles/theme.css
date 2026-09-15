@@ -265,7 +265,9 @@ h2 {
   font-weight: 400;
 }
 
-input:not([type="checkbox"]):not([type="color"]):not([type="range"]),
+input:not([type="checkbox"]):not([type="color"]):not([type="range"]):not(
+    [type="file"]
+  ),
 select,
 textarea {
   width: 100%;
@@ -275,7 +277,9 @@ textarea {
   background: rgb(255 252 243 / 74%);
 }
 
-input:not([type="checkbox"]):not([type="color"]):not([type="range"]),
+input:not([type="checkbox"]):not([type="color"]):not([type="range"]):not(
+    [type="file"]
+  ),
 select {
   min-height: 2.55rem;
   padding: 0.55rem 0.7rem;
