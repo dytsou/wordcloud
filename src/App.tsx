@@ -490,6 +490,13 @@ export function App() {
   );
 
   const handleNewSource = useCallback(() => {
+    if (window.location.hash) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
     invalidatePendingWork();
     setState(createInitialEditorState());
     setStatus("已開始新的文字雲，請輸入原文。 ");

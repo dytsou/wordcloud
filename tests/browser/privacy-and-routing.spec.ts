@@ -37,4 +37,10 @@ test("shows an actionable error for a malformed V fragment", async ({
   await expect(
     page.getByRole("button", { name: "回到新的文字雲" }),
   ).toBeVisible();
+
+  await page.getByRole("button", { name: "回到新的文字雲" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.reload();
+  await expect(page.getByRole("alert")).not.toBeVisible();
+  await expect(page.getByLabel("原文")).toHaveValue("");
 });
