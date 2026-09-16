@@ -14,9 +14,9 @@ test("keeps source local and serves the SPA at application paths", async ({
   await page.goto("/creator/private-notes");
   await expect(page.getByText("LOCAL ONLY")).toBeVisible();
   await page.getByLabel("原文").fill(privateSourceText);
-  await page
-    .getByLabel("自訂詞典 (多字詞會保留為一個詞)")
-    .fill("private source");
+  const dictionaryInput = page.locator("#dictionary");
+  await dictionaryInput.fill("private source");
+  await dictionaryInput.press("Enter");
   await page.getByRole("button", { name: "產生文字雲" }).click();
   await expect(page.getByRole("table")).toBeVisible();
 

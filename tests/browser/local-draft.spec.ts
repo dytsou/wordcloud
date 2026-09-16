@@ -48,8 +48,16 @@ test("restores token inputs and style preferences after a refresh", async ({
   );
   await page.reload({ waitUntil: "commit" });
 
-  await page.locator("#stop-words").fill("的, 是, the");
-  await page.locator("#dictionary").fill("人工智慧, Cloudflare Workers");
+  const stopWordsInput = page.locator("#stop-words");
+  for (const tag of ["的 是", "the, and"]) {
+    await stopWordsInput.fill(tag);
+    await stopWordsInput.press("Enter");
+  }
+  const dictionaryInput = page.locator("#dictionary");
+  for (const tag of ["人工智慧", "Cloudflare Workers"]) {
+    await dictionaryInput.fill(tag);
+    await dictionaryInput.press("Enter");
+  }
 
   const minFontSize = page.getByRole("slider", { name: "最小字級" });
   await minFontSize.press("ArrowRight");
@@ -64,17 +72,38 @@ test("restores token inputs and style preferences after a refresh", async ({
   await wordSpacing.press("ArrowRight");
   const rotationAngle = page.getByRole("slider", { name: "旋轉方式" });
   await rotationAngle.press("End");
-  await page.locator("#palette").fill("#123456, #654321");
+  const paletteInput = page.locator("#palette");
+  for (const tag of ["#123456", "#654321"]) {
+    await paletteInput.fill(tag);
+    await paletteInput.press("Enter");
+  }
 
   await page.reload({ waitUntil: "commit" });
 
-  await expect(page.locator("#stop-words")).toHaveValue("的, 是, the");
-  await expect(page.locator("#dictionary")).toHaveValue(
-    "人工智慧, Cloudflare Workers",
-  );
+  const stopWordTags = page
+    .locator(".tag-input")
+    .filter({ has: page.locator("#stop-words") })
+    .locator(".tag-chip-value");
+  await expect(stopWordTags).toHaveText(["的 是", "the, and"]);
+  const dictionaryTags = page
+    .locator(".tag-input")
+    .filter({ has: page.locator("#dictionary") })
+    .locator(".tag-chip-value");
+  await expect(dictionaryTags).toHaveText(["人工智慧", "Cloudflare Workers"]);
   await expect(minFontSize).toHaveValue("9");
   await expect(maxFontSize).toHaveValue("26");
   await expect(wordSpacing).toHaveValue("-9");
   await expect(rotationAngle).toHaveValue("120");
-  await expect(page.locator("#palette")).toHaveValue("#123456, #654321");
+  const paletteTags = page
+    .locator(".tag-input")
+    .filter({ has: page.locator("#palette") })
+    .locator(".tag-chip-value");
+  await expect(paletteTags).toHaveText([
+    "#aa5948",
+    "#27384a",
+    "#5c6876",
+    "#b86b58",
+    "#123456",
+    "#654321",
+  ]);
 });

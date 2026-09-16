@@ -67,9 +67,17 @@ test("palette presets apply curated color combinations", async ({ page }) => {
   await expect(preset).toBeVisible();
   await preset.click();
 
-  await expect(page.locator("#palette")).toHaveValue(
-    "#ff9418, #a8e61a, #f3196d, #9b73ff, #45c7d9",
-  );
+  const paletteTags = page
+    .locator(".tag-input")
+    .filter({ has: page.locator("#palette") })
+    .locator(".tag-chip-value");
+  await expect(paletteTags).toHaveText([
+    "#ff9418",
+    "#a8e61a",
+    "#f3196d",
+    "#9b73ff",
+    "#45c7d9",
+  ]);
   await expect(preset).toHaveAttribute("aria-pressed", "true");
 });
 

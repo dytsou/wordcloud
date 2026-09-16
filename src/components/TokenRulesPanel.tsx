@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { LIMITS } from "../core/limits";
 import type { TokenRule, TokenizerSettings } from "../core/types";
+import { TagInput } from "./TagInput";
 
 interface TokenRulesPanelProps {
   settings: TokenizerSettings;
@@ -45,22 +46,16 @@ export function TokenRulesPanel({
       </div>
       <div className="field">
         <label className="field-label" htmlFor="dictionary">
-          自訂詞典 <span>(多字詞會保留為一個詞)</span>
+          自訂詞典 <span>(按 Enter 新增，多字詞會保留)</span>
         </label>
-        <input
+        <TagInput
           id="dictionary"
-          value={settings.dictionary.join(", ")}
+          value={settings.dictionary}
           disabled={disabled}
-          onChange={(event) =>
-            onSettingsChange({
-              ...settings,
-              dictionary: event.target.value
-                .split(/[\n,，]+/u)
-                .map((item) => item.trim())
-                .filter(Boolean),
-            })
+          onChange={(dictionary) =>
+            onSettingsChange({ ...settings, dictionary })
           }
-          placeholder="例如：人工智慧, Cloudflare Workers"
+          placeholder="例如：人工智慧 或 Cloudflare Workers"
         />
       </div>
       <div className="rule-list">

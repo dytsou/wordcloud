@@ -1,5 +1,6 @@
 import type { TokenizerSettings } from "../core/types";
 import type { TokenizationResult } from "../core/types";
+import { TagInput } from "./TagInput";
 
 interface SourcePanelProps {
   sourceText: string;
@@ -148,18 +149,14 @@ export function SourcePanel({
       </div>
       <div className="field">
         <label className="field-label" htmlFor="stop-words">
-          停用詞 <span>(用逗號或空白分隔)</span>
+          停用詞 <span>(按 Enter 新增)</span>
         </label>
-        <input
+        <TagInput
           id="stop-words"
-          value={settings.stopWords.join(", ")}
+          value={settings.stopWords}
           disabled={disabled}
-          onChange={(event) =>
-            update({
-              stopWords: event.target.value.split(/[\s,，]+/u).filter(Boolean),
-            })
-          }
-          placeholder="例如：的, 是, the"
+          onChange={(stopWords) => update({ stopWords })}
+          placeholder="輸入停用詞後按 Enter"
         />
       </div>
       {preview && (

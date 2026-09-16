@@ -387,7 +387,7 @@ h2 {
 
 input:not([type="checkbox"]):not([type="color"]):not([type="range"]):not(
     [type="file"]
-  ),
+  ):not(.tag-entry),
 select,
 textarea {
   width: 100%;
@@ -399,7 +399,7 @@ textarea {
 
 input:not([type="checkbox"]):not([type="color"]):not([type="range"]):not(
     [type="file"]
-  ),
+  ):not(.tag-entry),
 select {
   min-height: 2.55rem;
   padding: 0.55rem 0.7rem;
@@ -410,6 +410,90 @@ textarea {
   resize: vertical;
   padding: 0.85rem;
   line-height: 1.6;
+}
+
+.tag-input {
+  min-height: 2.55rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid rgb(23 32 42 / 18%);
+  border-radius: 0.65rem;
+  background: rgb(255 252 243 / 74%);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.tag-input:focus-within {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 3px rgb(239 109 95 / 14%);
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  gap: 0.35rem;
+  padding: 0.28rem 0.38rem 0.28rem 0.58rem;
+  border: 1px solid rgb(37 61 89 / 18%);
+  border-radius: 999px;
+  color: var(--blue);
+  background: rgb(37 61 89 / 8%);
+  font-size: 0.74rem;
+  line-height: 1.25;
+}
+
+.tag-chip-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tag-remove {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--ink-soft);
+  background: transparent;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.tag-remove:hover:not(:disabled) {
+  color: var(--coral-dark);
+  background: rgb(239 109 95 / 14%);
+}
+
+.tag-input input.tag-entry {
+  flex: 1 1 8rem;
+  width: auto;
+  min-width: 8rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.2rem;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ink);
+  background: transparent;
+  box-shadow: none;
+}
+
+.tag-input input.tag-entry:focus-visible {
+  outline: 0;
+}
+
+.tag-input input.tag-entry::placeholder {
+  color: #8b8d84;
 }
 
 .source-input {
@@ -956,6 +1040,10 @@ thead th {
 
   .range-grid {
     grid-template-columns: 1fr;
+  }
+
+  .info-popover {
+    left: -2.5rem;
   }
 
   .preview-stage {

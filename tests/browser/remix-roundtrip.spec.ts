@@ -18,9 +18,7 @@ test("reopens a V and a .wc file as style-only remix states", async ({
   await page.goto(originalUrl);
   await expect(page.getByText("V / STYLE REMIX")).toBeVisible();
   await expect(page.getByLabel("原文")).toBeDisabled();
-  await expect(
-    page.getByLabel("自訂詞典 (多字詞會保留為一個詞)"),
-  ).toBeDisabled();
+  await expect(page.locator("#dictionary")).toBeDisabled();
   await expect(page.getByRole("button", { name: "產生文字雲" })).toHaveCount(0);
   await page.getByLabel("字型 profile").selectOption("Georgia");
   await expect(page.getByText(/文字雲完成|本機排版中/)).toBeVisible();

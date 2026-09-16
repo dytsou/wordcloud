@@ -30,7 +30,11 @@ test("creator can generate, inspect, remix, and create a V link locally", async 
   ).toBeVisible();
   await expect(page.getByRole("cell", { name: "2" }).first()).toBeVisible();
 
-  await page.getByLabel("色盤 (hex, comma)").fill("#ff0000, #000000");
+  const paletteInput = page.locator("#palette");
+  await paletteInput.fill("#ff0000");
+  await paletteInput.press("Enter");
+  await paletteInput.fill("#000000");
+  await paletteInput.press("Enter");
   await page.getByRole("button", { name: "產生 V 連結" }).click();
   await expect(shareUrl).toHaveValue(/#wc-pako:v1:/);
   await expect(shareUrl).not.toHaveClass(/is-empty/);

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { LayoutStyle } from "../core/layout";
 import { LIMITS } from "../core/limits";
+import { TagInput } from "./TagInput";
 
 type RangeDraft = Pick<LayoutStyle, "minFontSize" | "maxFontSize" | "padding">;
 
@@ -319,17 +320,14 @@ export function StylePanel({
       <div className="field-row">
         <div className="field field-grow">
           <label className="field-label" htmlFor="palette">
-            色盤 <span>(hex, comma)</span>
+            色盤 <span>(每個色碼按 Enter)</span>
           </label>
-          <input
+          <TagInput
             id="palette"
-            value={presentation.palette.join(", ")}
+            value={presentation.palette}
             disabled={disabled}
-            onChange={(event) =>
-              update({
-                palette: event.target.value.split(/[,，\s]+/u).filter(Boolean),
-              })
-            }
+            onChange={(palette) => update({ palette })}
+            placeholder="#aa5948"
           />
         </div>
         <div className="field field-small">
