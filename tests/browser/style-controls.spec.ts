@@ -36,6 +36,21 @@ test("word spacing slider supports negative tight packing", async ({
 }) => {
   await page.goto("/");
 
+  await expect(
+    page.getByRole("button", { name: "套用密集填縫排版" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("slider", { name: "最小字級" })).toHaveValue("8");
+  await expect(page.getByRole("slider", { name: "最大字級" })).toHaveValue(
+    "128",
+  );
+  await expect(page.getByLabel("映射")).toHaveValue("linear");
+  await expect(page.getByRole("slider", { name: "旋轉方式" })).toHaveValue(
+    "35",
+  );
+  await expect(
+    page.getByRole("button", { name: "詞間距說明" }),
+  ).toHaveAttribute("aria-describedby", "spacing-help");
+
   const slider = page.getByRole("slider", { name: "詞間距" });
   await expect(slider).toHaveAttribute("min", "-12");
   await slider.focus();
@@ -43,6 +58,19 @@ test("word spacing slider supports negative tight packing", async ({
 
   const field = page.locator(".range-field").filter({ hasText: "詞間距" });
   await expect(field.locator("output")).toHaveText("-12px");
+});
+
+test("palette presets apply curated color combinations", async ({ page }) => {
+  await page.goto("/");
+
+  const preset = page.getByRole("button", { name: "套用色盤：校園霓虹" });
+  await expect(preset).toBeVisible();
+  await preset.click();
+
+  await expect(page.locator("#palette")).toHaveValue(
+    "#ff9418, #a8e61a, #f3196d, #9b73ff, #45c7d9",
+  );
+  await expect(preset).toHaveAttribute("aria-pressed", "true");
 });
 
 test("custom rotation stays within ±120 degrees and survives a V link", async ({

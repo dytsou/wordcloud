@@ -4,6 +4,41 @@ import { LIMITS } from "../core/limits";
 
 type RangeDraft = Pick<LayoutStyle, "minFontSize" | "maxFontSize" | "padding">;
 
+const PALETTE_PRESETS = [
+  {
+    id: "editorial-press",
+    label: "銅版印刷",
+    colors: ["#aa5948", "#27384a", "#5c6876", "#b86b58"],
+  },
+  {
+    id: "campus-neon",
+    label: "校園霓虹",
+    colors: ["#ff9418", "#a8e61a", "#f3196d", "#9b73ff", "#45c7d9"],
+  },
+  {
+    id: "night-market",
+    label: "夜市霓光",
+    colors: ["#ff006e", "#fb5607", "#ffbe0b", "#8338ec", "#3a86ff"],
+  },
+  {
+    id: "moss-paper",
+    label: "苔土紙張",
+    colors: ["#283618", "#606c38", "#dda15e", "#bc6c25", "#f2cc8f"],
+  },
+] as const;
+
+function paletteMatches(
+  current: readonly string[],
+  candidate: readonly string[],
+): boolean {
+  return (
+    current.length === candidate.length &&
+    current.every(
+      (color, index) => color.toLowerCase() === candidate[index]?.toLowerCase(),
+    )
+  );
+}
+
 function rangeFrom(presentation: LayoutStyle): RangeDraft {
   return {
     minFontSize: presentation.minFontSize,
@@ -111,21 +146,6 @@ export function StylePanel({
         </div>
         <span className="count-badge">REMIXABLE</span>
       </div>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() =>
-          update({
-            minFontSize: 8,
-            maxFontSize: 128,
-            scale: "linear",
-            padding: 0,
-            rotations: [0, -35, 35],
-          })
-        }
-      >
-        套用密集填縫排版
-      </button>
       <p className="muted-note">
         大字構成主體，小字填入筆畫留白；只調整排版，不改配色。
       </p>
@@ -209,11 +229,29 @@ export function StylePanel({
             }
           />
         </label>
-        <label className="range-field">
+        <div className="range-field">
           <span>
-            詞間距 <output>{draft.padding}px</output>
+            <span className="range-label">
+              <label htmlFor="word-spacing">詞間距</label>
+              <span className="info-wrap">
+                <button
+                  className="info-button"
+                  type="button"
+                  aria-label="詞間距說明"
+                  aria-describedby="spacing-help"
+                  title="負值會縮小避讓區，適合接受輕微重疊的密集排版。"
+                >
+                  i
+                </button>
+                <span id="spacing-help" className="info-popover" role="tooltip">
+                  負值會縮小避讓區，適合接受輕微重疊的密集排版。
+                </span>
+              </span>
+            </span>
+            <output>{draft.padding}px</output>
           </span>
           <input
+            id="word-spacing"
             type="range"
             aria-label="詞間距"
             min={LIMITS.minPadding}
@@ -228,15 +266,34 @@ export function StylePanel({
               editRange({ padding: Number(event.target.value) })
             }
           />
-        </label>
+        </div>
       </div>
-      <p className="spacing-hint">
-        負值會縮小避讓區，適合接受輕微重疊的密集排版。
-      </p>
       <div className="rotation-controls">
-        <label className="range-field rotation-range">
+        <div className="range-field rotation-range">
           <span>
-            旋轉方式 <output>{rotationLabel}</output>
+            <span className="range-label">
+              <label htmlFor="rotation-angle">旋轉方式</label>
+              <span className="info-wrap">
+                <button
+                  className="info-button"
+                  type="button"
+                  aria-label="旋轉方式說明"
+                  aria-describedby="rotation-help"
+                  title="大字優先水平；小字在水平位置放不下時才以 0°、±設定角度填縫，上限 ±120°。"
+                >
+                  i
+                </button>
+                <span
+                  id="rotation-help"
+                  className="info-popover"
+                  role="tooltip"
+                >
+                  大字優先水平；小字在水平位置放不下時才以
+                  0°、±設定角度填縫，上限 ±120°。
+                </span>
+              </span>
+            </span>
+            <output>{rotationLabel}</output>
           </span>
           <input
             id="rotation-angle"
@@ -257,11 +314,7 @@ export function StylePanel({
               setAngleDraft(angle);
             }}
           />
-        </label>
-        <p className="rotation-hint">
-          大字優先水平；小字在水平位置放不下時才以 0°、±設定角度填縫，上限
-          ±120°。
-        </p>
+        </div>
       </div>
       <div className="field-row">
         <div className="field field-grow">
@@ -290,6 +343,38 @@ export function StylePanel({
             disabled={disabled}
             onChange={(event) => update({ background: event.target.value })}
           />
+        </div>
+      </div>
+      <div className="palette-presets">
+        <p className="field-label palette-presets-heading">預設組合</p>
+        <div className="palette-preset-grid" role="group" aria-label="預設色盤">
+          {PALETTE_PRESETS.map((preset) => (
+            <button
+              className={
+                "palette-preset" +
+                (paletteMatches(presentation.palette, preset.colors)
+                  ? " is-active"
+                  : "")
+              }
+              key={preset.id}
+              type="button"
+              disabled={disabled}
+              aria-label={"套用色盤：" + preset.label}
+              aria-pressed={paletteMatches(presentation.palette, preset.colors)}
+              onClick={() => update({ palette: [...preset.colors] })}
+            >
+              <span className="palette-swatch-row" aria-hidden="true">
+                {preset.colors.map((color) => (
+                  <span
+                    className="palette-swatch"
+                    key={color}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </span>
+              <span className="palette-preset-name">{preset.label}</span>
+            </button>
+          ))}
         </div>
       </div>
       <div className="field-row canvas-fields">

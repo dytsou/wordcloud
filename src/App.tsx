@@ -621,6 +621,9 @@ export function App() {
             disabled={state.mode === "generating"}
             onChange={handlePresentationChange}
           />
+          {!state.scene && (
+            <CloudPreview scene={undefined} highlightedTerm={highlightedTerm} />
+          )}
           <SharePanel
             shareUrl={state.shareUrl}
             shareError={state.shareError}
@@ -640,9 +643,14 @@ export function App() {
             onFocusWord={focusWord}
           />
         </aside>
-        <section className="preview-column">
-          <CloudPreview scene={state.scene} highlightedTerm={highlightedTerm} />
-        </section>
+        {state.scene && (
+          <section className="preview-column">
+            <CloudPreview
+              scene={state.scene}
+              highlightedTerm={highlightedTerm}
+            />
+          </section>
+        )}
       </main>
     </div>
   );

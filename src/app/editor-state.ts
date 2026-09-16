@@ -18,11 +18,11 @@ export type EditorMode =
 
 export const DEFAULT_PRESENTATION: LayoutStyle = {
   canvas: { width: 1000, height: 650 },
-  minFontSize: 12,
-  maxFontSize: 112,
-  scale: "sqrt",
-  padding: 4,
-  rotations: [0],
+  minFontSize: 8,
+  maxFontSize: 128,
+  scale: "linear",
+  padding: 0,
+  rotations: [0, -35, 35],
   palette: ["#aa5948", "#27384a", "#5c6876", "#b86b58"],
   background: "#edf2f4",
   fontFamily: "Noto Sans CJK TC, system-ui",
