@@ -30,6 +30,7 @@ export function SharePanel({
   onNewSource,
 }: SharePanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasShareUrl = Boolean(shareUrl);
   return (
     <section className="panel share-panel" aria-labelledby="share-heading">
       <div className="panel-heading">
@@ -66,9 +67,10 @@ export function SharePanel({
       </label>
       <input
         id="share-url"
-        className="share-url"
+        className={hasShareUrl ? "share-url" : "share-url is-empty"}
         readOnly
-        value={shareUrl ?? "產生連結後會顯示在這裡"}
+        value={shareUrl ?? ""}
+        placeholder="產生連結後會顯示在這裡"
         aria-describedby={shareError ? "share-error" : undefined}
       />
       {shareError && (

@@ -883,6 +883,17 @@ thead th {
   white-space: nowrap;
 }
 
+.share-url.is-empty {
+  border-style: dashed;
+  color: #8b8d84;
+  background: rgb(23 32 42 / 5%);
+}
+
+.share-url.is-empty::placeholder {
+  color: #8b8d84;
+  opacity: 1;
+}
+
 .text-button {
   margin-top: 1rem;
   padding: 0.2rem 0;
