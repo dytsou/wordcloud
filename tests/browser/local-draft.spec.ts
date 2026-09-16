@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 const draftKey = "wordcloud-studio:source-draft:v1";
+const stopWordsKey = "wordcloud-studio:stop-words:v1";
+const dictionaryKey = "wordcloud-studio:dictionary:v1";
+const styleKey = "wordcloud-studio:style-preferences:v1";
 
 test("restores the last source draft after a refresh", async ({ page }) => {
   test.setTimeout(90_000);
@@ -32,4 +35,46 @@ test("starting a new cloud clears the cached source draft", async ({
   await page.reload({ waitUntil: "commit" });
 
   await expect(page.getByLabel("原文")).toHaveValue("");
+});
+
+test("restores token inputs and style preferences after a refresh", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.goto("/");
+  await page.evaluate(
+    (keys) => keys.forEach((key) => localStorage.removeItem(key)),
+    [draftKey, stopWordsKey, dictionaryKey, styleKey],
+  );
+  await page.reload({ waitUntil: "commit" });
+
+  await page.locator("#stop-words").fill("的, 是, the");
+  await page.locator("#dictionary").fill("人工智慧, Cloudflare Workers");
+
+  const minFontSize = page.getByRole("slider", { name: "最小字級" });
+  await minFontSize.press("ArrowRight");
+  const maxFontSize = page.getByRole("slider", { name: "最大字級" });
+  await maxFontSize.press("Home");
+  await maxFontSize.press("ArrowRight");
+  await maxFontSize.press("ArrowRight");
+  const wordSpacing = page.getByRole("slider", { name: "詞間距" });
+  await wordSpacing.press("Home");
+  await wordSpacing.press("ArrowRight");
+  await wordSpacing.press("ArrowRight");
+  await wordSpacing.press("ArrowRight");
+  const rotationAngle = page.getByRole("slider", { name: "旋轉方式" });
+  await rotationAngle.press("End");
+  await page.locator("#palette").fill("#123456, #654321");
+
+  await page.reload({ waitUntil: "commit" });
+
+  await expect(page.locator("#stop-words")).toHaveValue("的, 是, the");
+  await expect(page.locator("#dictionary")).toHaveValue(
+    "人工智慧, Cloudflare Workers",
+  );
+  await expect(minFontSize).toHaveValue("9");
+  await expect(maxFontSize).toHaveValue("26");
+  await expect(wordSpacing).toHaveValue("-9");
+  await expect(rotationAngle).toHaveValue("120");
+  await expect(page.locator("#palette")).toHaveValue("#123456, #654321");
 });

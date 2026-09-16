@@ -14,9 +14,14 @@ import {
 } from "./app/editor-state";
 import {
   clearCachedSource,
+  readCachedEditorPreferences,
   readCachedSource,
+  writeCachedDictionary,
   writeCachedSource,
+  writeCachedStopWords,
+  writeCachedStylePreferences,
 } from "./app/local-draft";
+import type { CachedEditorPreferences } from "./app/local-draft";
 import {
   decodeSnapshotFile,
   encodeSnapshotFile,
@@ -74,12 +79,47 @@ function initialCachedSource(): string {
   return readCachedSource();
 }
 
+function initialCachedPreferences(): CachedEditorPreferences {
+  if (
+    typeof window !== "undefined" &&
+    window.location.hash.startsWith("#wc-pako:")
+  ) {
+    return {};
+  }
+  return readCachedEditorPreferences();
+}
+
+function initialEditorState(): EditorState {
+  const initial = createInitialEditorState();
+  const cached = initialCachedPreferences();
+  const sourceText = initialCachedSource();
+  const cachedPresentation = cached.presentation;
+
+  return {
+    ...initial,
+    mode: sourceText ? "source" : initial.mode,
+    sourceText,
+    settings: {
+      ...initial.settings,
+      stopWords: [...(cached.stopWords ?? initial.settings.stopWords)],
+      dictionary: [...(cached.dictionary ?? initial.settings.dictionary)],
+    },
+    presentation: {
+      ...initial.presentation,
+      ...(cachedPresentation ?? {}),
+      canvas: { ...initial.presentation.canvas },
+      rotations: [
+        ...(cachedPresentation?.rotations ?? initial.presentation.rotations),
+      ],
+      palette: [
+        ...(cachedPresentation?.palette ?? initial.presentation.palette),
+      ],
+    },
+  };
+}
+
 export function App() {
-  const [state, setState] = useState<EditorState>(() => {
-    const initial = createInitialEditorState();
-    const sourceText = initialCachedSource();
-    return sourceText ? { ...initial, mode: "source", sourceText } : initial;
-  });
+  const [state, setState] = useState<EditorState>(initialEditorState);
   const [status, setStatus] = useState(() =>
     state.sourceText
       ? "已從本機草稿還原原文；內容只留在這個瀏覽器裡。"
@@ -306,6 +346,12 @@ export function App() {
   const handleSettingsChange = useCallback(
     (settings: EditorState["settings"]) => {
       invalidatePendingWork();
+      if (state.settings.stopWords !== settings.stopWords) {
+        writeCachedStopWords(settings.stopWords);
+      }
+      if (state.settings.dictionary !== settings.dictionary) {
+        writeCachedDictionary(settings.dictionary);
+      }
       setState((current) => ({
         ...current,
         settings,
@@ -318,12 +364,17 @@ export function App() {
         shareError: undefined,
       }));
     },
-    [invalidatePendingWork],
+    [
+      invalidatePendingWork,
+      state.settings.dictionary,
+      state.settings.stopWords,
+    ],
   );
 
   const handlePresentationChange = useCallback(
     (presentation: LayoutStyle) => {
       invalidatePendingWork();
+      writeCachedStylePreferences(presentation);
       const previous = state.presentation;
       setState((current) => ({
         ...current,

@@ -14,7 +14,7 @@ The V link uses the fixed fragment format `#wc-pako:v1:<payload>`:
 
 A V contains normalized terms, counts, ranks, style, and derived placements. It never contains the raw source or editable tokenizer rule bodies, and it is not a secret-bearing link. A loaded V remains style-remixable and can produce another V. The `.wc` download is the larger local fallback when a URL would exceed the safe share limit.
 
-The latest source draft is kept in this browser's versioned `localStorage` cache so a refresh does not erase pasted text. It never leaves the device; clearing the source or starting a new cloud removes the cached draft. Browser storage can be cleared separately through the browser's site-data controls.
+The latest source draft is kept in this browser's versioned `localStorage` cache so a refresh does not erase pasted text. Stop words and custom dictionary entries are cached locally for 24 hours after their last edit; font sizes, spacing, rotation, and palette preferences persist without a TTL. These values never leave the device. Clearing the source or starting a new cloud removes the cached draft; browser storage can be cleared separately through the browser's site-data controls.
 
 ## Tokenization and ranking
 
