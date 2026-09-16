@@ -52,4 +52,10 @@ pnpm run deploy
 
 Cloudflare Static Assets serves `dist` and uses SPA fallback for direct application paths. Configure Wrangler authentication before `pnpm run deploy`; v1 does not require a Worker binding or secret. The committed `wrangler.toml` enables 100% sampled invocation logs and traces; see [Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) and [Workers tracing](https://developers.cloudflare.com/workers/observability/traces/) for dashboard access and sampling guidance. Request metadata may still be recorded by Cloudflare, so V links are not secrets. The runtime capability gates are `Intl.Segmenter`, Canvas 2D, Web Worker, font readiness, SVG, Blob, and clipboard. Unsupported analysis capabilities produce an actionable local error; a valid V can still be opened when source analysis is unavailable.
 
+## CI/CD
+
+The GitHub Actions pipeline follows the split CI/deploy shape used by the [site repository](https://github.com/dytsou/site): [`ci.yml`](.github/workflows/ci.yml) checks pull requests and pushes to `main`, then uploads the exact `dist` artifact from successful `main` builds. [`deploy.yml`](.github/workflows/deploy.yml) deploys only a successful `main` artifact, supports a manual `main` deployment, and serializes production deployments. CI runs formatting, linting, Cloudflare type generation, type checking, deterministic tests, browser tests, the production build, and a Wrangler dry-run.
+
+Before enabling deployment, add `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` as repository or production-environment secrets. Use a narrowly scoped Cloudflare API token with Workers Editor access for the existing `wordcloud` Worker; creating the Worker for the first time may require product-level Admin access. Cloudflare's [GitHub Actions guide](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/) covers token creation and account scoping.
+
 The repository keeps MCP integration deferred to the next implementation; v1 intentionally exposes no MCP endpoint or tool surface.
