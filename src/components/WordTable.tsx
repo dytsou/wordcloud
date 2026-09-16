@@ -18,7 +18,7 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
     <section className="panel table-panel" aria-labelledby="table-heading">
       <div className="panel-heading">
         <div>
-          <p className="section-kicker">04 / INDEX</p>
+          <p className="section-kicker">INDEX</p>
           <h2 id="table-heading">The exact numbers.</h2>
         </div>
         {wordSet && (

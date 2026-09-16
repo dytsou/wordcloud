@@ -142,7 +142,7 @@ export function StylePanel({
     <section className="panel style-panel" aria-labelledby="style-heading">
       <div className="panel-heading">
         <div>
-          <p className="section-kicker">03 / DIRECTION</p>
+          <p className="section-kicker">DIRECTION</p>
           <h2 id="style-heading">Set the atmosphere.</h2>
         </div>
         <span className="count-badge">REMIXABLE</span>

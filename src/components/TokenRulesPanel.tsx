@@ -37,7 +37,7 @@ export function TokenRulesPanel({
     <section className="panel rules-panel" aria-labelledby="rules-heading">
       <div className="panel-heading">
         <div>
-          <p className="section-kicker">02 / VOCABULARY</p>
+          <p className="section-kicker">VOCABULARY</p>
           <h2 id="rules-heading">Give phrases a role.</h2>
         </div>
         <span className="count-badge">

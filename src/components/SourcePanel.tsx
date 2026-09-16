@@ -26,7 +26,7 @@ export function SourcePanel({
     <section className="panel source-panel" aria-labelledby="source-heading">
       <div className="panel-heading">
         <div>
-          <p className="section-kicker">01 / SOURCE</p>
+          <p className="section-kicker">SOURCE</p>
           <h2 id="source-heading">Bring the words in.</h2>
         </div>
         <span className="privacy-chip">LOCAL ONLY</span>

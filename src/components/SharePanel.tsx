@@ -35,7 +35,7 @@ export function SharePanel({
     <section className="panel share-panel" aria-labelledby="share-heading">
       <div className="panel-heading">
         <div>
-          <p className="section-kicker">05 / OUTPUT</p>
+          <p className="section-kicker">OUTPUT</p>
           <h2 id="share-heading">Make it travel.</h2>
         </div>
         <span className="privacy-chip">NO RAW TEXT</span>
