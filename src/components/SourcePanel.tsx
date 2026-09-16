@@ -42,6 +42,9 @@ export function SourcePanel({
         placeholder="貼上文章、訪談、詩，或一段正在發生的想法⋯"
         rows={9}
       />
+      <p className="muted-note draft-note">
+        本機草稿會在重新整理後保留；清空文字或開始新的文字雲會移除它。
+      </p>
       <div className="field-row">
         <div className="field field-grow">
           <label className="field-label" htmlFor="locale">

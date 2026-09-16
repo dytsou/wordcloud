@@ -1,4 +1,5 @@
 import { LIMITS } from "./limits";
+import { GlyphGrid } from "./glyph-grid";
 import { safeBackground, safeFontFamily, safePalette } from "./style-safety";
 import {
   metricsFingerprint,
@@ -38,6 +39,26 @@ interface Rect {
   height: number;
 }
 
+interface OrientedRect {
+  centerX: number;
+  centerY: number;
+  width: number;
+  height: number;
+  angle: number;
+}
+
+interface GridEntry {
+  bounds: Rect;
+  shape: OrientedRect;
+  seenAt: number;
+}
+
+interface WordPlacement {
+  visual: Rect;
+  collision: Rect;
+  shape: OrientedRect;
+}
+
 const CELL_SIZE = 64;
 
 function hashSeed(seed: string): number {
@@ -61,6 +82,10 @@ function quantize(value: number): number {
   return Math.round(value * 2) / 2;
 }
 
+function quantizeBound(value: number): number {
+  return Math.ceil(value * 2) / 2;
+}
+
 export function mapFrequency(
   count: number,
   minimum: number,
@@ -69,7 +94,7 @@ export function mapFrequency(
   minFontSize: number,
   maxFontSize: number,
 ): number {
-  if (minimum === maximum) return quantize((minFontSize + maxFontSize) / 2);
+  if (minimum === maximum) return quantize(minFontSize);
   const safeCount = Math.max(minimum, Math.min(maximum, count));
   const ratio = (safeCount - minimum) / (maximum - minimum);
   const mapped =
@@ -98,36 +123,116 @@ function rotatedSize(
   };
 }
 
-function keyForCell(x: number, y: number): string {
-  return `${Math.floor(x / CELL_SIZE)}:${Math.floor(y / CELL_SIZE)}`;
+function clampAngle(angle: number): number {
+  return Math.max(-120, Math.min(120, Number.isFinite(angle) ? angle : 0));
 }
 
-class SpatialGrid {
-  private readonly cells = new Map<string, Rect[]>();
+export function rotationCandidates(
+  rotations: number[],
+  enabled: boolean,
+): number[] {
+  if (!enabled) return [0];
+  const configured = new Set<number>();
+  for (const rotation of rotations) {
+    const angle = clampAngle(rotation);
+    if (angle !== 0) configured.add(angle);
+  }
+  return [
+    0,
+    ...[...configured].sort(
+      (first, second) => Math.abs(first) - Math.abs(second) || first - second,
+    ),
+  ];
+}
 
-  add(rect: Rect): void {
-    for (let x = rect.x; x <= rect.x + rect.width; x += CELL_SIZE) {
-      for (let y = rect.y; y <= rect.y + rect.height; y += CELL_SIZE) {
+function orientedRectsCollide(
+  first: OrientedRect,
+  second: OrientedRect,
+): boolean {
+  const firstRadians = (first.angle * Math.PI) / 180;
+  const secondRadians = (second.angle * Math.PI) / 180;
+  const firstCosine = Math.cos(firstRadians);
+  const firstSine = Math.sin(firstRadians);
+  const secondCosine = Math.cos(secondRadians);
+  const secondSine = Math.sin(secondRadians);
+  const distanceX = second.centerX - first.centerX;
+  const distanceY = second.centerY - first.centerY;
+  const overlapsOnAxis = (axisX: number, axisY: number) => {
+    const firstRadius =
+      Math.abs(axisX * firstCosine + axisY * firstSine) * first.width * 0.5 +
+      Math.abs(axisX * -firstSine + axisY * firstCosine) * first.height * 0.5;
+    const secondRadius =
+      Math.abs(axisX * secondCosine + axisY * secondSine) * second.width * 0.5 +
+      Math.abs(axisX * -secondSine + axisY * secondCosine) *
+        second.height *
+        0.5;
+    return (
+      Math.abs(distanceX * axisX + distanceY * axisY) <
+      firstRadius + secondRadius
+    );
+  };
+  return (
+    overlapsOnAxis(firstCosine, firstSine) &&
+    overlapsOnAxis(-firstSine, firstCosine) &&
+    overlapsOnAxis(secondCosine, secondSine) &&
+    overlapsOnAxis(-secondSine, secondCosine)
+  );
+}
+
+function orientedRectFor(rect: Rect): OrientedRect {
+  return {
+    centerX: rect.x + rect.width * 0.5,
+    centerY: rect.y + rect.height * 0.5,
+    width: rect.width,
+    height: rect.height,
+    angle: 0,
+  };
+}
+
+function keyForCell(x: number, y: number): string {
+  return `${x}:${y}`;
+}
+
+export class SpatialGrid {
+  private readonly cells = new Map<string, GridEntry[]>();
+  private queryId = 0;
+
+  add(rect: Rect, shape: OrientedRect = orientedRectFor(rect)): void {
+    const entry = { bounds: rect, shape, seenAt: 0 };
+    const minX = Math.floor(rect.x / CELL_SIZE);
+    const maxX = Math.floor((rect.x + rect.width) / CELL_SIZE);
+    const minY = Math.floor(rect.y / CELL_SIZE);
+    const maxY = Math.floor((rect.y + rect.height) / CELL_SIZE);
+    for (let x = minX; x <= maxX; x += 1) {
+      for (let y = minY; y <= maxY; y += 1) {
         const key = keyForCell(x, y);
         const values = this.cells.get(key) ?? [];
-        values.push(rect);
+        values.push(entry);
         this.cells.set(key, values);
       }
     }
   }
 
-  collides(rect: Rect): boolean {
-    const seen = new Set<Rect>();
-    for (let x = rect.x; x <= rect.x + rect.width; x += CELL_SIZE) {
-      for (let y = rect.y; y <= rect.y + rect.height; y += CELL_SIZE) {
-        for (const other of this.cells.get(keyForCell(x, y)) ?? []) {
-          if (seen.has(other)) continue;
-          seen.add(other);
+  collides(rect: Rect, shape: OrientedRect = orientedRectFor(rect)): boolean {
+    const queryId = (this.queryId += 1);
+    const minX = Math.floor(rect.x / CELL_SIZE);
+    const maxX = Math.floor((rect.x + rect.width) / CELL_SIZE);
+    const minY = Math.floor(rect.y / CELL_SIZE);
+    const maxY = Math.floor((rect.y + rect.height) / CELL_SIZE);
+    for (let x = minX; x <= maxX; x += 1) {
+      for (let y = minY; y <= maxY; y += 1) {
+        for (const entry of this.cells.get(keyForCell(x, y)) ?? []) {
+          if (entry.seenAt === queryId) continue;
+          entry.seenAt = queryId;
+          const other = entry.bounds;
           if (
             rect.x < other.x + other.width &&
             rect.x + rect.width > other.x &&
             rect.y < other.y + other.height &&
-            rect.y + rect.height > other.y
+            rect.y + rect.height > other.y &&
+            (shape.angle === 0 && entry.shape.angle === 0
+              ? true
+              : orientedRectsCollide(shape, entry.shape))
           ) {
             return true;
           }
@@ -194,25 +299,70 @@ function makeUnplaceable(
   };
 }
 
+function makeWordPlacement(
+  centerX: number,
+  centerY: number,
+  visualSize: { width: number; height: number },
+  collisionSize: { width: number; height: number },
+  collisionShape: { width: number; height: number },
+  angle: number,
+): WordPlacement {
+  const collision: Rect = {
+    x: quantize(centerX - collisionSize.width * 0.5),
+    y: quantize(centerY - collisionSize.height * 0.5),
+    width: Math.max(1, quantizeBound(collisionSize.width)),
+    height: Math.max(1, quantizeBound(collisionSize.height)),
+  };
+  const actualCenterX = collision.x + collision.width * 0.5;
+  const actualCenterY = collision.y + collision.height * 0.5;
+  const visual: Rect = {
+    x: quantize(actualCenterX - visualSize.width * 0.5),
+    y: quantize(actualCenterY - visualSize.height * 0.5),
+    width: Math.max(1, quantizeBound(visualSize.width)),
+    height: Math.max(1, quantizeBound(visualSize.height)),
+  };
+  return {
+    visual,
+    collision,
+    shape: {
+      centerX: actualCenterX,
+      centerY: actualCenterY,
+      width: collisionShape.width,
+      height: collisionShape.height,
+      angle,
+    },
+  };
+}
+
 function* layoutWordCloudSteps(
   wordSet: WordSet,
   style: LayoutStyle,
   metrics: FontMetricsTable,
   options: LayoutOptions = {},
 ): Generator<void, SceneModel, void> {
+  const fairShare = Math.max(
+    1,
+    Math.floor(LIMITS.maxLayoutProbes / Math.max(1, wordSet.words.length)),
+  );
   const maxProbes = Math.min(
-    options.maxProbes ?? LIMITS.maxLayoutProbes,
+    options.maxProbes ?? 2_000,
+    fairShare,
     LIMITS.maxLayoutProbes,
   );
-  const maxLayoutMs = options.maxLayoutMs ?? 2_000;
+  const maxLayoutMs = options.maxLayoutMs ?? 8_000;
   const startedAt = globalThis.performance?.now() ?? 0;
   const palette = safePalette(style.palette);
   const counts = wordSet.words.map((word) => word.count);
-  const minimum = Math.min(...counts, 0);
-  const maximum = Math.max(...counts, 0);
+  const minimum = Math.min(...counts);
+  const maximum = Math.max(...counts);
   const generator = random(hashSeed(style.seed));
+  const seedPhase = generator() * Math.PI * 2;
   const grid = new SpatialGrid();
+  const placedRects: Rect[] = [];
   const words: SceneWord[] = [];
+  const padding = Number.isFinite(style.padding)
+    ? Math.max(LIMITS.minPadding, Math.min(LIMITS.maxPadding, style.padding))
+    : 0;
   let probes = 0;
   let layoutStatus: SceneModel["layoutStatus"] = "complete";
   const invalidCanvas =
@@ -221,6 +371,10 @@ function* layoutWordCloudSteps(
     style.canvas.width > LIMITS.maxCanvasDimension ||
     style.canvas.height > LIMITS.maxCanvasDimension ||
     style.canvas.width * style.canvas.height > LIMITS.maxExportPixels;
+  const glyphGrid =
+    metrics.sprites && !invalidCanvas
+      ? new GlyphGrid(style.canvas.width, style.canvas.height)
+      : undefined;
 
   for (const word of [...wordSet.words].sort((a, b) => a.rank - b.rank)) {
     const fontSize = mapFrequency(
@@ -233,81 +387,211 @@ function* layoutWordCloudSteps(
     );
     const base = metricFor(word.term, metrics);
     const scale = fontSize / metrics.baseFontSize;
-    const baseSize = { width: base.width * scale, height: base.height * scale };
+    const baseSize = {
+      width: base.width * scale + fontSize * 0.2,
+      height: Math.max(base.height * scale, fontSize * 1.5),
+    };
     const color = palette[(word.rank - 1) % palette.length];
-    const angle =
-      style.rotations.length > 0
-        ? style.rotations[Math.floor(generator() * style.rotations.length)]
-        : 0;
-    const size = rotatedSize(
-      baseSize.width + style.padding * 2,
-      baseSize.height + style.padding * 2,
-      angle,
-    );
+    const horizontalSize = rotatedSize(baseSize.width, baseSize.height, 0);
+
+    if (options.shouldCancel?.()) {
+      words.push(
+        makeUnplaceable(word, fontSize, horizontalSize, color, "cancelled"),
+      );
+      layoutStatus = "cancelled";
+      continue;
+    }
 
     if (invalidCanvas) {
       words.push(
-        makeUnplaceable(word, fontSize, size, color, "invalid-canvas"),
+        makeUnplaceable(
+          word,
+          fontSize,
+          horizontalSize,
+          color,
+          "invalid-canvas",
+        ),
       );
       layoutStatus = "budget-limited";
       continue;
     }
 
-    let placed: Rect | undefined;
-    for (let probe = 0; probe < maxProbes; probe += 1) {
-      probes += 1;
-      if (options.shouldCancel?.()) {
-        words.push(makeUnplaceable(word, fontSize, size, color, "cancelled"));
-        layoutStatus = "cancelled";
-        break;
-      }
-      if (
-        probes > LIMITS.maxLayoutProbes ||
-        (globalThis.performance?.now() ?? 0) - startedAt > maxLayoutMs
-      ) {
-        words.push(
-          makeUnplaceable(word, fontSize, size, color, "probe-budget"),
+    const fontRange = Math.max(0, style.maxFontSize - style.minFontSize);
+    const rotationEligible =
+      fontRange === 0
+        ? word.rank > Math.ceil(wordSet.words.length * 0.6)
+        : fontSize <= style.minFontSize + fontRange * 0.42;
+    const configuredAngles = rotationCandidates(
+      style.rotations,
+      rotationEligible,
+    );
+    // For small glyphs, try tilting inside the current ring before moving outward.
+    const angles =
+      glyphGrid && configuredAngles.length > 1
+        ? Array.from({ length: 3 }, () => configuredAngles).flat()
+        : configuredAngles;
+    const probesPerAngle = angles.map((_, index) => {
+      const baseBudget = Math.floor(maxProbes / angles.length);
+      return baseBudget + (index < maxProbes % angles.length ? 1 : 0);
+    });
+    const collisionShape = {
+      width: Math.max(1, baseSize.width + padding * 2),
+      height: Math.max(1, baseSize.height + padding * 2),
+    };
+    let placed: WordPlacement | undefined;
+    let renderSize = horizontalSize;
+    let terminalReason: "probe-budget" | "cancelled" | undefined;
+
+    for (const [angleIndex, selectedAngle] of angles.entries()) {
+      if (placed || terminalReason) break;
+      const angle = clampAngle(selectedAngle);
+      const sprite = metrics.sprites?.[word.term]?.[angle];
+      const visualSize =
+        sprite ?? rotatedSize(baseSize.width, baseSize.height, angle);
+      const collisionSize =
+        sprite ??
+        rotatedSize(collisionShape.width, collisionShape.height, angle);
+      renderSize = visualSize;
+      const fitWidth = Math.max(visualSize.width, collisionSize.width);
+      const fitHeight = Math.max(visualSize.height, collisionSize.height);
+      if (fitWidth > style.canvas.width || fitHeight > style.canvas.height)
+        continue;
+
+      const angleBudget = probesPerAngle[angleIndex] ?? 0;
+      let angleProbes = 0;
+      const tryPlacement = (candidateX: number, candidateY: number) => {
+        const candidate = makeWordPlacement(
+          candidateX,
+          candidateY,
+          visualSize,
+          collisionSize,
+          collisionShape,
+          angle,
         );
-        layoutStatus = "budget-limited";
-        break;
-      }
-      const radius = 3 + probe * 1.35;
-      const theta = probe * 0.37 + (word.rank % 3) * 0.11;
-      const centerX = style.canvas.width / 2 + Math.cos(theta) * radius;
-      const centerY = style.canvas.height / 2 + Math.sin(theta) * radius * 0.72;
-      const rect: Rect = {
-        x: quantize(centerX - size.width / 2),
-        y: quantize(centerY - size.height / 2),
-        width: quantize(size.width),
-        height: quantize(size.height),
+        if (sprite) {
+          candidate.visual.x = Math.round(candidateX - sprite.width / 2);
+          candidate.visual.y = Math.round(candidateY - sprite.height / 2);
+          candidate.collision = { ...candidate.visual };
+          candidate.shape.centerX = candidate.visual.x + sprite.width / 2;
+          candidate.shape.centerY = candidate.visual.y + sprite.height / 2;
+        }
+        if (
+          withinCanvas(candidate.visual, style.canvas) &&
+          withinCanvas(candidate.collision, style.canvas) &&
+          !(glyphGrid && sprite
+            ? glyphGrid.collides(sprite, candidate.visual.x, candidate.visual.y)
+            : grid.collides(candidate.collision, candidate.shape))
+        ) {
+          placed = candidate;
+        }
       };
-      if (withinCanvas(rect, style.canvas) && !grid.collides(rect)) {
-        placed = rect;
-        yield;
-        break;
+      const checkBudget = () => {
+        if (options.shouldCancel?.()) return "cancelled" as const;
+        if (
+          probes >= LIMITS.maxLayoutProbes ||
+          (globalThis.performance?.now() ?? 0) - startedAt > maxLayoutMs
+        ) {
+          return "probe-budget" as const;
+        }
+        return undefined;
+      };
+
+      if (!glyphGrid && placedRects.length > 0) {
+        const canvasCenterX = style.canvas.width / 2;
+        const canvasCenterY = style.canvas.height / 2;
+        const candidates = placedRects.slice(0, 64).flatMap((other) => {
+          const otherCenterX = other.x + other.width / 2;
+          const otherCenterY = other.y + other.height / 2;
+          return [
+            [otherCenterX, other.y - collisionSize.height / 2],
+            [otherCenterX, other.y + other.height + collisionSize.height / 2],
+            [other.x - collisionSize.width / 2, otherCenterY],
+            [other.x + other.width + collisionSize.width / 2, otherCenterY],
+          ];
+        });
+        candidates.sort(([firstX, firstY], [secondX, secondY]) => {
+          const firstRadius =
+            (firstX - canvasCenterX) ** 2 + (firstY - canvasCenterY) ** 2;
+          const secondRadius =
+            (secondX - canvasCenterX) ** 2 + (secondY - canvasCenterY) ** 2;
+          return firstRadius - secondRadius;
+        });
+        for (const [centerX, centerY] of candidates.slice(
+          0,
+          Math.min(256, angleBudget),
+        )) {
+          probes += 1;
+          angleProbes += 1;
+          const reason = checkBudget();
+          if (reason) {
+            terminalReason = reason;
+            break;
+          }
+          tryPlacement(centerX, centerY);
+          yield;
+          if (placed) break;
+        }
       }
-      yield;
+
+      for (
+        let probe = 0;
+        !placed && !terminalReason && angleProbes < angleBudget;
+        probe += 1
+      ) {
+        probes += 1;
+        angleProbes += 1;
+        const reason = checkBudget();
+        if (reason) {
+          terminalReason = reason;
+          break;
+        }
+        // A dense, evenly distributed ellipse probes interior holes before the perimeter.
+        const band = Math.floor(angleIndex / configuredAngles.length);
+        const radialProbe =
+          (probe + band * angleBudget) * configuredAngles.length;
+        const radius = glyphGrid
+          ? Math.sqrt(radialProbe) * 9
+          : 3 + Math.sqrt(probe) * 10;
+        const theta =
+          probe * (glyphGrid ? 2.399963229728653 : 0.37) +
+          (word.rank % 3) * 0.11 +
+          seedPhase;
+        const centerX = style.canvas.width / 2 + Math.cos(theta) * radius;
+        const centerY =
+          style.canvas.height / 2 + Math.sin(theta) * radius * 0.72;
+        tryPlacement(centerX, centerY);
+        yield;
+      }
     }
 
-    if (layoutStatus === "cancelled" || layoutStatus === "budget-limited") {
+    if (terminalReason) {
+      words.push(
+        makeUnplaceable(word, fontSize, renderSize, color, terminalReason),
+      );
+      layoutStatus =
+        terminalReason === "cancelled" ? "cancelled" : "budget-limited";
       continue;
     }
     if (!placed) {
-      words.push(makeUnplaceable(word, fontSize, size, color, "no-fit"));
+      words.push(makeUnplaceable(word, fontSize, renderSize, color, "no-fit"));
       continue;
     }
-    grid.add(placed);
+    grid.add(placed.collision, placed.shape);
+    const placedSprite = metrics.sprites?.[word.term]?.[placed.shape.angle];
+    if (glyphGrid && placedSprite)
+      glyphGrid.add(placedSprite, placed.visual.x, placed.visual.y);
+    placedRects.push(placed.collision);
     words.push({
       term: word.term,
       count: word.count,
       rank: word.rank,
       locale: word.locale,
       fontSize,
-      angle,
-      x: placed.x,
-      y: placed.y,
-      width: placed.width,
-      height: placed.height,
+      angle: placed.shape.angle,
+      x: placed.visual.x,
+      y: placed.visual.y,
+      width: placed.visual.width,
+      height: placed.visual.height,
       color,
       status: "placed",
     });

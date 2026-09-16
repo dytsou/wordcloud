@@ -14,11 +14,21 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:4173",
     trace: "retain-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        launchOptions: process.env.WORDCLOUD_CHROME_PATH
+          ? { executablePath: process.env.WORDCLOUD_CHROME_PATH }
+          : undefined,
+      },
+    },
+  ],
   webServer: {
-    command: "bun run dev -- --host 127.0.0.1 --port 4173",
+    command: "pnpm run dev -- --host 127.0.0.1 --port 4173",
     url: "http://127.0.0.1:4173",
-    reuseExistingServer: false,
+    reuseExistingServer: true,
     timeout: 120_000,
   },
 });

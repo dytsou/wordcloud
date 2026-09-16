@@ -14,11 +14,15 @@ The V link uses the fixed fragment format `#wc-pako:v1:<payload>`:
 
 A V contains normalized terms, counts, ranks, style, and derived placements. It never contains the raw source or editable tokenizer rule bodies, and it is not a secret-bearing link. A loaded V remains style-remixable and can produce another V. The `.wc` download is the larger local fallback when a URL would exceed the safe share limit.
 
+The latest source draft is kept in this browser's versioned `localStorage` cache so a refresh does not erase pasted text. It never leaves the device; clearing the source or starting a new cloud removes the cached draft. Browser storage can be cleared separately through the browser's site-data controls.
+
 ## Tokenization and ranking
 
 The selected locale is the default lane for `Intl.Segmenter`; mixed scripts are routed to fixed English, Traditional/Simplified Han, Japanese, or Thai lanes. Users can normalize case, keep numbers/symbols, add stop words, protect a dictionary phrase, split a literal into terms, or merge a literal sequence into one term. Rules are validated for length, conflicts, cycles, and count before analysis.
 
 The word size is a visual mapping of frequency, not a second count. By default it uses a square-root scale between the configured minimum and maximum font sizes; linear and logarithmic mappings are also available. Ranking is deterministic: count descending, first occurrence ascending, then normalized Unicode scalar order. Ranks are one-based and preserved in the table, SceneModel, SVG metadata, PNG render plan, and V snapshot.
+
+Placement processes words from highest to lowest frequency. Prominent words stay horizontal; smaller words try horizontal positions first, then the configured tilt angles inside the current search ring before moving outward. Browser-rasterized glyph masks let small words occupy empty spaces inside and between large glyphs, rather than reserving their entire rectangles. The spacing control ranges from `-12px` to `24px`: non-negative values protect painted strokes; negative values erode collision masks and deliberately permit overlap (thin strokes can lose their exclusion area entirely).
 
 ## Safety limits
 
@@ -28,7 +32,7 @@ The application rejects or bounds work at the following product limits:
 - 100 custom rules; 128 Unicode scalars per literal term.
 - 8 KiB encoded URL fragment; 12 KiB complete share URL; 512 KiB `.wc` file.
 - 256 KiB inflated JSON; 64× inflate ratio; 4,096 px canvas dimension; 16 MP export.
-- 100,000 layout probes and a 2-second layout safety budget.
+- 100,000 layout probes and an 8-second layout safety budget.
 
 Unplaceable terms are retained in the ranked table with a reason. SVG and PNG use the same validated SceneModel as the live preview; SVG writes terms as text nodes/escaped text and permits no scripts, event attributes, external URLs, `foreignObject`, or arbitrary CSS.
 

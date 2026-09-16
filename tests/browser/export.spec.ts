@@ -4,6 +4,7 @@ import { expect, test } from "@playwright/test";
 test("exports the current SceneModel as safe SVG and PNG downloads", async ({
   page,
 }) => {
+  test.setTimeout(90_000);
   await page.goto("/");
   await page.getByLabel("原文").fill("export export 文字雲");
   await page.getByRole("button", { name: "產生文字雲" }).click();

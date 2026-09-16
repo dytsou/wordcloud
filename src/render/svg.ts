@@ -86,10 +86,12 @@ function appendSceneSvgChildren(
     const centerX = word.x + word.width / 2;
     const centerY = word.y + word.height / 2;
     element.setAttribute("x", numberAttribute(centerX));
-    element.setAttribute("y", numberAttribute(word.y + word.height * 0.78));
+    element.setAttribute("y", numberAttribute(centerY));
     element.setAttribute("text-anchor", "middle");
+    element.setAttribute("dominant-baseline", "central");
     element.setAttribute("fill", word.color);
     element.setAttribute("font-size", numberAttribute(word.fontSize));
+    element.setAttribute("font-weight", "500");
     element.setAttribute("font-family", scene.fontFamily);
     element.setAttribute(
       "transform",
@@ -156,7 +158,7 @@ function serializeSceneSvg(
     .map((word) => {
       const centerX = word.x + word.width / 2;
       const centerY = word.y + word.height / 2;
-      return `<text x="${numberAttribute(centerX)}" y="${numberAttribute(word.y + word.height * 0.78)}" text-anchor="middle" fill="${escapeXml(word.color)}" font-size="${numberAttribute(word.fontSize)}" font-family="${escapeXml(scene.fontFamily)}" transform="rotate(${numberAttribute(word.angle)} ${numberAttribute(centerX)} ${numberAttribute(centerY)})" data-rank="${word.rank}" data-count="${word.count}">${escapeXml(word.term)}</text>`;
+      return `<text x="${numberAttribute(centerX)}" y="${numberAttribute(centerY)}" text-anchor="middle" dominant-baseline="central" fill="${escapeXml(word.color)}" font-size="${numberAttribute(word.fontSize)}" font-weight="500" font-family="${escapeXml(scene.fontFamily)}" transform="rotate(${numberAttribute(word.angle)} ${numberAttribute(centerX)} ${numberAttribute(centerY)})" data-rank="${word.rank}" data-count="${word.count}">${escapeXml(word.term)}</text>`;
     })
     .join("");
   return `<svg xmlns="${SVG_NAMESPACE}" width="${numberAttribute(scene.canvas.width)}" height="${numberAttribute(scene.canvas.height)}" viewBox="0 0 ${numberAttribute(scene.canvas.width)} ${numberAttribute(scene.canvas.height)}" role="img" aria-labelledby="wordcloud-title wordcloud-description"><title id="wordcloud-title">${title}</title><desc id="wordcloud-description">${description}</desc><rect x="0" y="0" width="${numberAttribute(scene.canvas.width)}" height="${numberAttribute(scene.canvas.height)}" fill="${escapeXml(scene.background)}" aria-hidden="true"/><g id="wordcloud-words">${words}</g><metadata id="wordcloud-records">${escapeXml(metadataText(scene.words))}</metadata></svg>`;

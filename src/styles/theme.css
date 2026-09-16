@@ -265,6 +265,64 @@ h2 {
   font-weight: 400;
 }
 
+.range-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin: 0.25rem 0 1.05rem;
+}
+
+.range-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0.55rem;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.range-field > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.range-field output {
+  color: var(--coral-dark);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.range-field input {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  accent-color: var(--coral-dark);
+}
+
+.spacing-hint {
+  margin: -0.55rem 0 0.85rem;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.rotation-controls {
+  margin-bottom: 0.85rem;
+}
+
+.rotation-range {
+  margin-bottom: 0.45rem;
+}
+
+.rotation-hint {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
 input:not([type="checkbox"]):not([type="color"]):not([type="range"]):not(
     [type="file"]
   ),
@@ -504,15 +562,24 @@ input[type="checkbox"] {
 
 .preview-stage {
   min-height: min(78vh, 760px);
-  border: 1px solid rgb(23 32 42 / 12%);
-  border-radius: 1.8rem;
-  background: rgb(247 240 223 / 64%);
+  border: 1px solid rgb(39 56 74 / 18%);
+  border-radius: 1.15rem;
+  background: #f7f5ef;
   box-shadow: var(--shadow);
 }
 
 .preview-topline h2 {
-  max-width: 18ch;
-  font-size: clamp(1.5rem, 3vw, 2.7rem);
+  max-width: 16ch;
+  font-size: clamp(1.5rem, 3vw, 2.4rem);
+}
+
+.preview-caption {
+  margin: -0.35rem 0 1.1rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
 }
 
 .zoom-control {
@@ -535,12 +602,12 @@ input[type="checkbox"] {
 
 .canvas-frame {
   display: grid;
-  min-height: clamp(420px, 65vh, 670px);
+  min-height: clamp(420px, 62vh, 670px);
   place-items: center;
   overflow: auto;
-  border: 1px solid rgb(23 32 42 / 14%);
-  border-radius: 1.3rem;
-  box-shadow: inset 0 0 0 0.6rem rgb(255 255 255 / 18%);
+  border: 1px solid rgb(39 56 74 / 18%);
+  border-radius: 0.4rem;
+  box-shadow: inset 0 0 0 0.5rem rgb(255 255 255 / 20%);
   transition: background 250ms ease;
 }
 
@@ -740,6 +807,10 @@ thead th {
 
   .field-small {
     width: auto;
+  }
+
+  .range-grid {
+    grid-template-columns: 1fr;
   }
 
   .preview-stage {

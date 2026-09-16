@@ -65,10 +65,10 @@ function drawPlanToCanvas(
     context.translate(word.x + word.width / 2, word.y + word.height / 2);
     context.rotate((word.angle * Math.PI) / 180);
     context.fillStyle = word.color;
-    context.font = `${word.fontSize}px ${plan.fontFamily}`;
+    context.font = `500 ${word.fontSize}px ${plan.fontFamily}`;
     context.textAlign = "center";
-    context.textBaseline = "alphabetic";
-    context.fillText(word.term, 0, word.height * 0.28);
+    context.textBaseline = "middle";
+    context.fillText(word.term, 0, 0);
     context.restore();
   }
 }

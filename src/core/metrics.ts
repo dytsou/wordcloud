@@ -7,6 +7,14 @@ export interface FontMetricsTable {
   baseFontSize: number;
   fingerprint: string;
   words: Record<string, FontMetric>;
+  /** Ephemeral browser-rasterized glyphs; never included in share snapshots. */
+  sprites?: Record<string, Record<string, GlyphSprite>>;
+}
+
+export interface GlyphSprite {
+  width: number;
+  height: number;
+  pixels: Uint32Array;
 }
 
 export interface FontProfile {

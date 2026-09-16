@@ -1,5 +1,23 @@
+import { useEffect, useRef, useState } from "react";
 import type { LayoutStyle } from "../core/layout";
 import { LIMITS } from "../core/limits";
+
+type RangeDraft = Pick<LayoutStyle, "minFontSize" | "maxFontSize" | "padding">;
+
+function rangeFrom(presentation: LayoutStyle): RangeDraft {
+  return {
+    minFontSize: presentation.minFontSize,
+    maxFontSize: presentation.maxFontSize,
+    padding: presentation.padding,
+  };
+}
+
+function angleFrom(rotations: number[]): number {
+  return Math.min(
+    120,
+    Math.max(0, ...rotations.map((angle) => Math.abs(angle))),
+  );
+}
 
 interface StylePanelProps {
   presentation: LayoutStyle;
@@ -12,6 +30,42 @@ export function StylePanel({
   disabled = false,
   onChange,
 }: StylePanelProps) {
+  const [draft, setDraft] = useState<RangeDraft>(() => rangeFrom(presentation));
+  const draftRef = useRef(draft);
+  const [angleDraft, setAngleDraft] = useState(() =>
+    angleFrom(presentation.rotations),
+  );
+  const angleRef = useRef(angleDraft);
+  useEffect(() => {
+    const next = rangeFrom(presentation);
+    draftRef.current = next;
+    setDraft(next);
+  }, [
+    presentation.minFontSize,
+    presentation.maxFontSize,
+    presentation.padding,
+  ]);
+  useEffect(() => {
+    const next = angleFrom(presentation.rotations);
+    angleRef.current = next;
+    setAngleDraft(next);
+  }, [presentation.rotations]);
+
+  const editRange = (patch: Partial<RangeDraft>) => {
+    const next = { ...draftRef.current, ...patch };
+    draftRef.current = next;
+    setDraft(next);
+  };
+  const commitRange = () => {
+    const next = draftRef.current;
+    if (
+      next.minFontSize !== presentation.minFontSize ||
+      next.maxFontSize !== presentation.maxFontSize ||
+      next.padding !== presentation.padding
+    ) {
+      onChange({ ...presentation, ...next });
+    }
+  };
   const update = (patch: Partial<LayoutStyle>) =>
     onChange({ ...presentation, ...patch });
   const updateCanvas = (key: "width" | "height", value: string) => {
@@ -33,9 +87,19 @@ export function StylePanel({
     const next = Number(value);
     if (!Number.isFinite(next)) return;
     if (key === "minFontSize") {
-      update({ minFontSize: Math.min(next, presentation.maxFontSize) });
+      editRange({ minFontSize: Math.min(next, draftRef.current.maxFontSize) });
     } else {
-      update({ maxFontSize: Math.max(next, presentation.minFontSize) });
+      editRange({ maxFontSize: Math.max(next, draftRef.current.minFontSize) });
+    }
+  };
+  const rotationLabel = angleDraft === 0 ? "水平" : `±${angleDraft}°`;
+  const commitAngle = () => {
+    const angle = angleRef.current;
+    if (
+      angle !== angleFrom(presentation.rotations) ||
+      presentation.rotations.some((rotation) => Math.abs(rotation) > 120)
+    ) {
+      update({ rotations: angle === 0 ? [0] : [0, -angle, angle] });
     }
   };
   return (
@@ -47,6 +111,24 @@ export function StylePanel({
         </div>
         <span className="count-badge">REMIXABLE</span>
       </div>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() =>
+          update({
+            minFontSize: 8,
+            maxFontSize: 128,
+            scale: "linear",
+            padding: 0,
+            rotations: [0, -35, 35],
+          })
+        }
+      >
+        套用密集填縫排版
+      </button>
+      <p className="muted-note">
+        大字構成主體，小字填入筆畫留白；只調整排版，不改配色。
+      </p>
       <div className="field-row">
         <div className="field field-grow">
           <label className="field-label" htmlFor="font-family">
@@ -61,7 +143,10 @@ export function StylePanel({
             <option value="system-ui">System Sans</option>
             <option value="Georgia">Georgia Serif</option>
             <option value="Trebuchet MS">Trebuchet MS</option>
-            <option value="Noto Sans CJK TC">Noto Sans CJK TC</option>
+            <option value="Noto Sans CJK TC, system-ui">
+              Noto Sans CJK TC
+            </option>
+            <option value="Noto Sans CJK TC">Noto Sans CJK TC (legacy)</option>
             <option value="Noto Sans Thai">Noto Sans Thai</option>
           </select>
         </div>
@@ -86,14 +171,19 @@ export function StylePanel({
       <div className="range-grid">
         <label className="range-field">
           <span>
-            最小字級 <output>{presentation.minFontSize}px</output>
+            最小字級 <output>{draft.minFontSize}px</output>
           </span>
           <input
             type="range"
+            aria-label="最小字級"
             min="8"
             max="80"
-            value={presentation.minFontSize}
+            value={draft.minFontSize}
             disabled={disabled}
+            onPointerUp={commitRange}
+            onPointerCancel={commitRange}
+            onKeyUp={commitRange}
+            onBlur={commitRange}
             onChange={(event) =>
               updateFontRange("minFontSize", event.target.value)
             }
@@ -101,14 +191,19 @@ export function StylePanel({
         </label>
         <label className="range-field">
           <span>
-            最大字級 <output>{presentation.maxFontSize}px</output>
+            最大字級 <output>{draft.maxFontSize}px</output>
           </span>
           <input
             type="range"
+            aria-label="最大字級"
             min="24"
             max="160"
-            value={presentation.maxFontSize}
+            value={draft.maxFontSize}
             disabled={disabled}
+            onPointerUp={commitRange}
+            onPointerCancel={commitRange}
+            onKeyUp={commitRange}
+            onBlur={commitRange}
             onChange={(event) =>
               updateFontRange("maxFontSize", event.target.value)
             }
@@ -116,19 +211,57 @@ export function StylePanel({
         </label>
         <label className="range-field">
           <span>
-            詞間距 <output>{presentation.padding}px</output>
+            詞間距 <output>{draft.padding}px</output>
           </span>
           <input
             type="range"
-            min="0"
+            aria-label="詞間距"
+            min={LIMITS.minPadding}
             max="24"
-            value={presentation.padding}
+            value={draft.padding}
             disabled={disabled}
+            onPointerUp={commitRange}
+            onPointerCancel={commitRange}
+            onKeyUp={commitRange}
+            onBlur={commitRange}
             onChange={(event) =>
-              update({ padding: Number(event.target.value) })
+              editRange({ padding: Number(event.target.value) })
             }
           />
         </label>
+      </div>
+      <p className="spacing-hint">
+        負值會縮小避讓區，適合接受輕微重疊的密集排版。
+      </p>
+      <div className="rotation-controls">
+        <label className="range-field rotation-range">
+          <span>
+            旋轉方式 <output>{rotationLabel}</output>
+          </span>
+          <input
+            id="rotation-angle"
+            type="range"
+            aria-label="旋轉方式"
+            min="0"
+            max="120"
+            step="1"
+            value={angleDraft}
+            disabled={disabled}
+            onPointerUp={commitAngle}
+            onPointerCancel={commitAngle}
+            onKeyUp={commitAngle}
+            onBlur={commitAngle}
+            onChange={(event) => {
+              const angle = Number(event.target.value);
+              angleRef.current = angle;
+              setAngleDraft(angle);
+            }}
+          />
+        </label>
+        <p className="rotation-hint">
+          大字優先水平；小字在水平位置放不下時才以 0°、±設定角度填縫，上限
+          ±120°。
+        </p>
       </div>
       <div className="field-row">
         <div className="field field-grow">

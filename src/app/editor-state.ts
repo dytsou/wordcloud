@@ -17,15 +17,15 @@ export type EditorMode =
   | "error";
 
 export const DEFAULT_PRESENTATION: LayoutStyle = {
-  canvas: { width: 720, height: 520 },
-  minFontSize: 18,
-  maxFontSize: 92,
+  canvas: { width: 1000, height: 650 },
+  minFontSize: 12,
+  maxFontSize: 112,
   scale: "sqrt",
-  padding: 6,
-  rotations: [0, -12, 12, 90],
-  palette: ["#ff6b5f", "#132238", "#a4d65e", "#d7945c"],
-  background: "#f7f0df",
-  fontFamily: "system-ui",
+  padding: 4,
+  rotations: [0],
+  palette: ["#aa5948", "#27384a", "#5c6876", "#b86b58"],
+  background: "#edf2f4",
+  fontFamily: "Noto Sans CJK TC, system-ui",
   seed: "wordcloud-studio-v1",
   version: "layout-v1",
 };

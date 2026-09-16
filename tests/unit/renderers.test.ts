@@ -26,7 +26,8 @@ function createFakeCanvas() {
     rotate: (angle) => operations.push(`rotate:${angle}`),
     fillRect: (x, y, width, height) =>
       operations.push(`rect:${x}:${y}:${width}:${height}`),
-    fillText: (text) => operations.push(`text:${text}`),
+    fillText: (text, x, y) =>
+      operations.push(`text:${text}:${x}:${y}:${context.textBaseline}`),
   };
   const canvas: CanvasLike = {
     width: 0,
@@ -100,7 +101,11 @@ describe("scene renderers", () => {
     expect(fake.canvas.width).toBe(320);
     expect(fake.canvas.height).toBe(220);
     expect(fake.operations).toContain("rect:0:0:320:220");
-    expect(fake.operations).toContain("text:hello");
+    expect(fake.operations).toContain("text:hello:0:0:middle");
+    expect(fake.operations).toContain("translate:160:100");
+    expect(renderSceneSvg(sceneWithRotation())).toContain(
+      'dominant-baseline="central"',
+    );
   });
 
   it("rejects external style values before export", () => {

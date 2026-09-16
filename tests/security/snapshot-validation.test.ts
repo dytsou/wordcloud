@@ -33,6 +33,14 @@ describe("snapshot validation", () => {
     expect(() => decodeSnapshotFragment(tampered)).toThrow(/font|style|allow/i);
   });
 
+  it("accepts negative padding for deliberate tight packing", () => {
+    const snapshot = decodeSnapshotFragment(valid());
+    snapshot.presentation.padding = -6;
+    const tampered = encodeJsonFragment(snapshot).fragment;
+
+    expect(decodeSnapshotFragment(tampered).presentation.padding).toBe(-6);
+  });
+
   it("keeps XML-looking terms as inert data for the renderer boundary", () => {
     const scene = {
       ...snapshotScene,

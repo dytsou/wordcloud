@@ -23,8 +23,8 @@ export function CloudPreview({ scene, highlightedTerm }: CloudPreviewProps) {
     <section className="preview-stage" aria-labelledby="preview-heading">
       <div className="preview-topline">
         <div>
-          <p className="section-kicker">LIVE CANVAS</p>
-          <h2 id="preview-heading">A cloud with a point of view.</h2>
+          <p className="section-kicker">LIVE COMPOSITION</p>
+          <h2 id="preview-heading">詞頻，長成一張海報。</h2>
         </div>
         <div className="zoom-control" aria-label="預覽縮放">
           <button
@@ -44,9 +44,12 @@ export function CloudPreview({ scene, highlightedTerm }: CloudPreviewProps) {
           </button>
         </div>
       </div>
+      <p className="preview-caption">
+        字級依詞頻排列 · 字框自動避讓 · 在瀏覽器中完成
+      </p>
       <div
         className="canvas-frame"
-        style={{ background: scene?.background ?? "#f7f0df" }}
+        style={{ background: scene?.background ?? "#edf2f4" }}
       >
         {scene ? (
           <>
@@ -66,10 +69,12 @@ export function CloudPreview({ scene, highlightedTerm }: CloudPreviewProps) {
                 <text
                   key={`${word.term}-${word.rank}`}
                   x={word.x + word.width / 2}
-                  y={word.y + word.height * 0.78}
+                  y={word.y + word.height / 2}
                   textAnchor="middle"
+                  dominantBaseline="central"
                   fill={word.color}
                   fontSize={word.fontSize}
+                  fontWeight={500}
                   transform={`rotate(${word.angle} ${word.x + word.width / 2} ${word.y + word.height / 2})`}
                   opacity={
                     activeHighlight && activeHighlight !== word.term ? 0.28 : 1

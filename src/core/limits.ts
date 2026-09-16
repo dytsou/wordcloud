@@ -12,6 +12,8 @@ export const LIMITS = {
   maxInflateRatio: 64,
   maxCanvasDimension: 4096,
   maxExportPixels: 16_000_000,
+  minPadding: -12,
+  maxPadding: 128,
 } as const;
 
 export function utf8ByteLength(value: string): number {

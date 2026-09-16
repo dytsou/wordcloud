@@ -228,7 +228,12 @@ function validatePresentation(value: unknown): Presentation {
     minFontSize,
     maxFontSize,
     scale,
-    padding: numberValue(object.padding, "padding", 0, 128),
+    padding: numberValue(
+      object.padding,
+      "padding",
+      LIMITS.minPadding,
+      LIMITS.maxPadding,
+    ),
     rotations: object.rotations.map((rotation, index) =>
       numberValue(rotation, `rotations[${index}]`, -180, 180),
     ),

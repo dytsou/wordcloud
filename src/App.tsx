@@ -13,6 +13,11 @@ import {
   type EditorState,
 } from "./app/editor-state";
 import {
+  clearCachedSource,
+  readCachedSource,
+  writeCachedSource,
+} from "./app/local-draft";
+import {
   decodeSnapshotFile,
   encodeSnapshotFile,
   SNAPSHOT_FILE_EXTENSION,
@@ -37,6 +42,7 @@ import {
 } from "./app/engine-client";
 import { renderScenePng } from "./render/png";
 import { renderSceneSvg } from "./render/svg";
+import { createGlyphSprites } from "./render/glyph-sprites";
 
 function measureWithCanvas(term: string, font: string): FontMetric {
   const canvas = document.createElement("canvas");
@@ -58,9 +64,27 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : "發生未知錯誤，請重新嘗試。";
 }
 
+function initialCachedSource(): string {
+  if (
+    typeof window !== "undefined" &&
+    window.location.hash.startsWith("#wc-pako:")
+  ) {
+    return "";
+  }
+  return readCachedSource();
+}
+
 export function App() {
-  const [state, setState] = useState<EditorState>(createInitialEditorState);
-  const [status, setStatus] = useState("準備就緒。原文只會留在這個瀏覽器裡。");
+  const [state, setState] = useState<EditorState>(() => {
+    const initial = createInitialEditorState();
+    const sourceText = initialCachedSource();
+    return sourceText ? { ...initial, mode: "source", sourceText } : initial;
+  });
+  const [status, setStatus] = useState(() =>
+    state.sourceText
+      ? "已從本機草稿還原原文；內容只留在這個瀏覽器裡。"
+      : "準備就緒。原文只會留在這個瀏覽器裡。",
+  );
   const [exporting, setExporting] = useState(false);
   const clientRef = useRef<EngineClient | null>(null);
   const generationRef = useRef(0);
@@ -113,9 +137,10 @@ export function App() {
     async (
       wordSet: NonNullable<EditorState["wordSet"]>,
       presentation: LayoutStyle,
+      shouldCancel: () => boolean,
     ) => {
       await waitForFonts(document.fonts);
-      return createFontMetricsTable(
+      const metrics = createFontMetricsTable(
         wordSet.words.map((word) => word.term),
         {
           id: presentation.fontFamily,
@@ -126,6 +151,12 @@ export function App() {
         16,
         measureWithCanvas,
       );
+      metrics.sprites = await createGlyphSprites(
+        wordSet,
+        presentation,
+        shouldCancel,
+      );
+      return metrics;
     },
     [],
   );
@@ -148,7 +179,11 @@ export function App() {
       }));
       setStatus("正在本機分頁排版⋯");
       try {
-        const metrics = await makeMetrics(wordSet, presentation);
+        const metrics = await makeMetrics(
+          wordSet,
+          presentation,
+          () => runId !== generationRef.current,
+        );
         let scene;
         if (clientRef.current) {
           try {
@@ -247,6 +282,7 @@ export function App() {
   const handleSourceChange = useCallback(
     (sourceText: string) => {
       invalidatePendingWork();
+      writeCachedSource(sourceText);
       setState((current) => ({
         ...current,
         mode: sourceText ? "source" : "empty",
@@ -498,6 +534,7 @@ export function App() {
       );
     }
     invalidatePendingWork();
+    clearCachedSource();
     setState(createInitialEditorState());
     setStatus("已開始新的文字雲，請輸入原文。 ");
   }, [invalidatePendingWork]);
