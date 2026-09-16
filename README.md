@@ -4,7 +4,7 @@ Wordcloud Studio is a local-first word-cloud generator for individual creators. 
 
 ## Privacy and data flow
 
-All source analysis, counting, font measurement, layout, rendering, and export happen in the browser. The Cloudflare Worker serves the static application and has no source-text API, database, KV, R2, analytics, or telemetry path. The browser layout engine uses a Web Worker when available and falls back to the same bounded core algorithm if it cannot start.
+All source analysis, counting, font measurement, layout, rendering, and export happen in the browser. The Cloudflare Worker serves the static application and has no source-text API, database, KV, R2, or application analytics. Cloudflare Workers Logs and tracing are enabled in `wrangler.toml` for platform-level invocation telemetry; the app emits no custom logs and does not send source text. The browser layout engine uses a Web Worker when available and falls back to the same bounded core algorithm if it cannot start.
 
 The V link uses the fixed fragment format `#wc-pako:v1:<payload>`:
 
@@ -50,6 +50,6 @@ pnpm run wrangler:dry-run
 pnpm run deploy
 ```
 
-Cloudflare Static Assets serves `dist` and uses SPA fallback for direct application paths. Configure Wrangler authentication before `pnpm run deploy`; v1 does not require a Worker binding or secret. The runtime capability gates are `Intl.Segmenter`, Canvas 2D, Web Worker, font readiness, SVG, Blob, and clipboard. Unsupported analysis capabilities produce an actionable local error; a valid V can still be opened when source analysis is unavailable.
+Cloudflare Static Assets serves `dist` and uses SPA fallback for direct application paths. Configure Wrangler authentication before `pnpm run deploy`; v1 does not require a Worker binding or secret. The committed `wrangler.toml` enables 100% sampled invocation logs and traces; see [Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/) and [Workers tracing](https://developers.cloudflare.com/workers/observability/traces/) for dashboard access and sampling guidance. Request metadata may still be recorded by Cloudflare, so V links are not secrets. The runtime capability gates are `Intl.Segmenter`, Canvas 2D, Web Worker, font readiness, SVG, Blob, and clipboard. Unsupported analysis capabilities produce an actionable local error; a valid V can still be opened when source analysis is unavailable.
 
 The repository keeps MCP integration deferred to the next implementation; v1 intentionally exposes no MCP endpoint or tool surface.
