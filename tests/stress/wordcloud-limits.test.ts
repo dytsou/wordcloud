@@ -50,6 +50,7 @@ describe("wordcloud safety budgets", () => {
     expect(tokenization.status).toBe("ok");
     const wordSet = buildWordSet(tokenization.tokens, {
       caseMode: "preserve",
+      caseInsensitive: false,
       locale: "en",
       tokenizerVersion: tokenization.tokenizerVersion,
     });

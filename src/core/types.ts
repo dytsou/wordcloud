@@ -30,6 +30,7 @@ export type TokenRule = ProtectedRule | SplitRule | MergeRule;
 export interface TokenizerSettings {
   locale: string;
   caseMode: CaseMode;
+  caseInsensitive: boolean;
   stopWords: string[];
   numberPolicy: NumberPolicy;
   symbolPolicy: SymbolPolicy;

@@ -52,6 +52,19 @@ describe("tokenize", () => {
     );
   });
 
+  it("matches stop words case-insensitively without changing displayed tokens", () => {
+    const result = tokenize("The THE Keep", {
+      ...DEFAULT_TOKENIZER_SETTINGS,
+      locale: "en",
+      caseMode: "preserve",
+      caseInsensitive: true,
+      stopWords: ["the"],
+    });
+
+    expect(result.tokens.map((token) => token.term)).toEqual(["Keep"]);
+    expect(result.filtered.map((token) => token.term)).toEqual(["The", "THE"]);
+  });
+
   it("honors protected, split, and merge literals without recursive expansion", () => {
     const result = tokenize(customRuleFixture, {
       ...DEFAULT_TOKENIZER_SETTINGS,

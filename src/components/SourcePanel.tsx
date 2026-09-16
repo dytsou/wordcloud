@@ -89,6 +89,17 @@ export function SourcePanel({
         <label className="check-label">
           <input
             type="checkbox"
+            checked={settings.caseInsensitive}
+            disabled={disabled}
+            onChange={(event) =>
+              update({ caseInsensitive: event.target.checked })
+            }
+          />
+          忽略大小寫
+        </label>
+        <label className="check-label">
+          <input
+            type="checkbox"
             checked={settings.numberPolicy === "include"}
             disabled={disabled}
             onChange={(event) =>
@@ -113,6 +124,9 @@ export function SourcePanel({
           保留符號
         </label>
       </div>
+      <p className="muted-note case-note">
+        忽略大小寫會將 Apple、apple、APPLE 合併計數，並保留首次出現的顯示樣式。
+      </p>
       <div className="field">
         <label className="field-label" htmlFor="stop-words">
           停用詞 <span>(用逗號或空白分隔)</span>

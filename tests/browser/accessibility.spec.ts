@@ -6,7 +6,7 @@ test("editor exposes labeled controls and a nonvisual word table", async ({
   await page.goto("/");
   await expect(page.getByLabel("原文")).toBeVisible();
   await expect(page.getByLabel("預設分詞 locale")).toBeVisible();
-  await expect(page.getByLabel("大小寫")).toBeVisible();
+  await expect(page.getByLabel("大小寫", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "產生文字雲" })).toBeVisible();
   await page.getByLabel("原文").fill("alpha alpha beta");
   await page.getByRole("button", { name: "產生文字雲" }).click();

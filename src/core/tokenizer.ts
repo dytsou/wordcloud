@@ -25,6 +25,7 @@ export const ICU_CAPABILITY_VERSION = "intl-segmenter-runtime-v1";
 export const DEFAULT_TOKENIZER_SETTINGS: TokenizerSettings = {
   locale: "zh-Hant",
   caseMode: "preserve",
+  caseInsensitive: false,
   stopWords: [],
   numberPolicy: "exclude",
   symbolPolicy: "exclude",
@@ -278,9 +279,18 @@ function normalizeTerm(
   return normalized;
 }
 
+function comparisonTerm(term: string, caseInsensitive: boolean): string {
+  return caseInsensitive ? term.toLocaleLowerCase() : term;
+}
+
 function normalizedStopWords(settings: TokenizerSettings): Set<string> {
   return new Set(
-    settings.stopWords.map((word) => normalizeTerm(word, settings.caseMode)),
+    settings.stopWords.map((word) =>
+      comparisonTerm(
+        normalizeTerm(word, settings.caseMode),
+        settings.caseInsensitive,
+      ),
+    ),
   );
 }
 
@@ -389,11 +399,12 @@ export function tokenize(
   const filtered: TokenizationResult["filtered"] = [];
   for (const token of applied.tokens) {
     const term = normalizeTerm(token.term, settings.caseMode);
+    const comparison = comparisonTerm(term, settings.caseInsensitive);
     let reason: TokenizationResult["filtered"][number]["reason"] | undefined;
     if (!term) reason = "empty";
     else if (scalarLength(term) > LIMITS.maxLiteralScalars)
       reason = "term-too-long";
-    else if (stopWords.has(term)) reason = "stop-word";
+    else if (stopWords.has(comparison)) reason = "stop-word";
     else if (settings.numberPolicy === "exclude" && isNumberOnly(term))
       reason = "number";
     else if (settings.symbolPolicy === "exclude" && !hasLetterOrNumber(term))
@@ -423,7 +434,13 @@ export function tokenize(
     };
   }
 
-  if (new Set(tokens.map((token) => token.term)).size > LIMITS.maxUniqueTerms) {
+  if (
+    new Set(
+      tokens.map((token) =>
+        comparisonTerm(token.term, settings.caseInsensitive),
+      ),
+    ).size > LIMITS.maxUniqueTerms
+  ) {
     return emptyResult("error", [
       diagnostic(
         "UNIQUE_TERM_LIMIT",

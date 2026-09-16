@@ -3,6 +3,7 @@ import type { Token, Word, WordSet } from "./types";
 
 interface WordModelSettings {
   caseMode: "preserve" | "lower" | "upper";
+  caseInsensitive: boolean;
   locale: string;
   tokenizerVersion: string;
 }
@@ -37,7 +38,8 @@ export function buildWordSet(
   for (const [index, token] of tokens.entries()) {
     const term = normalizeTerm(token.term, settings.caseMode);
     if (!term) continue;
-    const existing = byTerm.get(term);
+    const key = settings.caseInsensitive ? term.toLocaleLowerCase() : term;
+    const existing = byTerm.get(key);
     if (existing) {
       existing.count += 1;
       continue;
@@ -45,7 +47,7 @@ export function buildWordSet(
     if (byTerm.size >= LIMITS.maxUniqueTerms) {
       throw new Error(`UNIQUE_TERM_LIMIT: ${LIMITS.maxUniqueTerms}`);
     }
-    byTerm.set(term, {
+    byTerm.set(key, {
       term,
       count: 1,
       firstSeen: token.sourceIndex ?? index,

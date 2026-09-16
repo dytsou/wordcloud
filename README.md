@@ -18,7 +18,7 @@ The latest source draft is kept in this browser's versioned `localStorage` cache
 
 ## Tokenization and ranking
 
-The selected locale is the default lane for `Intl.Segmenter`; mixed scripts are routed to fixed English, Traditional/Simplified Han, Japanese, or Thai lanes. Users can normalize case, keep numbers/symbols, add stop words, protect a dictionary phrase, split a literal into terms, or merge a literal sequence into one term. Rules are validated for length, conflicts, cycles, and count before analysis.
+The selected locale is the default lane for `Intl.Segmenter`; mixed scripts are routed to fixed English, Traditional/Simplified Han, Japanese, or Thai lanes. Users can normalize case, or enable **忽略大小寫** to count `Apple`, `apple`, and `APPLE` as one word while keeping the first spelling for display. Stop-word matching follows the same setting. Users can also keep numbers/symbols, add stop words, protect a dictionary phrase, split a literal into terms, or merge a literal sequence into one term. Rules are validated for length, conflicts, cycles, and count before analysis.
 
 The word size is a visual mapping of frequency, not a second count. By default it uses a square-root scale between the configured minimum and maximum font sizes; linear and logarithmic mappings are also available. Ranking is deterministic: count descending, first occurrence ascending, then normalized Unicode scalar order. Ranks are one-based and preserved in the table, SceneModel, SVG metadata, PNG render plan, and V snapshot.
 

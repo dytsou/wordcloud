@@ -256,6 +256,7 @@ export function App() {
     try {
       const wordSet = buildWordSet(result.tokens, {
         caseMode: state.settings.caseMode,
+        caseInsensitive: state.settings.caseInsensitive,
         locale: state.settings.locale,
         tokenizerVersion: result.tokenizerVersion,
       });
