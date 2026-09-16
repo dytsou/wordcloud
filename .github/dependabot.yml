@@ -1,0 +1,57 @@
+version: 2
+updates:
+  # Dependabot uses the npm ecosystem key for pnpm projects.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+    groups:
+      runtime:
+        patterns:
+          - "pako"
+          - "react"
+          - "react-dom"
+      cloudflare:
+        patterns:
+          - "@cloudflare/*"
+          - "wrangler"
+      build:
+        patterns:
+          - "@vitejs/*"
+          - "vite"
+          - "vitest"
+          - "@playwright/test"
+      quality:
+        patterns:
+          - "@eslint/*"
+          - "eslint"
+          - "prettier"
+          - "typescript"
+          - "typescript-eslint"
+      types:
+        patterns:
+          - "@types/*"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+    assignees:
+      - "dytsou"
+
+  # Keep pinned GitHub Actions references current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+    assignees:
+      - "dytsou"
