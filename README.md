@@ -26,11 +26,13 @@ The Worker exposes an authless, stateless Streamable HTTP MCP endpoint at `/mcp`
 
 The inspect and render tools accept only the V representation; they do not fetch remote URLs. The generator is the explicit exception: `sourceText` is sent to the Worker for this request, is not written into the V fragment, and is not returned as a separate field. The SVG, summary, and V-derived records necessarily contain the resulting terms. Because the endpoint is public, do not use it for sensitive word lists until an authentication layer is added.
 
+The machine-readable HTTP and JSON-RPC contract is available in [`openapi.yaml`](openapi.yaml), including request examples, tool input schemas, response schemas, limits, and error behavior.
+
 ## Tokenization and ranking
 
 The selected locale is the default lane for `Intl.Segmenter`; mixed scripts are routed to fixed English, Traditional/Simplified Han, Japanese, or Thai lanes. Users can normalize case, keep numbers/symbols, add stop words, protect a dictionary phrase, split a literal into terms, or merge a literal sequence into one term. Rules are validated for length, conflicts, cycles, and count before analysis.
 
-The word size is a visual mapping of frequency, not a second count. By default it uses a square-root scale between the configured minimum and maximum font sizes; linear and logarithmic mappings are also available. Ranking is deterministic: count descending, first occurrence ascending, then normalized Unicode scalar order. Ranks are one-based and preserved in the table, SceneModel, SVG metadata, PNG render plan, and V snapshot.
+The word size is a visual mapping of frequency, not a second count. By default it uses a linear scale between the configured minimum and maximum font sizes; square-root and logarithmic mappings are also available. Ranking is deterministic: count descending, first occurrence ascending, then normalized Unicode scalar order. Ranks are one-based and preserved in the table, SceneModel, SVG metadata, PNG render plan, and V snapshot.
 
 Placement processes words from highest to lowest frequency. Prominent words stay horizontal; smaller words try horizontal positions first, then the configured tilt angles inside the current search ring before moving outward. Browser-rasterized glyph masks let small words occupy empty spaces inside and between large glyphs, rather than reserving their entire rectangles. The spacing control ranges from `-12px` to `24px`: non-negative values protect painted strokes; negative values erode collision masks and deliberately permit overlap (thin strokes can lose their exclusion area entirely).
 
@@ -57,8 +59,12 @@ pnpm run dev
 pnpm run test
 pnpm run test:browser
 pnpm run build
+pnpm run api:lint
+pnpm run api:build
 pnpm run wrangler:dry-run
 pnpm run deploy
 ```
+
+`pnpm run api:lint` validates the OpenAPI 3.1 contract, and `pnpm run api:build` bundles it into one `dist/client/api/openapi.yaml` file and generates a self-hosted Swagger UI at `dist/client/api/index.html`. CI runs both steps after the application checks pass; the post-CI deployment then publishes them with the existing Worker Static Assets deployment. After deployment, open `https://<worker-origin>/api/` for the online API reference or `https://<worker-origin>/api/openapi.yaml` for the compiled contract.
 
 Cloudflare Static Assets serves `dist` through the `ASSETS` binding and uses SPA fallback for direct application paths; `/mcp` is handled by the custom Worker. Configure Wrangler authentication before `pnpm run deploy`; the app does not require storage bindings or secrets. The runtime capability gates are `Intl.Segmenter`, Canvas 2D, Web Worker, font readiness, SVG, Blob, and clipboard. Unsupported analysis capabilities produce an actionable local error; a valid V can still be opened when source analysis is unavailable.

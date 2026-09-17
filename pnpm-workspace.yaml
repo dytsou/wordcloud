@@ -1,4 +1,7 @@
 allowBuilds:
+  '@scarf/scarf': false
   esbuild: true
   sharp: true
   workerd: true
+minimumReleaseAgeExclude:
+  - '@redocly/cli@2.53.3'

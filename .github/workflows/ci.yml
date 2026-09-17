@@ -49,8 +49,19 @@ jobs:
       - name: Build application
         run: pnpm run build
 
+      - name: Validate OpenAPI contract
+        run: pnpm run api:lint
+
+      - name: Generate online API documentation
+        run: pnpm run api:build
+
       - name: Validate Wrangler deployment
         run: pnpm run wrangler:dry-run
+
+      - name: Verify generated API documentation
+        run: |
+          test -f dist/client/api/index.html
+          test -f dist/client/api/openapi.yaml
 
       - name: Upload build artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

@@ -55,12 +55,14 @@ jobs:
 
       - name: Build manual deployment
         if: github.event_name == 'workflow_dispatch'
-        run: pnpm run build
+        run: pnpm run build:all
 
       - name: Verify deployment artifact
         run: |
-          test -f dist/index.html
-          test -f dist/wrangler.json
+          test -f dist/client/index.html
+          test -f dist/wordcloud/wrangler.json
+          test -f dist/client/api/index.html
+          test -f dist/client/api/openapi.yaml
 
       - name: Validate deployment artifact
         run: pnpm run wrangler:dry-run

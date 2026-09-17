@@ -33,6 +33,9 @@ importers:
       '@playwright/test':
         specifier: 1.55.0
         version: 1.55.0
+      '@redocly/cli':
+        specifier: 2.53.3
+        version: 2.53.3
       '@types/node':
         specifier: 24.5.0
         version: 24.5.0
@@ -54,6 +57,9 @@ importers:
       prettier:
         specifier: 3.6.2
         version: 3.6.2
+      swagger-ui-dist:
+        specifier: 5.33.0
+        version: 5.33.0
       typescript:
         specifier: 5.9.2
         version: 5.9.2
@@ -740,6 +746,11 @@ packages:
   '@poppinss/exception@1.2.3':
     resolution: {integrity: sha512-dCED+QRChTVatE9ibtoaxc+WkdzOSjYTKi/+uacHWIsfodVfpsueo3+DKpgU5Px8qXjgmXkSvhXvSCz3fnP9lw==}
 
+  '@redocly/cli@2.53.3':
+    resolution: {integrity: sha512-hzNAWzHCOZ05vwRx0ehTxNeJaxxizjGV505eKtfs9MR/8ieD/8lYhAK4GF5FaqRRwOEpLO0PvzQwBSKYXmxhRA==}
+    engines: {node: '>=22.12.0 || >=20.19.0 <21.0.0', npm: '>=10'}
+    hasBin: true
+
   '@remix-run/node-fetch-server@0.8.1':
     resolution: {integrity: sha512-J1dev372wtJqmqn9U/qbpbZxbJSQrogNN2+Qv1lKlpATpe/WQ9aCZfl/xSb9d2Rgh1IyLSvNxZAXPZxruO6Xig==}
 
@@ -883,6 +894,9 @@ packages:
     resolution: {integrity: sha512-6NHnk/K3eq2ZFYcU1X8g67s9qIJRCOTT92gwLMVBp08dB2uuuwI1/Q/empzL2Bfr2f2WRLJVwpp90RmacQyFkw==}
     cpu: [x64]
     os: [win32]
+
+  '@scarf/scarf@1.4.0':
+    resolution: {integrity: sha512-xxeapPiUXdZAE3che6f3xogoJPeZgig6omHEy1rIY5WVsB3H2BHNnZH+gHG6x91SCWyQCzWGsuL2Hh3ClO5/qQ==}
 
   '@sindresorhus/is@7.2.0':
     resolution: {integrity: sha512-P1Cz1dWaFfR4IR+U13mqqiGsLFf1KbayybWwdd2vfctdV6hDpUkgCY0nKOLLTMSoRd/jJNjtbqzf13K8DCCXQw==}
@@ -1580,6 +1594,9 @@ packages:
   supports-color@7.2.0:
     resolution: {integrity: sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw==}
     engines: {node: '>=8'}
+
+  swagger-ui-dist@5.33.0:
+    resolution: {integrity: sha512-wpdK+m6BU5yj6pmUdMskZVTSWYG4DLglAx3sIhylloY37i8O37IrH+YEpqdXNfpaTGxILRBFzUqLF2jKqbfI7A==}
 
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
@@ -2287,6 +2304,8 @@ snapshots:
 
   '@poppinss/exception@1.2.3': {}
 
+  '@redocly/cli@2.53.3': {}
+
   '@remix-run/node-fetch-server@0.8.1': {}
 
   '@rolldown/pluginutils@1.0.0-beta.38': {}
@@ -2365,6 +2384,8 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.63.2':
     optional: true
+
+  '@scarf/scarf@1.4.0': {}
 
   '@sindresorhus/is@7.2.0': {}
 
@@ -3132,6 +3153,10 @@ snapshots:
   supports-color@7.2.0:
     dependencies:
       has-flag: 4.0.0
+
+  swagger-ui-dist@5.33.0:
+    dependencies:
+      '@scarf/scarf': 1.4.0
 
   tinybench@2.9.0: {}
 

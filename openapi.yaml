@@ -1,0 +1,820 @@
+openapi: 3.1.0
+info:
+  title: Wordcloud MCP API
+  version: 0.1.0
+  description: |
+    OpenAPI description of Wordcloud Studio's stateless Streamable HTTP MCP
+    endpoint. The endpoint uses JSON-RPC 2.0 messages in the request body;
+    tools are invoked with the tools/call method rather than separate REST
+    paths.
+
+    The endpoint is currently public and does not require authentication.
+    wordcloud-generate-from-text is the only tool that accepts raw source
+    text. It analyzes that text in memory for the request and returns derived
+    terms, SVG, and a reproducible V fragment. Do not send sensitive text.
+  contact:
+    name: Wordcloud Studio
+servers:
+  - url: /
+    description: Current origin for the deployed or local Worker
+  - url: https://{workerHost}
+    description: Deployed Cloudflare Worker
+    variables:
+      workerHost:
+        default: wordcloud.example
+        description: Worker hostname
+security: []
+tags:
+  - name: MCP
+    description: JSON-RPC transport and Wordcloud MCP tools
+paths:
+  /mcp:
+    options:
+      tags: [MCP]
+      summary: CORS preflight
+      operationId: mcpCorsPreflight
+      responses:
+        "204":
+          description: Preflight accepted. The response includes the CORS headers used by the MCP endpoint.
+          headers:
+            Access-Control-Allow-Origin:
+              $ref: "#/components/headers/AccessControlAllowOrigin"
+            Access-Control-Allow-Methods:
+              $ref: "#/components/headers/AccessControlAllowMethods"
+            Access-Control-Allow-Headers:
+              $ref: "#/components/headers/AccessControlAllowHeaders"
+    post:
+      tags: [MCP]
+      summary: Send a JSON-RPC MCP message
+      description: |
+        Send an MCP initialize request, tool-list request, or tool-call request.
+        A successful HTTP response is normally 200; a tool validation or
+        execution failure is represented by result.isError: true inside the
+        JSON-RPC result. Depending on the client's Accept header, the MCP
+        server can return JSON or an SSE stream whose data: event contains the
+        same JSON-RPC response.
+
+        Every request is stateless. The Worker routes only /mcp to the MCP
+        handler and serves the application assets on other paths.
+      operationId: mcpMessage
+      parameters:
+        - $ref: "#/components/parameters/Accept"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpRequest"
+            examples:
+              initialize:
+                summary: Initialize the MCP connection
+                value:
+                  jsonrpc: "2.0"
+                  id: 1
+                  method: initialize
+                  params:
+                    protocolVersion: "2025-11-25"
+                    capabilities: {}
+                    clientInfo:
+                      name: example-client
+                      version: 1.0.0
+              listTools:
+                summary: Discover the available tools
+                value:
+                  jsonrpc: "2.0"
+                  id: 2
+                  method: tools/list
+                  params: {}
+              generateFromText:
+                summary: Generate a V fragment and SVG from source text
+                value:
+                  jsonrpc: "2.0"
+                  id: 3
+                  method: tools/call
+                  params:
+                    name: wordcloud-generate-from-text
+                    arguments:
+                      sourceText: Apple apple Cloudflare Workers
+                      locale: en
+                      caseInsensitive: true
+                      dictionary:
+                        - Cloudflare Workers
+                      stopWords:
+                        - the
+                      style:
+                        canvas:
+                          width: 1000
+                          height: 650
+                        scale: linear
+                        padding: 0
+                        rotations: [0, -35, 35]
+                        palette:
+                          - "#aa5948"
+                          - "#27384a"
+                          - "#5c6876"
+                          - "#b86b58"
+              inspect:
+                summary: Inspect a previously generated V
+                value:
+                  jsonrpc: "2.0"
+                  id: 4
+                  method: tools/call
+                  params:
+                    name: wordcloud-inspect
+                    arguments:
+                      vUrl: "https://wordcloud.example/#wc-pako:v1:<url-safe-base64>"
+                      limit: 20
+              renderSvg:
+                summary: Render a previously generated V as SVG
+                value:
+                  jsonrpc: "2.0"
+                  id: 5
+                  method: tools/call
+                  params:
+                    name: wordcloud-render-svg
+                    arguments:
+                      vUrl: "#wc-pako:v1:<url-safe-base64>"
+                      title: Wordcloud preview
+                      description: Rendered from a validated V snapshot
+      responses:
+        "200":
+          description: JSON-RPC response, or an SSE stream containing one.
+          headers:
+            Access-Control-Allow-Origin:
+              $ref: "#/components/headers/AccessControlAllowOrigin"
+            Mcp-Session-Id:
+              $ref: "#/components/headers/McpSessionId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/McpResponse"
+            text/event-stream:
+              schema:
+                type: string
+                description: "SSE stream. Parse the JSON-RPC response from a data: event."
+        "400":
+          description: The request body could not be read, or the MCP transport rejected the message.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+              example:
+                error: MCP request body could not be read.
+        "413":
+          description: The complete MCP request body exceeds 64 KiB.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HttpError"
+              example:
+                error: MCP request body is too large.
+components:
+  parameters:
+    Accept:
+      name: Accept
+      in: header
+      required: false
+      description: Prefer JSON and allow the MCP server's SSE response mode.
+      schema:
+        type: string
+        default: application/json, text/event-stream
+        example: application/json, text/event-stream
+  headers:
+    AccessControlAllowOrigin:
+      description: CORS policy for the public endpoint.
+      schema:
+        type: string
+        const: "*"
+    AccessControlAllowMethods:
+      description: Methods allowed for CORS requests.
+      schema:
+        type: string
+        example: GET, POST, DELETE, OPTIONS
+    AccessControlAllowHeaders:
+      description: Request headers allowed by CORS.
+      schema:
+        type: string
+        example: Accept, Content-Type, Last-Event-Id, Mcp-Method, Mcp-Name, Mcp-Protocol-Version, Mcp-Session-Id
+    McpSessionId:
+      description: Optional MCP session identifier exposed by the transport. This Worker runs statelessly.
+      schema:
+        type: string
+  schemas:
+    JsonRpcId:
+      description: JSON-RPC request identifier.
+      oneOf:
+        - type: string
+        - type: integer
+    JsonRpcRequestBase:
+      type: object
+      required: [jsonrpc, id, method]
+      properties:
+        jsonrpc:
+          type: string
+          const: "2.0"
+        id:
+          $ref: "#/components/schemas/JsonRpcId"
+        method:
+          type: string
+      additionalProperties: true
+    InitializeRequest:
+      allOf:
+        - $ref: "#/components/schemas/JsonRpcRequestBase"
+        - type: object
+          required: [params]
+          properties:
+            method:
+              type: string
+              const: initialize
+            params:
+              $ref: "#/components/schemas/InitializeParams"
+    InitializeParams:
+      type: object
+      required: [protocolVersion, capabilities, clientInfo]
+      properties:
+        protocolVersion:
+          type: string
+          description: MCP protocol version selected by the client.
+          example: "2025-11-25"
+        capabilities:
+          type: object
+          additionalProperties: true
+          example: {}
+        clientInfo:
+          type: object
+          required: [name, version]
+          properties:
+            name:
+              type: string
+            version:
+              type: string
+          additionalProperties: true
+      additionalProperties: true
+    ToolsListRequest:
+      allOf:
+        - $ref: "#/components/schemas/JsonRpcRequestBase"
+        - type: object
+          properties:
+            method:
+              type: string
+              const: tools/list
+            params:
+              type: object
+              additionalProperties: true
+      description: params may be omitted by a client; an empty object is shown in the example.
+    ToolsCallRequest:
+      allOf:
+        - $ref: "#/components/schemas/JsonRpcRequestBase"
+        - type: object
+          required: [params]
+          properties:
+            method:
+              type: string
+              const: tools/call
+            params:
+              $ref: "#/components/schemas/ToolCallParameters"
+    McpRequest:
+      description: Supported JSON-RPC 2.0 MCP request shapes for this endpoint.
+      oneOf:
+        - $ref: "#/components/schemas/InitializeRequest"
+        - $ref: "#/components/schemas/ToolsListRequest"
+        - $ref: "#/components/schemas/ToolsCallRequest"
+    ToolCallParameters:
+      description: Tool name and arguments. The three variants keep the selected tool correlated with its input schema.
+      oneOf:
+        - $ref: "#/components/schemas/GenerateToolCallParameters"
+        - $ref: "#/components/schemas/InspectToolCallParameters"
+        - $ref: "#/components/schemas/RenderToolCallParameters"
+    GenerateToolCallParameters:
+      type: object
+      required: [name, arguments]
+      properties:
+        name:
+          type: string
+          const: wordcloud-generate-from-text
+        arguments:
+          $ref: "#/components/schemas/GenerateFromTextInput"
+      additionalProperties: false
+    InspectToolCallParameters:
+      type: object
+      required: [name, arguments]
+      properties:
+        name:
+          type: string
+          const: wordcloud-inspect
+        arguments:
+          $ref: "#/components/schemas/InspectInput"
+      additionalProperties: false
+    RenderToolCallParameters:
+      type: object
+      required: [name, arguments]
+      properties:
+        name:
+          type: string
+          const: wordcloud-render-svg
+        arguments:
+          $ref: "#/components/schemas/RenderSvgInput"
+      additionalProperties: false
+    JsonRpcResponseBase:
+      type: object
+      required: [jsonrpc, id]
+      properties:
+        jsonrpc:
+          type: string
+          const: "2.0"
+        id:
+          $ref: "#/components/schemas/JsonRpcId"
+      additionalProperties: true
+    InitializeResponse:
+      allOf:
+        - $ref: "#/components/schemas/JsonRpcResponseBase"
+        - type: object
+          required: [result]
+          properties:
+            result:
+              $ref: "#/components/schemas/InitializeResult"
+    InitializeResult:
+      type: object
+      required: [protocolVersion, capabilities, serverInfo]
+      properties:
+        protocolVersion:
+          type: string
+        capabilities:
+          type: object
+          properties:
+            tools:
+              type: object
+              additionalProperties: true
+          additionalProperties: true
+        serverInfo:
+          type: object
+          required: [name, version]
+          properties:
+            name:
+              type: string
+              example: wordcloud
+            version:
+              type: string
+              example: 0.1.0
+          additionalProperties: true
+        instructions:
+          type: string
+      additionalProperties: true
+    ToolsListResponse:
+      allOf:
+        - $ref: "#/components/schemas/JsonRpcResponseBase"
+        - type: object
+          required: [result]
+          properties:
+            result:
+              $ref: "#/components/schemas/ToolsListResult"
+    ToolsListResult:
+      type: object
+      required: [tools]
+      properties:
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolDescriptor"
+      additionalProperties: true
+    ToolDescriptor:
+      type: object
+      required: [name, description, inputSchema]
+      properties:
+        name:
+          type: string
+          enum:
+            - wordcloud-generate-from-text
+            - wordcloud-inspect
+            - wordcloud-render-svg
+        title:
+          type: string
+        description:
+          type: string
+        inputSchema:
+          type: object
+          description: JSON Schema generated by the MCP server for the selected tool.
+          additionalProperties: true
+      additionalProperties: true
+    ToolCallResponse:
+      allOf:
+        - $ref: "#/components/schemas/JsonRpcResponseBase"
+        - type: object
+          required: [result]
+          properties:
+            result:
+              $ref: "#/components/schemas/ToolCallResult"
+    ToolCallResult:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: array
+          description: MCP content blocks. These tools return text blocks.
+          items:
+            $ref: "#/components/schemas/TextContent"
+        isError:
+          type: boolean
+          default: false
+          description: True when tool validation or execution failed; this is still normally an HTTP 200 response.
+        structuredContent:
+          oneOf:
+            - $ref: "#/components/schemas/GeneratedWordcloud"
+            - $ref: "#/components/schemas/SnapshotSummary"
+      additionalProperties: true
+    TextContent:
+      type: object
+      required: [type, text]
+      properties:
+        type:
+          type: string
+          const: text
+        text:
+          type: string
+      additionalProperties: false
+    JsonRpcErrorResponse:
+      allOf:
+        - $ref: "#/components/schemas/JsonRpcResponseBase"
+        - type: object
+          required: [error]
+          properties:
+            error:
+              $ref: "#/components/schemas/JsonRpcError"
+    JsonRpcError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data: {}
+      additionalProperties: true
+    McpResponse:
+      description: JSON-RPC response returned by the MCP transport.
+      oneOf:
+        - $ref: "#/components/schemas/InitializeResponse"
+        - $ref: "#/components/schemas/ToolsListResponse"
+        - $ref: "#/components/schemas/ToolCallResponse"
+        - $ref: "#/components/schemas/JsonRpcErrorResponse"
+    HttpError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+      additionalProperties: false
+    GenerateFromTextInput:
+      type: object
+      required: [sourceText]
+      properties:
+        sourceText:
+          type: string
+          minLength: 1
+          maxLength: 32768
+          x-utf8-maxBytes: 32768
+          description: Source text analyzed only for this request. The effective limit is 32 KiB in UTF-8 bytes.
+        locale:
+          type: string
+          enum: [en, zh-Hant, zh-Hans, ja, th]
+          default: zh-Hant
+          description: Default segmentation lane for Intl.Segmenter.
+        caseMode:
+          type: string
+          enum: [preserve, lower, upper]
+          default: preserve
+          description: Normalization applied before counting.
+        caseInsensitive:
+          type: boolean
+          default: false
+          description: Merge equivalent case variants for counting while retaining the first display form.
+        stopWords:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/SafeLiteral"
+          default: []
+          description: Terms removed after tokenization.
+        dictionary:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/SafeLiteral"
+          default: []
+          description: Multi-word phrases protected as one term.
+        rules:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/TokenRule"
+          default: []
+          description: Explicit protected, split, or merge tokenization rules.
+        numberPolicy:
+          type: string
+          enum: [exclude, include]
+          default: exclude
+        symbolPolicy:
+          type: string
+          enum: [exclude, include]
+          default: exclude
+        style:
+          $ref: "#/components/schemas/StyleInput"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Optional accessible SVG title. Control and bidirectional override characters are rejected.
+        description:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Optional accessible SVG description. Control and bidirectional override characters are rejected.
+      additionalProperties: false
+    InspectInput:
+      type: object
+      required: [vUrl]
+      properties:
+        vUrl:
+          $ref: "#/components/schemas/VUrl"
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+          description: Number of ranked words to return in topWords.
+      additionalProperties: false
+    RenderSvgInput:
+      type: object
+      required: [vUrl]
+      properties:
+        vUrl:
+          $ref: "#/components/schemas/VUrl"
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 500
+      additionalProperties: false
+    VUrl:
+      type: string
+      minLength: 1
+      maxLength: 12288
+      x-utf8-maxBytes: 12288
+      description: Existing HTTP(S) URL containing a #wc-pako:v1: fragment, or the fragment itself. It is parsed locally; no remote URL is fetched. The encoded fragment itself is limited to 8 KiB.
+      examples:
+        - "https://wordcloud.example/#wc-pako:v1:<url-safe-base64>"
+        - "#wc-pako:v1:<url-safe-base64>"
+    SafeLiteral:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: Non-empty literal of at most 128 Unicode scalars without control or bidirectional override characters.
+    TokenRule:
+      oneOf:
+        - $ref: "#/components/schemas/ProtectedRule"
+        - $ref: "#/components/schemas/SplitRule"
+        - $ref: "#/components/schemas/MergeRule"
+    RuleBase:
+      type: object
+      required: [id, kind]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        kind:
+          type: string
+        priority:
+          type: integer
+          minimum: -1000
+          maximum: 1000
+          description: Optional rule ordering priority.
+      additionalProperties: true
+    ProtectedRule:
+      allOf:
+        - $ref: "#/components/schemas/RuleBase"
+        - type: object
+          required: [phrase]
+          properties:
+            kind:
+              type: string
+              const: protected
+            phrase:
+              $ref: "#/components/schemas/SafeLiteral"
+    SplitRule:
+      allOf:
+        - $ref: "#/components/schemas/RuleBase"
+        - type: object
+          required: [source, terms]
+          properties:
+            kind:
+              type: string
+              const: split
+            source:
+              $ref: "#/components/schemas/SafeLiteral"
+            terms:
+              type: array
+              minItems: 1
+              maxItems: 16
+              items:
+                $ref: "#/components/schemas/SafeLiteral"
+    MergeRule:
+      allOf:
+        - $ref: "#/components/schemas/RuleBase"
+        - type: object
+          required: [source, term]
+          properties:
+            kind:
+              type: string
+              const: merge
+            source:
+              $ref: "#/components/schemas/SafeLiteral"
+            term:
+              $ref: "#/components/schemas/SafeLiteral"
+    StyleInput:
+      type: object
+      properties:
+        canvas:
+          $ref: "#/components/schemas/Canvas"
+        minFontSize:
+          type: number
+          minimum: 1
+          maximum: 512
+          default: 8
+        maxFontSize:
+          type: number
+          minimum: 1
+          maximum: 512
+          default: 128
+        scale:
+          type: string
+          enum: [sqrt, linear, log]
+          default: linear
+          description: Frequency-to-font-size mapping.
+        padding:
+          type: number
+          minimum: -12
+          maximum: 128
+          default: 0
+          description: Collision padding in pixels. Negative values intentionally erode the collision mask and may permit slight overlap.
+        rotations:
+          type: array
+          maxItems: 16
+          items:
+            type: number
+            minimum: -120
+            maximum: 120
+          default: [0, -35, 35]
+          description: Candidate angles in degrees. Larger words prefer 0 degrees; smaller words use configured tilts when horizontal placement does not fit.
+        palette:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items:
+            $ref: "#/components/schemas/HexColor"
+          default: ["#aa5948", "#27384a", "#5c6876", "#b86b58"]
+        background:
+          $ref: "#/components/schemas/HexColor"
+          default: "#edf2f4"
+        fontFamily:
+          type: string
+          minLength: 1
+          maxLength: 128
+          default: "Noto Sans CJK TC, system-ui"
+          description: Safe CSS font-family value.
+        seed:
+          type: string
+          minLength: 1
+          maxLength: 128
+          default: wordcloud-studio-v1
+        version:
+          type: string
+          minLength: 1
+          maxLength: 64
+          default: layout-v1
+      additionalProperties: false
+    Canvas:
+      type: object
+      properties:
+        width:
+          type: integer
+          minimum: 1
+          maximum: 4096
+          default: 1000
+        height:
+          type: integer
+          minimum: 1
+          maximum: 4096
+          default: 650
+      additionalProperties: false
+      description: Canvas dimensions. The area must not exceed 16,000,000 pixels.
+    HexColor:
+      type: string
+      pattern: "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$"
+      description: Six- or eight-digit hexadecimal color, including the leading #.
+      examples: ["#aa5948", "#112233cc"]
+    GeneratedWordcloud:
+      type: object
+      required: [vFragment, svg, summary]
+      properties:
+        vFragment:
+          type: string
+          pattern: "^#wc-pako:v1:"
+          description: Reproducible V fragment containing normalized terms, counts, ranks, style, and derived placements, but not raw source text or editable rule bodies.
+        svg:
+          type: string
+          description: Escaped SVG text rendered from the generated SceneModel.
+        summary:
+          $ref: "#/components/schemas/SnapshotSummary"
+      additionalProperties: false
+    SnapshotSummary:
+      type: object
+      required:
+        - schemaVersion
+        - codecVersion
+        - tokenizerVersion
+        - layoutVersion
+        - sceneVersion
+        - locale
+        - totalTokens
+        - wordCount
+        - placedCount
+        - unplaceableCount
+        - budgetLimitedCount
+        - layoutStatus
+        - canvas
+        - topWords
+      properties:
+        schemaVersion:
+          type: string
+          const: wc-snapshot-v1
+        codecVersion:
+          type: string
+          const: wc-pako-v1
+        tokenizerVersion:
+          type: string
+          example: wc-tokenizer-v1
+        layoutVersion:
+          type: string
+          example: layout-v1
+        sceneVersion:
+          type: string
+          const: scene-v1
+        locale:
+          type: string
+        totalTokens:
+          type: integer
+          minimum: 0
+        wordCount:
+          type: integer
+          minimum: 0
+          maximum: 500
+        placedCount:
+          type: integer
+          minimum: 0
+        unplaceableCount:
+          type: integer
+          minimum: 0
+        budgetLimitedCount:
+          type: integer
+          minimum: 0
+        layoutStatus:
+          type: string
+          enum: [complete, budget-limited, cancelled]
+        canvas:
+          $ref: "#/components/schemas/Canvas"
+        topWords:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/SnapshotWordSummary"
+      additionalProperties: false
+    SnapshotWordSummary:
+      type: object
+      required: [term, count, rank, locale, fontSize, angle, status]
+      properties:
+        term:
+          type: string
+        count:
+          type: integer
+          minimum: 1
+        rank:
+          type: integer
+          minimum: 1
+          maximum: 500
+        locale:
+          type: string
+        fontSize:
+          type: number
+        angle:
+          type: number
+          minimum: -180
+          maximum: 180
+        status:
+          type: string
+          enum: [placed, unplaceable, budget-limited]
+        reason:
+          type: string
+          enum: [no-fit, probe-budget, cancelled, invalid-canvas]
+      additionalProperties: false
