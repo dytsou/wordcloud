@@ -568,42 +568,6 @@ input[type="checkbox"] {
   color: #9b4f26;
 }
 
-.rule-list {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.rule-row {
-  display: grid;
-  grid-template-columns: 1.55rem minmax(0, 1fr) 2rem;
-  gap: 0.4rem;
-  align-items: start;
-  padding: 0.5rem;
-  border: 1px solid rgb(23 32 42 / 10%);
-  border-radius: 0.65rem;
-  background: rgb(255 252 243 / 44%);
-}
-
-.rule-index {
-  padding-top: 0.55rem;
-  color: var(--coral-dark);
-  font-size: 0.65rem;
-  font-weight: 800;
-}
-
-.rule-fields {
-  display: grid;
-  gap: 0.4rem;
-}
-
-.rule-fields input,
-.rule-fields select {
-  min-height: 2.15rem;
-  padding: 0.38rem 0.5rem;
-  font-size: 0.75rem;
-}
-
-.icon-button,
 .text-button,
 .zoom-control button {
   border: 0;
@@ -611,21 +575,12 @@ input[type="checkbox"] {
   background: transparent;
 }
 
-.icon-button {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  font-size: 1.2rem;
-}
-
-.icon-button:hover,
 .text-button:hover,
 .zoom-control button:hover {
   color: var(--coral-dark);
   background: rgb(239 109 95 / 10%);
 }
 
-.rule-add-row,
 .share-actions,
 .file-actions {
   display: flex;
@@ -635,10 +590,151 @@ input[type="checkbox"] {
   margin-top: 0.8rem;
 }
 
-.rule-add-row select {
-  flex: 1 1 9rem;
-  min-height: 2.3rem;
+.precision-disclosure {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 0.75rem 0;
+  border: 0;
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+}
+
+.precision-disclosure > span:first-child {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.precision-disclosure strong {
+  font-size: 0.8rem;
+}
+
+.precision-disclosure small {
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  font-weight: 400;
+}
+
+.precision-disclosure-mark {
+  display: grid;
+  width: 1.65rem;
+  height: 1.65rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--coral-dark);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.precision-disclosure:hover,
+.precision-disclosure:focus-visible {
+  color: var(--coral-dark);
+}
+
+.precision-disclosure:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 3px;
+}
+
+.precision-rules {
+  display: grid;
+  gap: 1rem;
+  padding-top: 1rem;
+}
+
+.precision-rules[hidden] {
+  display: none;
+}
+
+.precision-group {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.precision-group-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.precision-group-heading h3 {
+  margin: 0;
+  color: var(--blue);
+  font-size: 0.78rem;
+}
+
+.precision-group-heading p {
+  max-width: 34rem;
+  margin: 0.2rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.precision-add {
+  min-height: 2.1rem;
+  flex: 0 0 auto;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.68rem;
+}
+
+.precision-group-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.precision-rule {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  align-items: end;
+  padding: 0.65rem;
+  border: 1px solid rgb(23 32 42 / 10%);
+  border-radius: 0.65rem;
+  background: rgb(255 252 243 / 44%);
+}
+
+.precision-rule-fields {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.precision-rule-fields input {
+  min-height: 2.15rem;
+  padding: 0.38rem 0.5rem;
   font-size: 0.75rem;
+}
+
+.rule-field-label {
+  color: var(--ink-soft);
+  font-size: 0.67rem;
+  font-weight: 700;
+}
+
+.precision-remove {
+  min-height: 2.1rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  color: var(--ink-soft);
+  background: transparent;
+  font-size: 0.68rem;
+}
+
+.precision-remove:hover:not(:disabled),
+.precision-remove:focus-visible {
+  border-color: rgb(239 109 95 / 35%);
+  color: var(--coral-dark);
+  background: rgb(239 109 95 / 10%);
 }
 
 .button {
@@ -1040,6 +1136,14 @@ thead th {
 
   .range-grid {
     grid-template-columns: 1fr;
+  }
+
+  .precision-group-heading {
+    flex-direction: column;
+  }
+
+  .precision-add {
+    width: 100%;
   }
 
   .info-popover {

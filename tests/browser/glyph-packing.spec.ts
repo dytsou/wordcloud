@@ -32,8 +32,11 @@ test("dense preset fills glyph gaps, preserves colors and replays the V scene", 
     .flatMap((term, index) => Array(40 - index * 2).fill(term))
     .join(" ");
   await page.getByLabel("原文").fill(source);
-  await page.getByLabel(/自訂詞典/u).fill(terms.join(","));
-  await page.getByRole("button", { name: "套用密集填縫排版" }).click();
+  const dictionaryInput = page.locator("#dictionary");
+  for (const term of terms) {
+    await dictionaryInput.fill(term);
+    await dictionaryInput.press("Enter");
+  }
   await page.getByRole("button", { name: "產生文字雲", exact: true }).click();
   const svg = page.locator(".cloud-svg");
   await expect(svg.locator("text").first()).toBeVisible();

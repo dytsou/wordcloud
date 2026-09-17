@@ -100,6 +100,26 @@ describe("tokenize", () => {
     ]);
   });
 
+  it("keeps an explicit fixed phrase above an overlapping dictionary phrase", () => {
+    const result = tokenize("Cloudflare Workers Cloudflare", {
+      ...DEFAULT_TOKENIZER_SETTINGS,
+      locale: "en",
+      dictionary: ["Cloudflare"],
+      rules: [
+        {
+          id: "fixed-cloudflare-workers",
+          kind: "protected",
+          phrase: "Cloudflare Workers",
+        },
+      ],
+    });
+
+    expect(result.tokens.map((token) => token.term)).toEqual([
+      "Cloudflare Workers",
+      "Cloudflare",
+    ]);
+  });
+
   it("stops before tokenization for unsupported locales", () => {
     const result = tokenize("hello", {
       ...DEFAULT_TOKENIZER_SETTINGS,
