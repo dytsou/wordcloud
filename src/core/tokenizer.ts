@@ -34,7 +34,7 @@ export const DEFAULT_TOKENIZER_SETTINGS: TokenizerSettings = {
   tokenizerVersion: TOKENIZER_VERSION,
 };
 
-const FIXED_LOCALES = ["en", "zh-Hant", "zh-Hans", "ja", "th"] as const;
+export const FIXED_LOCALES = ["en", "zh-Hant", "zh-Hans", "ja", "th"] as const;
 const SIMPLIFIED_MARKERS = new Set(
   "们这个学习国发发现数据云网与为说".split(""),
 );

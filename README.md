@@ -4,7 +4,7 @@ Wordcloud Studio is a local-first word-cloud generator for individual creators. 
 
 ## Privacy and data flow
 
-All source analysis, counting, font measurement, layout, rendering, and export happen in the browser. The Cloudflare Worker serves the static application and has no source-text API, database, KV, R2, analytics, or telemetry path. The browser layout engine uses a Web Worker when available and falls back to the same bounded core algorithm if it cannot start.
+For the editor workflow, source analysis, counting, font measurement, layout, rendering, and export happen in the browser. The Cloudflare Worker serves the static application and exposes a stateless MCP endpoint. Its V-only tools handle already-derived data, while the opt-in source generator analyzes a bounded `sourceText` request in memory and returns an SVG plus a V fragment. The Worker does not persist or log source text and has no database, KV, R2, analytics, or application telemetry path. The browser layout engine uses a Web Worker when available and falls back to the same bounded core algorithm if it cannot start.
 
 The V link uses the fixed fragment format `#wc-pako:v1:<payload>`:
 
@@ -15,6 +15,16 @@ The V link uses the fixed fragment format `#wc-pako:v1:<payload>`:
 A V contains normalized terms, counts, ranks, style, and derived placements. It never contains the raw source or editable tokenizer rule bodies, and it is not a secret-bearing link. A loaded V remains style-remixable and can produce another V. The `.wc` download is the larger local fallback when a URL would exceed the safe share limit.
 
 The latest source draft is kept in this browser's versioned `localStorage` cache so a refresh does not erase pasted text. It never leaves the device; clearing the source or starting a new cloud removes the cached draft. Browser storage can be cleared separately through the browser's site-data controls.
+
+## MCP interface
+
+The Worker exposes an authless, stateless Streamable HTTP MCP endpoint at `/mcp`:
+
+- `wordcloud-inspect` returns metadata, ranked counts, and layout status from an existing V URL or `#wc-pako:v1:` fragment.
+- `wordcloud-render-svg` returns SVG text for the validated scene in an existing V URL or fragment.
+- `wordcloud-generate-from-text` accepts bounded `sourceText`, locale and tokenizer options (including stop words, dictionary, custom rules, and case handling), then returns SVG text, a reproducible V fragment, and derived summary data.
+
+The inspect and render tools accept only the V representation; they do not fetch remote URLs. The generator is the explicit exception: `sourceText` is sent to the Worker for this request, is not written into the V fragment, and is not returned as a separate field. The SVG, summary, and V-derived records necessarily contain the resulting terms. Because the endpoint is public, do not use it for sensitive word lists until an authentication layer is added.
 
 ## Tokenization and ranking
 
@@ -29,6 +39,7 @@ Placement processes words from highest to lowest frequency. Prominent words stay
 The application rejects or bounds work at the following product limits:
 
 - 1 MiB UTF-8 source; 200,000 candidate tokens; 500 unique terms.
+- MCP source generation is capped at 32 KiB UTF-8 and 100 unique terms; the Worker rejects MCP request bodies above 64 KiB.
 - 100 custom rules; 128 Unicode scalars per literal term.
 - 8 KiB encoded URL fragment; 12 KiB complete share URL; 512 KiB `.wc` file.
 - 256 KiB inflated JSON; 64× inflate ratio; 4,096 px canvas dimension; 16 MP export.
@@ -50,4 +61,4 @@ pnpm run wrangler:dry-run
 pnpm run deploy
 ```
 
-Cloudflare Static Assets serves `dist` and uses SPA fallback for direct application paths. Configure Wrangler authentication before `pnpm run deploy`; v1 does not require a Worker binding or secret. The runtime capability gates are `Intl.Segmenter`, Canvas 2D, Web Worker, font readiness, SVG, Blob, and clipboard. Unsupported analysis capabilities produce an actionable local error; a valid V can still be opened when source analysis is unavailable.
+Cloudflare Static Assets serves `dist` through the `ASSETS` binding and uses SPA fallback for direct application paths; `/mcp` is handled by the custom Worker. Configure Wrangler authentication before `pnpm run deploy`; the app does not require storage bindings or secrets. The runtime capability gates are `Intl.Segmenter`, Canvas 2D, Web Worker, font readiness, SVG, Blob, and clipboard. Unsupported analysis capabilities produce an actionable local error; a valid V can still be opened when source analysis is unavailable.

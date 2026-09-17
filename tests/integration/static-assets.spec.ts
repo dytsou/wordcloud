@@ -9,14 +9,16 @@ const packageJson = JSON.parse(
 ) as { scripts?: Record<string, string> };
 
 describe("Static Assets shell", () => {
-  it("uses SPA fallback without a Worker API or storage binding", () => {
+  it("mounts the MCP Worker beside the SPA without storage bindings", () => {
+    expect(wrangler).toContain('main = "./src/worker/index.ts"');
     expect(wrangler).toContain(
       'not_found_handling = "single-page-application"',
     );
     expect(wrangler).toContain('directory = "./dist"');
-    expect(wrangler).not.toContain("main =");
+    expect(wrangler).toContain('binding = "ASSETS"');
+    expect(wrangler).toContain('run_worker_first = ["/mcp", "/mcp/*"]');
     expect(wrangler).not.toMatch(
-      /run_worker_first|durable_objects|kv_namespaces|d1_databases|r2_buckets/,
+      /durable_objects|kv_namespaces|d1_databases|r2_buckets/,
     );
   });
 

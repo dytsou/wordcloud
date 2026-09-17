@@ -1,3 +1,6 @@
-// Cloudflare uses this declaration as an extension point for future bindings.
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface Env {}
+// Cloudflare uses this declaration as an extension point for project bindings.
+export interface Env {
+  ASSETS: {
+    fetch(request: Request): Promise<Response>;
+  };
+}
