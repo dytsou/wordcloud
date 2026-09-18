@@ -12,6 +12,8 @@
     "api:lint": "redocly lint openapi.yaml",
     "api:build": "node scripts/build-api-docs.mjs",
     "deploy": "wrangler deploy",
+    "deploy:release": "node scripts/deploy.mjs",
+    "deploy:github": "node scripts/deploy.mjs --github",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
     "format": "prettier --write 'src/**/*.{ts,tsx,css}' 'tests/**/*.{ts,tsx}' 'scripts/**/*.mjs' '*.json' 'openapi.yaml' 'redocly.yaml' '*.ts' '.github/workflows/*.yml' 'eslint.config.js' 'index.html'",

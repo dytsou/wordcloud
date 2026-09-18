@@ -70,3 +70,30 @@ pnpm run deploy
 `pnpm run api:lint` validates the OpenAPI 3.1 contract, and `pnpm run api:build` bundles it into one `dist/client/api/openapi.yaml` file and generates a self-hosted Swagger UI at `dist/client/api/index.html`. CI runs both steps after the application checks pass; the post-CI deployment then publishes them with the existing Worker Static Assets deployment. After deployment, open `https://<worker-origin>/api/` for the online API reference or `https://<worker-origin>/api/openapi.yaml` for the compiled contract.
 
 Cloudflare Static Assets serves `dist` through the `ASSETS` binding and uses SPA fallback for direct application paths; `/mcp` is handled by the custom Worker. Configure Wrangler authentication before `pnpm run deploy`; the app does not require storage bindings or secrets. The runtime capability gates are `Intl.Segmenter`, Canvas 2D, Web Worker, font readiness, SVG, Blob, and clipboard. Unsupported analysis capabilities produce an actionable local error; a valid V can still be opened when source analysis is unavailable.
+
+### One-command deployment helper
+
+For a complete local release check and deployment, authenticate GitHub once and run:
+
+```sh
+gh auth login
+pnpm run deploy:release
+```
+
+The helper asks for `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` when they are not already set, hides the API token while typing, installs the frozen lockfile, builds the application and API docs, runs Wrangler's dry run, and then deploys the current checkout with `wrangler deploy`. It also checks that the GitHub repository and both CLIs are available.
+
+To deploy through the committed GitHub Actions workflow instead, the working tree must be clean on `main`:
+
+```sh
+pnpm run deploy:github
+```
+
+The GitHub workflow requires repository secrets named `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. The helper asks for missing values in a local interactive terminal; the API token is hidden while typing and is passed to `gh secret set` through stdin:
+
+```sh
+pnpm run deploy:release -- --github --configure-github
+```
+
+For non-interactive runs, set both environment variables before invoking the helper. The local deployment mode uses the same prompt when either variable is missing.
+
+The `--github` mode dispatches `.github/workflows/deploy.yml` on `main` and waits for its result. The local mode is useful for deploying uncommitted work; the GitHub mode is the audited path for a committed revision.

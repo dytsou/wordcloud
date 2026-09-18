@@ -36,6 +36,8 @@ describe("Static Assets shell", () => {
       typecheck: "tsc -b --pretty false",
       "test:integration": "vitest run tests/integration",
       "wrangler:dry-run": "wrangler deploy --dry-run",
+      "deploy:release": "node scripts/deploy.mjs",
+      "deploy:github": "node scripts/deploy.mjs --github",
     });
   });
 });

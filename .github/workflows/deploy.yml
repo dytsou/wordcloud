@@ -6,6 +6,17 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      revision:
+        description: Commit SHA to deploy for a manual release
+        required: false
+        type: string
+      deployment_nonce:
+        description: Unique identifier used by the local deployment helper
+        required: false
+        type: string
+
+run-name: Deploy ${{ github.event_name == 'workflow_dispatch' && inputs.deployment_nonce || github.sha }}
 
 permissions:
   actions: read
@@ -31,7 +42,7 @@ jobs:
       - name: Checkout deployed revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.revision || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
