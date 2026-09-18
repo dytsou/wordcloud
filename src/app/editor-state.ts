@@ -1,5 +1,8 @@
 import type { LayoutStyle } from "../core/layout";
-import { DEFAULT_TOKENIZER_SETTINGS } from "../core/tokenizer";
+import {
+  DEFAULT_TOKENIZER_SETTINGS,
+  detectBrowserTokenizerLocale,
+} from "../core/tokenizer";
 import type {
   TokenizationResult,
   TokenizerSettings,
@@ -49,6 +52,7 @@ export function createInitialEditorState(): EditorState {
     sourceText: "",
     settings: {
       ...DEFAULT_TOKENIZER_SETTINGS,
+      locale: detectBrowserTokenizerLocale(),
       stopWords: [...DEFAULT_TOKENIZER_SETTINGS.stopWords],
       dictionary: [...DEFAULT_TOKENIZER_SETTINGS.dictionary],
       rules: [...DEFAULT_TOKENIZER_SETTINGS.rules],

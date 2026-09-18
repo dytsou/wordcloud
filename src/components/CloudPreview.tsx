@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { SceneModel } from "../core/scene";
+import { useI18n } from "../i18n";
 import { renderAccessibleSummary } from "../render/accessibility";
 import { placedSceneWords } from "../render/safe-scene";
 
@@ -10,6 +11,7 @@ interface CloudPreviewProps {
 
 export function CloudPreview({ scene, highlightedTerm }: CloudPreviewProps) {
   const [zoom, setZoom] = useState(1);
+  const { t } = useI18n();
   const placedWords = scene ? placedSceneWords(scene) : [];
   const accessibleSummary = scene ? renderAccessibleSummary(scene) : undefined;
   const omittedCount = scene ? scene.words.length - placedWords.length : 0;
@@ -23,14 +25,14 @@ export function CloudPreview({ scene, highlightedTerm }: CloudPreviewProps) {
     <section className="preview-stage" aria-labelledby="preview-heading">
       <div className="preview-topline">
         <div>
-          <p className="section-kicker">LIVE COMPOSITION</p>
-          <h2 id="preview-heading">詞頻，長成一張海報。</h2>
+          <p className="section-kicker">{t("previewKicker")}</p>
+          <h2 id="preview-heading">{t("previewHeading")}</h2>
         </div>
-        <div className="zoom-control" aria-label="預覽縮放">
+        <div className="zoom-control" aria-label={t("previewZoom")}>
           <button
             type="button"
             onClick={() => setZoom((value) => Math.max(0.7, value - 0.1))}
-            aria-label="縮小"
+            aria-label={t("zoomOut")}
           >
             −
           </button>
@@ -38,15 +40,13 @@ export function CloudPreview({ scene, highlightedTerm }: CloudPreviewProps) {
           <button
             type="button"
             onClick={() => setZoom((value) => Math.min(1.3, value + 0.1))}
-            aria-label="放大"
+            aria-label={t("zoomIn")}
           >
             +
           </button>
         </div>
       </div>
-      <p className="preview-caption">
-        字級依詞頻排列 · 字框自動避讓 · 在瀏覽器中完成
-      </p>
+      <p className="preview-caption">{t("previewCaption")}</p>
       <div
         className="canvas-frame"
         style={{ background: scene?.background ?? "#edf2f4" }}
@@ -57,14 +57,14 @@ export function CloudPreview({ scene, highlightedTerm }: CloudPreviewProps) {
               className="cloud-svg"
               viewBox={`0 0 ${scene.canvas.width} ${scene.canvas.height}`}
               role="img"
-              aria-label="文字雲預覽"
+              aria-label={t("cloudPreview")}
               aria-describedby="preview-description"
               style={{
                 transform: `scale(${zoom})`,
                 fontFamily: scene.fontFamily,
               }}
             >
-              <title>文字雲預覽</title>
+              <title>{t("cloudPreview")}</title>
               {placedWords.map((word) => (
                 <text
                   key={`${word.term}-${word.rank}`}
@@ -92,15 +92,15 @@ export function CloudPreview({ scene, highlightedTerm }: CloudPreviewProps) {
           <div className="canvas-empty">
             <span className="empty-orbit">✳</span>
             <p>
-              你的詞語會在這裡
+              {t("emptyWords")}
               <br />
-              <em>長出形狀。</em>
+              <em>{t("emptyShape")}</em>
             </p>
           </div>
         )}
         {omittedCount > 0 && (
           <p className="canvas-warning">
-            {omittedCount} 個詞語未能放入目前畫布，請查看下方索引。
+            {t("omittedWords", { count: omittedCount })}
           </p>
         )}
       </div>

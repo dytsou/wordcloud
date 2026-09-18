@@ -1,11 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TOKENIZER_SETTINGS, tokenize } from "../../src/core/tokenizer";
+import {
+  DEFAULT_TOKENIZER_SETTINGS,
+  detectBrowserTokenizerLocale,
+  FIXED_LOCALES,
+  getSupportedTokenizerLocales,
+  tokenize,
+} from "../../src/core/tokenizer";
 import {
   customRuleFixture,
   multilingualFixture,
 } from "../fixtures/tokenizer-cases";
 
 describe("tokenize", () => {
+  it("offers a broad locale catalog and detects the browser language", () => {
+    expect(FIXED_LOCALES).toContain("ko");
+    expect(FIXED_LOCALES).toContain("es");
+    expect(getSupportedTokenizerLocales()).toContain("en");
+
+    const previousNavigator = globalThis.navigator;
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: { language: "ja-JP", languages: ["ja-JP", "en-US"] },
+    });
+
+    expect(detectBrowserTokenizerLocale()).toBe("ja");
+
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: previousNavigator,
+    });
+  });
+
   it("segments multilingual word-like terms and counts candidate tokens", () => {
     const result = tokenize(multilingualFixture, {
       ...DEFAULT_TOKENIZER_SETTINGS,

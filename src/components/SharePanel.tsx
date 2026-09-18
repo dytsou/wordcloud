@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import type { ChangeEvent } from "react";
 import { SNAPSHOT_FILE_EXTENSION } from "../core/file-snapshot";
+import { useI18n } from "../i18n";
 
 interface SharePanelProps {
   shareUrl?: string;
@@ -30,20 +31,18 @@ export function SharePanel({
   onNewSource,
 }: SharePanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const { t } = useI18n();
   const hasShareUrl = Boolean(shareUrl);
   return (
     <section className="panel share-panel" aria-labelledby="share-heading">
       <div className="panel-heading">
         <div>
-          <p className="section-kicker">OUTPUT</p>
-          <h2 id="share-heading">Make it travel.</h2>
+          <p className="section-kicker">{t("outputKicker")}</p>
+          <h2 id="share-heading">{t("outputHeading")}</h2>
         </div>
-        <span className="privacy-chip">NO RAW TEXT</span>
+        <span className="privacy-chip">{t("noRawText")}</span>
       </div>
-      <p className="share-disclosure">
-        V
-        連結只包含正規化詞語、詞頻、排名與視覺衍生資料，不包含原文；它不是機密連結。
-      </p>
+      <p className="share-disclosure">{t("shareDisclosure")}</p>
       <div className="share-actions">
         <button
           className="button button-primary"
@@ -51,7 +50,7 @@ export function SharePanel({
           disabled={disabled}
           onClick={onCreateLink}
         >
-          產生 V 連結
+          {t("createLink")}
         </button>
         <button
           className="button button-quiet"
@@ -59,18 +58,18 @@ export function SharePanel({
           disabled={!shareUrl}
           onClick={onCopy}
         >
-          複製
+          {t("copy")}
         </button>
       </div>
       <label className="field-label" htmlFor="share-url">
-        V URL
+        {t("vUrl")}
       </label>
       <input
         id="share-url"
         className={hasShareUrl ? "share-url" : "share-url is-empty"}
         readOnly
         value={shareUrl ?? ""}
-        placeholder="產生連結後會顯示在這裡"
+        placeholder={t("sharePlaceholder")}
         aria-describedby={shareError ? "share-error" : undefined}
       />
       {shareError && (
@@ -85,7 +84,7 @@ export function SharePanel({
           disabled={disabled || exporting}
           onClick={onDownload}
         >
-          下載完整 {SNAPSHOT_FILE_EXTENSION} 快照
+          {t("downloadSnapshot", { extension: SNAPSHOT_FILE_EXTENSION })}
         </button>
         <button
           className="button button-quiet"
@@ -93,7 +92,7 @@ export function SharePanel({
           disabled={disabled || exporting}
           onClick={onExportSvg}
         >
-          下載 SVG
+          {t("downloadSvg")}
         </button>
         <button
           className="button button-quiet"
@@ -101,14 +100,14 @@ export function SharePanel({
           disabled={disabled || exporting}
           onClick={onExportPng}
         >
-          {exporting ? "PNG 產生中⋯" : "下載 PNG"}
+          {exporting ? t("downloadingPng") : t("downloadPng")}
         </button>
         <button
           className="button button-quiet"
           type="button"
           onClick={() => inputRef.current?.click()}
         >
-          匯入 {SNAPSHOT_FILE_EXTENSION}
+          {t("importSnapshot", { extension: SNAPSHOT_FILE_EXTENSION })}
         </button>
         <input
           ref={inputRef}
@@ -119,7 +118,7 @@ export function SharePanel({
         />
       </div>
       <button className="text-button" type="button" onClick={onNewSource}>
-        {disabled ? "← 開始新的文字雲" : "＋ 開始新的文字雲"}
+        {disabled ? t("newCloudDisabled") : t("newCloud")}
       </button>
     </section>
   );

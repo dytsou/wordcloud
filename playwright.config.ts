@@ -19,6 +19,7 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
+        locale: "zh-TW",
         launchOptions: process.env.WORDCLOUD_CHROME_PATH
           ? { executablePath: process.env.WORDCLOUD_CHROME_PATH }
           : undefined,

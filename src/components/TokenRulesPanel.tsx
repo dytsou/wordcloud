@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { LIMITS } from "../core/limits";
 import type { TokenRule, TokenizerSettings } from "../core/types";
+import { useI18n } from "../i18n";
 import { TagInput } from "./TagInput";
 
 interface TokenRulesPanelProps {
@@ -10,30 +11,11 @@ interface TokenRulesPanelProps {
 }
 
 const RULE_GROUPS = [
-  {
-    kind: "protected",
-    label: "固定文字",
-    description:
-      "讓這段文字在分析時保持原樣；若與其他設定重疊，優先以這段為準。",
-    addLabel: "新增固定文字",
-  },
-  {
-    kind: "split",
-    label: "拆分文字",
-    description: "把一段文字拆成你指定的詞，適合修正分詞結果。",
-    addLabel: "新增拆分文字",
-  },
-  {
-    kind: "merge",
-    label: "合併文字",
-    description: "把連續出現的詞合成一個詞，適合建立固定用語。",
-    addLabel: "新增合併文字",
-  },
+  { kind: "protected" },
+  { kind: "split" },
+  { kind: "merge" },
 ] as const satisfies ReadonlyArray<{
   kind: TokenRule["kind"];
-  label: string;
-  description: string;
-  addLabel: string;
 }>;
 
 function newRule(kind: TokenRule["kind"], id: string): TokenRule {
@@ -66,8 +48,26 @@ export function TokenRulesPanel({
   disabled = false,
   onSettingsChange,
 }: TokenRulesPanelProps) {
+  const { t } = useI18n();
   const [isPrecisionOpen, setIsPrecisionOpen] = useState(false);
   const rules = settings.rules;
+  const groupCopy = {
+    protected: {
+      label: t("fixedLabel"),
+      description: t("fixedDescription"),
+      addLabel: t("addFixed"),
+    },
+    split: {
+      label: t("splitLabel"),
+      description: t("splitDescription"),
+      addLabel: t("addSplit"),
+    },
+    merge: {
+      label: t("mergeLabel"),
+      description: t("mergeDescription"),
+      addLabel: t("addMerge"),
+    },
+  } as const;
 
   const updateRule = (ruleId: string, patch: Partial<TokenRule>) => {
     onSettingsChange({
@@ -97,8 +97,8 @@ export function TokenRulesPanel({
     <section className="panel rules-panel" aria-labelledby="rules-heading">
       <div className="panel-heading">
         <div>
-          <p className="section-kicker">VOCABULARY</p>
-          <h2 id="rules-heading">Give phrases a role.</h2>
+          <p className="section-kicker">{t("vocabularyKicker")}</p>
+          <h2 id="rules-heading">{t("vocabularyHeading")}</h2>
         </div>
         <span className="count-badge">
           {rules.length}/{LIMITS.maxCustomRules}
@@ -106,7 +106,7 @@ export function TokenRulesPanel({
       </div>
       <div className="field">
         <label className="field-label" htmlFor="dictionary">
-          自訂詞典 <span>(按 Enter 新增，多字詞會保留)</span>
+          {t("customDictionaryLabel")} <span>{t("dictionarySuffix")}</span>
         </label>
         <TagInput
           id="dictionary"
@@ -115,7 +115,7 @@ export function TokenRulesPanel({
           onChange={(dictionary) =>
             onSettingsChange({ ...settings, dictionary })
           }
-          placeholder="例如：人工智慧 或 Cloudflare Workers"
+          placeholder={t("dictionaryPlaceholder")}
         />
       </div>
 
@@ -127,8 +127,8 @@ export function TokenRulesPanel({
         onClick={() => setIsPrecisionOpen((open) => !open)}
       >
         <span>
-          <strong>需要精準校正？</strong>
-          <small>遇到切分、合併或固定用語問題時再打開。</small>
+          <strong>{t("precisionOpen")}</strong>
+          <small>{t("precisionOpenHint")}</small>
         </span>
         <span className="precision-disclosure-mark" aria-hidden="true">
           {isPrecisionOpen ? "−" : "+"}
@@ -142,6 +142,7 @@ export function TokenRulesPanel({
       >
         {RULE_GROUPS.map((group) => {
           const groupRules = rules.filter((rule) => rule.kind === group.kind);
+          const copy = groupCopy[group.kind];
 
           return (
             <section
@@ -152,8 +153,8 @@ export function TokenRulesPanel({
             >
               <div className="precision-group-heading">
                 <div>
-                  <h3 id={`precision-${group.kind}-heading`}>{group.label}</h3>
-                  <p>{group.description}</p>
+                  <h3 id={`precision-${group.kind}-heading`}>{copy.label}</h3>
+                  <p>{copy.description}</p>
                 </div>
                 <button
                   className="button button-quiet precision-add"
@@ -161,14 +162,17 @@ export function TokenRulesPanel({
                   disabled={disabled || rules.length >= LIMITS.maxCustomRules}
                   onClick={() => appendRule(group.kind)}
                 >
-                  {group.addLabel}
+                  {copy.addLabel}
                 </button>
               </div>
 
               <div className="precision-group-list">
                 {groupRules.map((rule, groupIndex) => {
                   const ordinal = groupIndex + 1;
-                  const removeLabel = `移除${group.label} ${ordinal}`;
+                  const removeLabel = t("removeRule", {
+                    label: copy.label,
+                    ordinal,
+                  });
 
                   return (
                     <div className="precision-rule" key={rule.id}>
@@ -179,7 +183,7 @@ export function TokenRulesPanel({
                               className="rule-field-label"
                               htmlFor={ruleDomId(rule, "phrase")}
                             >
-                              固定文字內容 {ordinal}
+                              {t("fixedField", { ordinal })}
                             </label>
                             <input
                               id={ruleDomId(rule, "phrase")}
@@ -190,7 +194,7 @@ export function TokenRulesPanel({
                                   phrase: event.target.value,
                                 })
                               }
-                              placeholder="例如：人工智慧"
+                              placeholder={t("dictionaryPlaceholder")}
                             />
                           </>
                         )}
@@ -200,7 +204,7 @@ export function TokenRulesPanel({
                               className="rule-field-label"
                               htmlFor={ruleDomId(rule, "source")}
                             >
-                              要拆分的文字 {ordinal}
+                              {t("splitSourceField", { ordinal })}
                             </label>
                             <input
                               id={ruleDomId(rule, "source")}
@@ -211,13 +215,13 @@ export function TokenRulesPanel({
                                   source: event.target.value,
                                 })
                               }
-                              placeholder="例如：cloudnative"
+                              placeholder="e.g. cloudnative"
                             />
                             <label
                               className="rule-field-label"
                               htmlFor={ruleDomId(rule, "terms")}
                             >
-                              拆分後詞語 {ordinal}
+                              {t("splitTermsField", { ordinal })}
                             </label>
                             <input
                               id={ruleDomId(rule, "terms")}
@@ -230,7 +234,7 @@ export function TokenRulesPanel({
                                     .filter(Boolean),
                                 })
                               }
-                              placeholder="例如：雲, 端"
+                              placeholder="e.g. cloud, native"
                             />
                           </>
                         )}
@@ -240,7 +244,7 @@ export function TokenRulesPanel({
                               className="rule-field-label"
                               htmlFor={ruleDomId(rule, "source")}
                             >
-                              要合併的文字 {ordinal}
+                              {t("mergeSourceField", { ordinal })}
                             </label>
                             <input
                               id={ruleDomId(rule, "source")}
@@ -251,13 +255,13 @@ export function TokenRulesPanel({
                                   source: event.target.value,
                                 })
                               }
-                              placeholder="例如：data cloud"
+                              placeholder="e.g. data cloud"
                             />
                             <label
                               className="rule-field-label"
                               htmlFor={ruleDomId(rule, "term")}
                             >
-                              合併後文字 {ordinal}
+                              {t("mergeTermField", { ordinal })}
                             </label>
                             <input
                               id={ruleDomId(rule, "term")}
@@ -268,7 +272,7 @@ export function TokenRulesPanel({
                                   term: event.target.value,
                                 })
                               }
-                              placeholder="例如：data-cloud"
+                              placeholder="e.g. data-cloud"
                             />
                           </>
                         )}
@@ -280,7 +284,7 @@ export function TokenRulesPanel({
                         disabled={disabled}
                         onClick={() => removeRule(rule.id)}
                       >
-                        移除
+                        {t("remove")}
                       </button>
                     </div>
                   );
@@ -297,11 +301,7 @@ export function TokenRulesPanel({
           : rule.kind === "split"
             ? !rule.source || rule.terms.length === 0
             : !rule.source || !rule.term,
-      ) && (
-        <p className="warning-note">
-          尚未完成的規則會在產生時被提示，不會靜默套用。
-        </p>
-      )}
+      ) && <p className="warning-note">{t("unfinishedRules")}</p>}
     </section>
   );
 }

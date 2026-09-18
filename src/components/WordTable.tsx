@@ -1,5 +1,6 @@
 import type { SceneModel } from "../core/scene";
 import type { WordSet } from "../core/types";
+import { useI18n } from "../i18n";
 import { getAccessibleWords, placementLabel } from "../render/accessibility";
 
 interface WordTableProps {
@@ -9,6 +10,7 @@ interface WordTableProps {
 }
 
 export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
+  const { t } = useI18n();
   const placement = new Map(
     scene
       ? getAccessibleWords(scene).map((word) => [word.term, word] as const)
@@ -18,23 +20,25 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
     <section className="panel table-panel" aria-labelledby="table-heading">
       <div className="panel-heading">
         <div>
-          <p className="section-kicker">INDEX</p>
-          <h2 id="table-heading">The exact numbers.</h2>
+          <p className="section-kicker">{t("indexKicker")}</p>
+          <h2 id="table-heading">{t("indexHeading")}</h2>
         </div>
         {wordSet && (
-          <span className="count-badge">{wordSet.words.length} words</span>
+          <span className="count-badge">
+            {t("wordCount", { count: wordSet.words.length })}
+          </span>
         )}
       </div>
       {wordSet ? (
         <div className="table-wrap">
           <table>
-            <caption className="sr-only">文字雲詞頻排名與排版狀態</caption>
+            <caption className="sr-only">{t("tableCaption")}</caption>
             <thead>
               <tr>
-                <th scope="col">Rank</th>
-                <th scope="col">Word</th>
-                <th scope="col">Count</th>
-                <th scope="col">State</th>
+                <th scope="col">{t("rank")}</th>
+                <th scope="col">{t("word")}</th>
+                <th scope="col">{t("count")}</th>
+                <th scope="col">{t("state")}</th>
               </tr>
             </thead>
             <tbody>
@@ -65,7 +69,15 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
                       <span
                         className={`placement-state ${placed?.status ?? "pending"}`}
                       >
-                        {placed ? placementLabel(placed) : "pending"}
+                        {placed
+                          ? placed.status === "placed"
+                            ? t("placed")
+                            : placed.status === "unplaceable"
+                              ? t("unplaceable")
+                              : placed.status === "budget-limited"
+                                ? t("budgetLimited")
+                                : placementLabel(placed)
+                          : t("pending")}
                       </span>
                     </td>
                   </tr>
@@ -75,9 +87,7 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
           </table>
         </div>
       ) : (
-        <div className="empty-table">
-          產生文字雲後，精確詞頻與排名會保留在這裡。
-        </div>
+        <div className="empty-table">{t("emptyTable")}</div>
       )}
     </section>
   );

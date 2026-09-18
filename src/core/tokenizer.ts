@@ -34,7 +34,59 @@ export const DEFAULT_TOKENIZER_SETTINGS: TokenizerSettings = {
   tokenizerVersion: TOKENIZER_VERSION,
 };
 
-export const FIXED_LOCALES = ["en", "zh-Hant", "zh-Hans", "ja", "th"] as const;
+/**
+ * Common Intl.Segmenter locales exposed by the editor and MCP API.
+ *
+ * Intl.Segmenter may support more locales than this curated list on a given
+ * runtime. The list stays explicit so snapshots and the API schema remain
+ * deterministic, while getSupportedTokenizerLocales filters it at runtime.
+ */
+export const FIXED_LOCALES = [
+  "en",
+  "zh-Hant",
+  "zh-Hans",
+  "ja",
+  "ko",
+  "th",
+  "vi",
+  "id",
+  "ms",
+  "fr",
+  "de",
+  "es",
+  "it",
+  "pt",
+  "ru",
+  "uk",
+  "pl",
+  "nl",
+  "tr",
+  "ar",
+  "he",
+  "hi",
+  "bn",
+  "fa",
+  "ur",
+  "sv",
+  "da",
+  "nb",
+  "fi",
+  "no",
+  "cs",
+  "sk",
+  "ro",
+  "bg",
+  "el",
+  "hu",
+  "ca",
+  "hr",
+  "sl",
+  "sr",
+  "et",
+  "lv",
+  "lt",
+  "sw",
+] as const;
 const SIMPLIFIED_MARKERS = new Set(
   "们这个学习国发发现数据云网与为说".split(""),
 );
@@ -56,6 +108,63 @@ function supportsLocale(locale: string): boolean {
   }
 }
 
+function localeProfile(locale: string): {
+  language: string;
+  script?: string;
+} | null {
+  if (typeof Intl.Locale !== "function") return null;
+  try {
+    const parsed = new Intl.Locale(locale).maximize();
+    return { language: parsed.language, script: parsed.script };
+  } catch {
+    return null;
+  }
+}
+
+export function getSupportedTokenizerLocales(): string[] {
+  if (typeof Intl.Segmenter !== "function") return [];
+  try {
+    return Intl.Segmenter.supportedLocalesOf(FIXED_LOCALES);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Pick the closest curated segmentation locale from the browser preference.
+ * Regional tags such as zh-TW are mapped to the matching script variant so
+ * the value stays stable in snapshots and in the locale selector.
+ */
+export function detectBrowserTokenizerLocale(): string {
+  const available = getSupportedTokenizerLocales();
+  const fallback = available.includes(DEFAULT_TOKENIZER_SETTINGS.locale)
+    ? DEFAULT_TOKENIZER_SETTINGS.locale
+    : (available[0] ?? DEFAULT_TOKENIZER_SETTINGS.locale);
+  if (typeof navigator === "undefined") return fallback;
+
+  const candidates = [
+    ...(Array.isArray(navigator.languages) ? navigator.languages : []),
+    navigator.language,
+  ].filter((locale): locale is string => Boolean(locale));
+
+  for (const candidate of candidates) {
+    const profile = localeProfile(candidate);
+    if (!profile) continue;
+    const match = FIXED_LOCALES.find((locale) => {
+      if (!available.includes(locale)) return false;
+      const optionProfile = localeProfile(locale);
+      if (!optionProfile || optionProfile.language !== profile.language)
+        return false;
+      return !optionProfile.script || !profile.script
+        ? true
+        : optionProfile.script === profile.script;
+    });
+    if (match) return match;
+  }
+
+  return fallback;
+}
+
 function capability(
   selectedLocale: string,
   supported: boolean,
@@ -64,7 +173,7 @@ function capability(
     selectedLocale,
     supported,
     capabilityVersion: ICU_CAPABILITY_VERSION,
-    fixedLocales: [...FIXED_LOCALES],
+    fixedLocales: getSupportedTokenizerLocales(),
   };
 }
 

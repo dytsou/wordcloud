@@ -1,5 +1,7 @@
 import type { TokenizerSettings } from "../core/types";
 import type { TokenizationResult } from "../core/types";
+import { getSupportedTokenizerLocales } from "../core/tokenizer";
+import { tokenizerLocaleLabel, useI18n } from "../i18n";
 import { TagInput } from "./TagInput";
 
 interface SourcePanelProps {
@@ -19,20 +21,24 @@ export function SourcePanel({
   onSourceChange,
   onSettingsChange,
 }: SourcePanelProps) {
+  const { locale, t } = useI18n();
   const update = (patch: Partial<TokenizerSettings>) =>
     onSettingsChange({ ...settings, ...patch });
+  const localeOptions = [
+    ...new Set([...getSupportedTokenizerLocales(), settings.locale]),
+  ];
 
   return (
     <section className="panel source-panel" aria-labelledby="source-heading">
       <div className="panel-heading">
         <div>
-          <p className="section-kicker">SOURCE</p>
-          <h2 id="source-heading">Bring the words in.</h2>
+          <p className="section-kicker">{t("sourceKicker")}</p>
+          <h2 id="source-heading">{t("sourceHeading")}</h2>
         </div>
-        <span className="privacy-chip">LOCAL ONLY</span>
+        <span className="privacy-chip">{t("localOnly")}</span>
       </div>
       <label className="field-label" htmlFor="source-text">
-        原文
+        {t("sourceLabel")}
       </label>
       <textarea
         id="source-text"
@@ -40,16 +46,14 @@ export function SourcePanel({
         value={sourceText}
         disabled={disabled}
         onChange={(event) => onSourceChange(event.target.value)}
-        placeholder="貼上文章、訪談、詩，或一段正在發生的想法⋯"
+        placeholder={t("sourcePlaceholder")}
         rows={9}
       />
-      <p className="muted-note draft-note">
-        本機草稿會在重新整理後保留；清空文字或開始新的文字雲會移除它。
-      </p>
+      <p className="muted-note draft-note">{t("draftNote")}</p>
       <div className="field-row">
         <div className="field field-grow">
           <label className="field-label" htmlFor="locale">
-            預設分詞 locale
+            {t("tokenizerLocaleLabel")}
           </label>
           <select
             id="locale"
@@ -57,18 +61,16 @@ export function SourcePanel({
             disabled={disabled}
             onChange={(event) => update({ locale: event.target.value })}
           >
-            <option value="zh-Hant">繁體中文</option>
-            <option value="zh-Hans">简体中文</option>
-            <option value="en">English</option>
-            <option value="ja">日本語</option>
-            <option value="th">ไทย</option>
-            <option value="fr">Français</option>
-            <option value="de">Deutsch</option>
+            {localeOptions.map((tokenizerLocale) => (
+              <option key={tokenizerLocale} value={tokenizerLocale}>
+                {tokenizerLocaleLabel(tokenizerLocale, locale)}
+              </option>
+            ))}
           </select>
         </div>
         <div className="field field-grow">
           <label className="field-label" htmlFor="case-mode">
-            大小寫
+            {t("caseLabel")}
           </label>
           <select
             id="case-mode"
@@ -80,9 +82,9 @@ export function SourcePanel({
               })
             }
           >
-            <option value="preserve">保留原樣</option>
-            <option value="lower">全部小寫</option>
-            <option value="upper">全部大寫</option>
+            <option value="preserve">{t("casePreserve")}</option>
+            <option value="lower">{t("caseLower")}</option>
+            <option value="upper">{t("caseUpper")}</option>
           </select>
         </div>
       </div>
@@ -98,15 +100,15 @@ export function SourcePanel({
                 update({ caseInsensitive: event.target.checked })
               }
             />
-            忽略大小寫
+            {t("ignoreCase")}
           </label>
           <span className="info-wrap">
             <button
               className="info-button"
               type="button"
-              aria-label="忽略大小寫說明"
+              aria-label={t("ignoreCaseInfoLabel")}
               aria-describedby="case-insensitive-help"
-              title="忽略大小寫會將 Apple、apple、APPLE 合併計數，並保留首次出現的顯示樣式。"
+              title={t("ignoreCaseHelp")}
             >
               i
             </button>
@@ -115,8 +117,7 @@ export function SourcePanel({
               className="info-popover"
               role="tooltip"
             >
-              忽略大小寫會將 Apple、apple、APPLE
-              合併計數，並保留首次出現的顯示樣式。
+              {t("ignoreCaseHelp")}
             </span>
           </span>
         </span>
@@ -131,7 +132,7 @@ export function SourcePanel({
               })
             }
           />
-          保留數字
+          {t("includeNumbers")}
         </label>
         <label className="check-label">
           <input
@@ -144,26 +145,26 @@ export function SourcePanel({
               })
             }
           />
-          保留符號
+          {t("includeSymbols")}
         </label>
       </div>
       <div className="field">
         <label className="field-label" htmlFor="stop-words">
-          停用詞 <span>(按 Enter 新增)</span>
+          {t("stopWordsLabel")} <span>{t("enterTag")}</span>
         </label>
         <TagInput
           id="stop-words"
           value={settings.stopWords}
           disabled={disabled}
           onChange={(stopWords) => update({ stopWords })}
-          placeholder="輸入停用詞後按 Enter"
+          placeholder={t("stopWordsPlaceholder")}
         />
       </div>
       {preview && (
-        <div className="token-preview" aria-label="分詞預覽">
+        <div className="token-preview" aria-label={t("tokenPreview")}>
           <div className="preview-heading">
-            <span>分詞預覽</span>
-            <span>{preview.tokens.length} candidates</span>
+            <span>{t("tokenPreview")}</span>
+            <span>{t("candidateCount", { count: preview.tokens.length })}</span>
           </div>
           <div className="token-cloud">
             {preview.tokens.slice(0, 40).map((token, index) => (
@@ -177,7 +178,7 @@ export function SourcePanel({
           </div>
           {preview.filtered.length > 0 && (
             <p className="muted-note">
-              已依目前設定排除 {preview.filtered.length} 個片段。
+              {t("excludedFragments", { count: preview.filtered.length })}
             </p>
           )}
         </div>

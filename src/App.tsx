@@ -48,6 +48,11 @@ import {
 import { renderScenePng } from "./render/png";
 import { renderSceneSvg } from "./render/svg";
 import { createGlyphSprites } from "./render/glyph-sprites";
+import {
+  translateTokenizerDiagnostic,
+  UI_LOCALE_OPTIONS,
+  useI18n,
+} from "./i18n";
 
 function measureWithCanvas(term: string, font: string): FontMetric {
   const canvas = document.createElement("canvas");
@@ -66,7 +71,9 @@ function measureWithCanvas(term: string, font: string): FontMetric {
 }
 
 function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : "發生未知錯誤，請重新嘗試。";
+  return error instanceof Error
+    ? error.message
+    : "An unknown error occurred. Please try again.";
 }
 
 function initialCachedSource(): string {
@@ -119,11 +126,10 @@ function initialEditorState(): EditorState {
 }
 
 export function App() {
+  const { locale: uiLocale, setLocale, t } = useI18n();
   const [state, setState] = useState<EditorState>(initialEditorState);
   const [status, setStatus] = useState(() =>
-    state.sourceText
-      ? "已從本機草稿還原原文；內容只留在這個瀏覽器裡。"
-      : "準備就緒。原文只會留在這個瀏覽器裡。",
+    state.sourceText ? t("readyRestored") : t("ready"),
   );
   const [exporting, setExporting] = useState(false);
   const clientRef = useRef<EngineClient | null>(null);
@@ -153,14 +159,14 @@ export function App() {
       try {
         const snapshot = decodeSnapshotFragment(hash);
         setState(fromSnapshot(snapshot));
-        setStatus("已載入 V 快照；目前是僅樣式編輯模式。");
+        setStatus(t("snapshotLoaded"));
       } catch (error) {
         setState((current) => ({
           ...current,
           mode: "error",
-          error: `無法載入 V 快照：${errorText(error)}`,
+          error: `${t("snapshotInvalid")} ${errorText(error)}`,
         }));
-        setStatus("V 快照無效，原本狀態未被部分還原。");
+        setStatus(t("snapshotInvalid"));
       }
     };
     loadHash();
@@ -217,7 +223,7 @@ export function App() {
         shareError: undefined,
         scene: undefined,
       }));
-      setStatus("正在本機分頁排版⋯");
+      setStatus(t("layoutWorking"));
       try {
         const metrics = await makeMetrics(
           wordSet,
@@ -239,7 +245,7 @@ export function App() {
               errorText(error).includes("cancelled")
             )
               return;
-            setStatus("排版 worker 不可用，已切換到相同規則的本機 fallback。");
+            setStatus(t("workerFallback"));
             scene = runLayoutFallback({
               wordSet,
               style: presentation,
@@ -261,20 +267,20 @@ export function App() {
         }));
         setStatus(
           scene.words.some((word) => word.status !== "placed")
-            ? "文字雲完成，但有詞語未能放入畫布；請查看排名表。"
-            : "文字雲完成，所有詞語都已排入畫布。",
+            ? t("someOmitted")
+            : t("allPlaced"),
         );
       } catch (error) {
         if (runId !== generationRef.current) return;
         setState((current) => ({
           ...current,
           mode: "error",
-          error: `排版失敗：${errorText(error)}`,
+          error: t("generationFailed", { error: errorText(error) }),
         }));
-        setStatus("排版失敗，請調整設定後重試。");
+        setStatus(t("generationFailedStatus"));
       }
     },
-    [makeMetrics],
+    [makeMetrics, t],
   );
 
   const handleGenerate = useCallback(() => {
@@ -282,7 +288,10 @@ export function App() {
     const result = tokenize(state.sourceText, state.settings);
     setState((current) => ({ ...current, tokenization: result }));
     if (result.status !== "ok") {
-      const message = result.diagnostics[0]?.message ?? "沒有可繪製的詞語。";
+      const diagnostic = result.diagnostics[0];
+      const message = diagnostic
+        ? translateTokenizerDiagnostic(diagnostic, t)
+        : t("noWords");
       setState((current) => ({
         ...current,
         mode: result.status === "empty" ? "empty" : "error",
@@ -315,6 +324,7 @@ export function App() {
   }, [
     invalidatePendingWork,
     runLayout,
+    t,
     state.presentation,
     state.settings,
     state.sourceText,
@@ -334,13 +344,9 @@ export function App() {
         shareUrl: undefined,
         shareError: undefined,
       }));
-      setStatus(
-        sourceText
-          ? "原文已更新，請預覽分詞後產生文字雲。"
-          : "請輸入文字開始。 ",
-      );
+      setStatus(sourceText ? t("sourceUpdated") : t("enterSource"));
     },
-    [invalidatePendingWork],
+    [invalidatePendingWork, t],
   );
 
   const handleSettingsChange = useCallback(
@@ -394,7 +400,7 @@ export function App() {
               )
             : current.scene,
         }));
-        setStatus("顏色更新完成，位置保持不變。");
+        setStatus(t("colorsUpdated"));
         return;
       }
       void runLayout(
@@ -407,6 +413,7 @@ export function App() {
     [
       runLayout,
       invalidatePendingWork,
+      t,
       state.mode,
       state.presentation,
       state.scene,
@@ -432,16 +439,16 @@ export function App() {
         shareUrl: url,
         shareError: undefined,
       }));
-      setStatus("V 連結已產生；它包含衍生資料，不包含原文。 ");
+      setStatus(t("linkCreated"));
     } catch (error) {
       setState((current) => ({
         ...current,
         shareUrl: undefined,
-        shareError: `V 連結未產生：${errorText(error)} 請下載完整 .wc 快照。`,
+        shareError: t("linkFailed", { error: errorText(error) }),
       }));
-      setStatus("V 連結超過安全長度，完整視覺仍保留在本機。");
+      setStatus(t("linkTooLong"));
     }
-  }, [state.mode, state.presentation, state.scene, state.wordSet]);
+  }, [state.mode, state.presentation, state.scene, state.wordSet, t]);
 
   const handleCopy = useCallback(async () => {
     if (!state.shareUrl) return;
@@ -449,7 +456,7 @@ export function App() {
       if (navigator.clipboard)
         await navigator.clipboard.writeText(state.shareUrl);
       else throw new Error("clipboard unavailable");
-      setStatus("V 連結已複製。");
+      setStatus(t("linkCopied"));
     } catch {
       const input = document.createElement("textarea");
       input.value = state.shareUrl;
@@ -460,9 +467,9 @@ export function App() {
       input.select();
       document.execCommand("copy");
       input.remove();
-      setStatus("V 連結已複製。");
+      setStatus(t("linkCopied"));
     }
-  }, [state.shareUrl]);
+  }, [state.shareUrl, t]);
 
   const downloadBlob = useCallback((blob: Blob, name: string) => {
     const url = URL.createObjectURL(blob);
@@ -492,13 +499,13 @@ export function App() {
         encodeSnapshotFile(state.wordSet, state.presentation, state.scene),
         `wordcloud${SNAPSHOT_FILE_EXTENSION}`,
       );
-      setStatus("完整 .wc 快照已下載。");
+      setStatus(t("snapshotDownloaded"));
     } catch (error) {
       setState((current) => ({
         ...current,
-        shareError: `快照下載失敗：${errorText(error)}`,
+        shareError: t("snapshotDownloadFailed", { error: errorText(error) }),
       }));
-      setStatus("快照下載失敗。");
+      setStatus(t("snapshotDownloadFailed", { error: errorText(error) }));
     }
   }, [
     downloadBytes,
@@ -506,6 +513,7 @@ export function App() {
     state.presentation,
     state.scene,
     state.wordSet,
+    t,
   ]);
 
   const handleExportSvg = useCallback(() => {
@@ -513,15 +521,15 @@ export function App() {
     try {
       const svg = renderSceneSvg(state.scene);
       downloadBlob(new Blob([svg], { type: "image/svg+xml" }), "wordcloud.svg");
-      setStatus("SVG 已下載；它與目前畫布使用同一份 SceneModel。 ");
+      setStatus(t("svgDownloaded"));
     } catch (error) {
       setState((current) => ({
         ...current,
-        shareError: `SVG 匯出失敗：${errorText(error)}`,
+        shareError: t("svgDownloadFailed", { error: errorText(error) }),
       }));
-      setStatus("SVG 匯出失敗。");
+      setStatus(t("svgDownloadFailed", { error: errorText(error) }));
     }
-  }, [downloadBlob, state.mode, state.scene]);
+  }, [downloadBlob, state.mode, state.scene, t]);
 
   const handleExportPng = useCallback(async () => {
     if (state.mode === "generating" || !state.scene || exporting) return;
@@ -529,23 +537,30 @@ export function App() {
     const exportGeneration = generationRef.current;
     const scene = state.scene;
     setExporting(true);
-    setStatus("正在本機產生 PNG⋯");
+    setStatus(t("pngGenerating"));
     try {
       const png = await renderScenePng(scene);
       if (exportGeneration !== generationRef.current) return;
       downloadBlob(png, "wordcloud.png");
-      setStatus("PNG 已下載；它與目前畫布使用同一份 SceneModel。 ");
+      setStatus(t("pngDownloaded"));
     } catch (error) {
       if (exportGeneration !== generationRef.current) return;
       setState((current) => ({
         ...current,
-        shareError: `PNG 匯出失敗：${errorText(error)}`,
+        shareError: t("pngDownloadFailed", { error: errorText(error) }),
       }));
-      setStatus("PNG 匯出失敗。");
+      setStatus(t("pngDownloadFailed", { error: errorText(error) }));
     } finally {
       if (exportGeneration === generationRef.current) setExporting(false);
     }
-  }, [downloadBlob, exporting, invalidatePendingWork, state.mode, state.scene]);
+  }, [
+    downloadBlob,
+    exporting,
+    invalidatePendingWork,
+    state.mode,
+    state.scene,
+    t,
+  ]);
 
   const handleImport = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -563,18 +578,18 @@ export function App() {
         const snapshot = decodeSnapshotFile(await file.arrayBuffer());
         if (importGeneration !== generationRef.current) return;
         setState(fromSnapshot(snapshot));
-        setStatus("快照已匯入；現在可以調整樣式並產生新的 V。 ");
+        setStatus(t("snapshotImported"));
       } catch (error) {
         if (importGeneration !== generationRef.current) return;
         setState((current) => ({
           ...current,
           mode: "error",
-          error: `快照匯入失敗：${errorText(error)}`,
+          error: `${t("snapshotImportFailed")} ${errorText(error)}`,
         }));
-        setStatus("快照匯入失敗，原本畫面仍保持不變。");
+        setStatus(t("snapshotImportFailed"));
       }
     },
-    [invalidatePendingWork],
+    [invalidatePendingWork, t],
   );
 
   const handleNewSource = useCallback(() => {
@@ -588,8 +603,8 @@ export function App() {
     invalidatePendingWork();
     clearCachedSource();
     setState(createInitialEditorState());
-    setStatus("已開始新的文字雲，請輸入原文。 ");
-  }, [invalidatePendingWork]);
+    setStatus(t("newCloudStarted"));
+  }, [invalidatePendingWork, t]);
 
   const [highlightedTerm, setHighlightedTerm] = useState<string>();
   const focusWord = useCallback((term: string) => {
@@ -605,34 +620,54 @@ export function App() {
           </span>
           <div>
             <p className="brand-name">Wordcloud Studio</p>
-            <p className="brand-subtitle">private typography lab</p>
+            <p className="brand-subtitle">{t("brandSubtitle")}</p>
           </div>
         </div>
-        <span className={`mode-badge ${state.mode === "remix" ? "remix" : ""}`}>
-          {state.mode === "remix" ? "V / STYLE REMIX" : "BROWSER / LOCAL"}
-        </span>
+        <div className="topbar-actions">
+          <label className="sr-only" htmlFor="ui-locale">
+            {t("language")}
+          </label>
+          <select
+            id="ui-locale"
+            className="language-select"
+            value={uiLocale}
+            aria-label={t("language")}
+            onChange={(event) =>
+              setLocale(event.target.value as typeof uiLocale)
+            }
+          >
+            {UI_LOCALE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <span
+            className={`mode-badge ${state.mode === "remix" ? "remix" : ""}`}
+          >
+            {state.mode === "remix" ? t("styleRemix") : t("browserLocal")}
+          </span>
+        </div>
       </header>
       <StatusAnnouncer message={status} />
       <main className="studio-grid">
         <aside className="control-column">
           {state.mode === "remix" && (
             <div className="remix-banner">
-              <strong>你正在編輯一個 V 快照。</strong>
-              <p>
-                詞語與詞頻是唯讀的；原文與自訂分詞規則不會被帶進連結。樣式可以重新排版。
-              </p>
+              <strong>{t("remixTitle")}</strong>
+              <p>{t("remixBody")}</p>
             </div>
           )}
           {state.error && (
             <div className="remix-banner" role="alert">
-              <strong>需要你的注意</strong>
+              <strong>{t("attention")}</strong>
               <p>{state.error}</p>
               <button
                 className="text-button"
                 type="button"
                 onClick={handleNewSource}
               >
-                回到新的文字雲
+                {t("backToNew")}
               </button>
             </div>
           )}
@@ -658,12 +693,12 @@ export function App() {
                 onClick={handleGenerate}
                 disabled={state.mode === "generating"}
               >
-                產生文字雲
+                {t("generate")}
               </button>
               <p className="generate-hint">
                 {state.mode === "generating"
-                  ? "本機排版中⋯"
-                  : "按下後才開始分析"}
+                  ? t("generating")
+                  : t("generateHint")}
               </p>
             </div>
           )}

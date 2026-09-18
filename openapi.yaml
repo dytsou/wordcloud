@@ -476,7 +476,53 @@ components:
           description: Source text analyzed only for this request. The effective limit is 32 KiB in UTF-8 bytes.
         locale:
           type: string
-          enum: [en, zh-Hant, zh-Hans, ja, th]
+          enum:
+            [
+              en,
+              zh-Hant,
+              zh-Hans,
+              ja,
+              ko,
+              th,
+              vi,
+              id,
+              ms,
+              fr,
+              de,
+              es,
+              it,
+              pt,
+              ru,
+              uk,
+              pl,
+              nl,
+              tr,
+              ar,
+              he,
+              hi,
+              bn,
+              fa,
+              ur,
+              sv,
+              da,
+              nb,
+              fi,
+              no,
+              cs,
+              sk,
+              ro,
+              bg,
+              el,
+              hu,
+              ca,
+              hr,
+              sl,
+              sr,
+              et,
+              lv,
+              lt,
+              sw,
+            ]
           default: zh-Hant
           description: Default segmentation lane for Intl.Segmenter.
         caseMode:

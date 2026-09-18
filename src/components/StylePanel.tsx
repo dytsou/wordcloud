@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { LayoutStyle } from "../core/layout";
 import { LIMITS } from "../core/limits";
+import { useI18n } from "../i18n";
 import { TagInput } from "./TagInput";
 
 type RangeDraft = Pick<LayoutStyle, "minFontSize" | "maxFontSize" | "padding">;
@@ -8,22 +9,22 @@ type RangeDraft = Pick<LayoutStyle, "minFontSize" | "maxFontSize" | "padding">;
 const PALETTE_PRESETS = [
   {
     id: "editorial-press",
-    label: "銅版印刷",
+    labelKey: "paletteEditorial",
     colors: ["#aa5948", "#27384a", "#5c6876", "#b86b58"],
   },
   {
     id: "campus-neon",
-    label: "校園霓虹",
+    labelKey: "paletteCampus",
     colors: ["#ff9418", "#a8e61a", "#f3196d", "#9b73ff", "#45c7d9"],
   },
   {
     id: "night-market",
-    label: "夜市霓光",
+    labelKey: "paletteNight",
     colors: ["#ff006e", "#fb5607", "#ffbe0b", "#8338ec", "#3a86ff"],
   },
   {
     id: "moss-paper",
-    label: "苔土紙張",
+    labelKey: "paletteMoss",
     colors: ["#283618", "#606c38", "#dda15e", "#bc6c25", "#f2cc8f"],
   },
 ] as const;
@@ -66,6 +67,7 @@ export function StylePanel({
   disabled = false,
   onChange,
 }: StylePanelProps) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<RangeDraft>(() => rangeFrom(presentation));
   const draftRef = useRef(draft);
   const [angleDraft, setAngleDraft] = useState(() =>
@@ -128,7 +130,7 @@ export function StylePanel({
       editRange({ maxFontSize: Math.max(next, draftRef.current.minFontSize) });
     }
   };
-  const rotationLabel = angleDraft === 0 ? "水平" : `±${angleDraft}°`;
+  const rotationLabel = angleDraft === 0 ? t("horizontal") : `±${angleDraft}°`;
   const commitAngle = () => {
     const angle = angleRef.current;
     if (
@@ -142,18 +144,16 @@ export function StylePanel({
     <section className="panel style-panel" aria-labelledby="style-heading">
       <div className="panel-heading">
         <div>
-          <p className="section-kicker">DIRECTION</p>
-          <h2 id="style-heading">Set the atmosphere.</h2>
+          <p className="section-kicker">{t("styleKicker")}</p>
+          <h2 id="style-heading">{t("styleHeading")}</h2>
         </div>
-        <span className="count-badge">REMIXABLE</span>
+        <span className="count-badge">{t("remixable")}</span>
       </div>
-      <p className="muted-note">
-        大字構成主體，小字填入筆畫留白；只調整排版，不改配色。
-      </p>
+      <p className="muted-note">{t("styleNote")}</p>
       <div className="field-row">
         <div className="field field-grow">
           <label className="field-label" htmlFor="font-family">
-            字型 profile
+            {t("fontProfile")}
           </label>
           <select
             id="font-family"
@@ -173,7 +173,7 @@ export function StylePanel({
         </div>
         <div className="field field-small">
           <label className="field-label" htmlFor="scale">
-            映射
+            {t("scale")}
           </label>
           <select
             id="scale"
@@ -183,20 +183,20 @@ export function StylePanel({
               update({ scale: event.target.value as LayoutStyle["scale"] })
             }
           >
-            <option value="sqrt">平方根</option>
-            <option value="linear">線性</option>
-            <option value="log">對數</option>
+            <option value="sqrt">{t("sqrt")}</option>
+            <option value="linear">{t("linear")}</option>
+            <option value="log">{t("log")}</option>
           </select>
         </div>
       </div>
       <div className="range-grid">
         <label className="range-field">
           <span>
-            最小字級 <output>{draft.minFontSize}px</output>
+            {t("minFontSize")} <output>{draft.minFontSize}px</output>
           </span>
           <input
             type="range"
-            aria-label="最小字級"
+            aria-label={t("minFontSize")}
             min="8"
             max="80"
             value={draft.minFontSize}
@@ -212,11 +212,11 @@ export function StylePanel({
         </label>
         <label className="range-field">
           <span>
-            最大字級 <output>{draft.maxFontSize}px</output>
+            {t("maxFontSize")} <output>{draft.maxFontSize}px</output>
           </span>
           <input
             type="range"
-            aria-label="最大字級"
+            aria-label={t("maxFontSize")}
             min="24"
             max="160"
             value={draft.maxFontSize}
@@ -233,19 +233,19 @@ export function StylePanel({
         <div className="range-field">
           <span>
             <span className="range-label">
-              <label htmlFor="word-spacing">詞間距</label>
+              <label htmlFor="word-spacing">{t("wordSpacing")}</label>
               <span className="info-wrap">
                 <button
                   className="info-button"
                   type="button"
-                  aria-label="詞間距說明"
+                  aria-label={t("spacingInfoLabel")}
                   aria-describedby="spacing-help"
-                  title="負值會縮小避讓區，適合接受輕微重疊的密集排版。"
+                  title={t("spacingHelp")}
                 >
                   i
                 </button>
                 <span id="spacing-help" className="info-popover" role="tooltip">
-                  負值會縮小避讓區，適合接受輕微重疊的密集排版。
+                  {t("spacingHelp")}
                 </span>
               </span>
             </span>
@@ -254,7 +254,7 @@ export function StylePanel({
           <input
             id="word-spacing"
             type="range"
-            aria-label="詞間距"
+            aria-label={t("wordSpacing")}
             min={LIMITS.minPadding}
             max="24"
             value={draft.padding}
@@ -273,14 +273,14 @@ export function StylePanel({
         <div className="range-field rotation-range">
           <span>
             <span className="range-label">
-              <label htmlFor="rotation-angle">旋轉方式</label>
+              <label htmlFor="rotation-angle">{t("rotation")}</label>
               <span className="info-wrap">
                 <button
                   className="info-button"
                   type="button"
-                  aria-label="旋轉方式說明"
+                  aria-label={t("rotationInfoLabel")}
                   aria-describedby="rotation-help"
-                  title="大字優先水平；小字在水平位置放不下時才以 0°、±設定角度填縫，上限 ±120°。"
+                  title={t("rotationHelp")}
                 >
                   i
                 </button>
@@ -289,8 +289,7 @@ export function StylePanel({
                   className="info-popover"
                   role="tooltip"
                 >
-                  大字優先水平；小字在水平位置放不下時才以
-                  0°、±設定角度填縫，上限 ±120°。
+                  {t("rotationHelp")}
                 </span>
               </span>
             </span>
@@ -299,7 +298,7 @@ export function StylePanel({
           <input
             id="rotation-angle"
             type="range"
-            aria-label="旋轉方式"
+            aria-label={t("rotation")}
             min="0"
             max="120"
             step="1"
@@ -320,7 +319,7 @@ export function StylePanel({
       <div className="field-row">
         <div className="field field-grow">
           <label className="field-label" htmlFor="palette">
-            色盤 <span>(每個色碼按 Enter)</span>
+            {t("palette")} <span>{t("paletteSuffix")}</span>
           </label>
           <TagInput
             id="palette"
@@ -332,7 +331,7 @@ export function StylePanel({
         </div>
         <div className="field field-small">
           <label className="field-label" htmlFor="background">
-            背景
+            {t("background")}
           </label>
           <input
             id="background"
@@ -344,8 +343,14 @@ export function StylePanel({
         </div>
       </div>
       <div className="palette-presets">
-        <p className="field-label palette-presets-heading">預設組合</p>
-        <div className="palette-preset-grid" role="group" aria-label="預設色盤">
+        <p className="field-label palette-presets-heading">
+          {t("palettePresets")}
+        </p>
+        <div
+          className="palette-preset-grid"
+          role="group"
+          aria-label={t("paletteGroup")}
+        >
           {PALETTE_PRESETS.map((preset) => (
             <button
               className={
@@ -357,7 +362,7 @@ export function StylePanel({
               key={preset.id}
               type="button"
               disabled={disabled}
-              aria-label={"套用色盤：" + preset.label}
+              aria-label={t("applyPalette", { label: t(preset.labelKey) })}
               aria-pressed={paletteMatches(presentation.palette, preset.colors)}
               onClick={() => update({ palette: [...preset.colors] })}
             >
@@ -370,7 +375,7 @@ export function StylePanel({
                   />
                 ))}
               </span>
-              <span className="palette-preset-name">{preset.label}</span>
+              <span className="palette-preset-name">{t(preset.labelKey)}</span>
             </button>
           ))}
         </div>
@@ -378,7 +383,7 @@ export function StylePanel({
       <div className="field-row canvas-fields">
         <div className="field">
           <label className="field-label" htmlFor="canvas-width">
-            畫布寬
+            {t("canvasWidth")}
           </label>
           <input
             id="canvas-width"
@@ -392,7 +397,7 @@ export function StylePanel({
         </div>
         <div className="field">
           <label className="field-label" htmlFor="canvas-height">
-            畫布高
+            {t("canvasHeight")}
           </label>
           <input
             id="canvas-height"
@@ -405,9 +410,7 @@ export function StylePanel({
           />
         </div>
       </div>
-      <p className="muted-note">
-        顏色與背景只重繪；字型、字級、旋轉、間距與畫布會重新排版。
-      </p>
+      <p className="muted-note">{t("styleChangeNote")}</p>
     </section>
   );
 }

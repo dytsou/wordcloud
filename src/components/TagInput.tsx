@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { KeyboardEvent } from "react";
+import { useI18n } from "../i18n";
 
 interface TagInputProps {
   id: string;
@@ -17,6 +18,7 @@ export function TagInput({
   onChange,
 }: TagInputProps) {
   const [draft, setDraft] = useState("");
+  const { t } = useI18n();
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.nativeEvent.isComposing) return;
@@ -38,7 +40,7 @@ export function TagInput({
 
   return (
     <div className="tag-input" aria-disabled={disabled}>
-      <div className="tag-list" role="list" aria-label="已加入的標籤">
+      <div className="tag-list" role="list" aria-label={t("tagList")}>
         {value.map((tag, index) => (
           <span className="tag-chip" key={`${tag}-${index}`} role="listitem">
             <span className="tag-chip-value">{tag}</span>
@@ -46,7 +48,7 @@ export function TagInput({
               className="tag-remove"
               type="button"
               disabled={disabled}
-              aria-label={`移除標籤 ${tag}`}
+              aria-label={t("removeTag", { tag })}
               onClick={() =>
                 onChange(value.filter((_, tagIndex) => tagIndex !== index))
               }
