@@ -1173,27 +1173,27 @@ export function App() {
               <CloudPreview
                 scene={state.scene}
                 highlightedTerm={highlightedTerm}
+                captionAside={
+                  <WordTable
+                    wordSet={state.wordSet}
+                    scene={state.scene}
+                    onFocusWord={focusWord}
+                  />
+                }
               />
-              <div className="wizard-results-layout">
-                <WordTable
-                  wordSet={state.wordSet}
-                  scene={state.scene}
-                  onFocusWord={focusWord}
-                />
-                <SharePanel
-                  shareUrl={state.shareUrl}
-                  shareError={state.shareError}
-                  disabled={!state.scene || state.mode === "generating"}
-                  onCreateLink={handleCreateLink}
-                  onCopy={handleCopy}
-                  onDownload={handleDownload}
-                  onExportSvg={handleExportSvg}
-                  onExportPng={handleExportPng}
-                  exporting={exporting}
-                  onImport={handleImport}
-                  onNewSource={handleNewSource}
-                />
-              </div>
+              <SharePanel
+                shareUrl={state.shareUrl}
+                shareError={state.shareError}
+                disabled={!state.scene || state.mode === "generating"}
+                onCreateLink={handleCreateLink}
+                onCopy={handleCopy}
+                onDownload={handleDownload}
+                onExportSvg={handleExportSvg}
+                onExportPng={handleExportPng}
+                exporting={exporting}
+                onImport={handleImport}
+                onNewSource={handleNewSource}
+              />
               {activeStep === "result" && (
                 <div className="wizard-actions">
                   <button

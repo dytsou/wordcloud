@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import type { SceneModel } from "../core/scene";
 import { useI18n } from "../i18n";
 import { renderAccessibleSummary } from "../render/accessibility";
@@ -7,9 +8,14 @@ import { placedSceneWords } from "../render/safe-scene";
 interface CloudPreviewProps {
   scene?: SceneModel;
   highlightedTerm?: string;
+  captionAside?: ReactNode;
 }
 
-export function CloudPreview({ scene, highlightedTerm }: CloudPreviewProps) {
+export function CloudPreview({
+  scene,
+  highlightedTerm,
+  captionAside,
+}: CloudPreviewProps) {
   const [zoom, setZoom] = useState(1);
   const { t } = useI18n();
   const placedWords = scene ? placedSceneWords(scene) : [];
@@ -46,7 +52,10 @@ export function CloudPreview({ scene, highlightedTerm }: CloudPreviewProps) {
           </button>
         </div>
       </div>
-      <p className="preview-caption">{t("previewCaption")}</p>
+      <div className="preview-caption-row">
+        <p className="preview-caption">{t("previewCaption")}</p>
+        {captionAside}
+      </div>
       <div
         className="canvas-frame"
         style={{ background: scene?.background ?? "#edf2f4" }}
