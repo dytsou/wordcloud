@@ -95,6 +95,9 @@ export function isGeometryChanging(
     previous.fontFamily !== next.fontFamily ||
     previous.seed !== next.seed ||
     previous.version !== next.version ||
+    previous.shape?.id !== next.shape?.id ||
+    previous.shape?.widthScale !== next.shape?.widthScale ||
+    previous.shape?.heightScale !== next.shape?.heightScale ||
     JSON.stringify(previous.rotations) !== JSON.stringify(next.rotations)
   );
 }

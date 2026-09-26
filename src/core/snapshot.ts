@@ -1,22 +1,39 @@
 import { CODEC_VERSION, decodeJsonFragment, encodeJsonFragment } from "./codec";
 import { LIMITS, scalarLength } from "./limits";
 import { isSafeFontFamily, isSafeHexColor } from "./style-safety";
+import {
+  getBuiltInShape,
+  MAX_SHAPE_SCALE,
+  MIN_SHAPE_SCALE,
+  type BuiltInShapeId,
+  type ShapeSettings,
+} from "./shapes";
 import { SCENE_VERSION, type SceneModel, type SceneWord } from "./scene";
 import type { LayoutStyle } from "./layout";
 import type { Word, WordSet } from "./types";
 
 export type Presentation = LayoutStyle;
 
-export interface SnapshotPayload {
-  schemaVersion: "wc-snapshot-v1";
+interface SnapshotPayloadFields {
   codecVersion: typeof CODEC_VERSION;
   tokenizerVersion: string;
   layoutVersion: string;
   sceneVersion: typeof SCENE_VERSION;
   wordSet: WordSet;
-  presentation: Presentation;
   scene: SceneModel;
 }
+
+export type SnapshotPayload = SnapshotPayloadFields &
+  (
+    | {
+        schemaVersion: "wc-snapshot-v1";
+        presentation: Omit<Presentation, "shape">;
+      }
+    | {
+        schemaVersion: "wc-snapshot-v2";
+        presentation: Presentation & { shape: ShapeSettings };
+      }
+  );
 
 export class SnapshotValidationError extends Error {
   public constructor(message: string) {
@@ -166,7 +183,40 @@ function validateWordSet(value: unknown): WordSet {
   return { locale, tokenizerVersion, totalTokens, words };
 }
 
-function validatePresentation(value: unknown): Presentation {
+function validateShape(value: unknown): ShapeSettings {
+  const object = record(value, "presentation.shape");
+  exactKeys(
+    object,
+    ["id", "widthScale", "heightScale"],
+    [],
+    "presentation.shape",
+  );
+  const id = stringValue(object.id, "presentation.shape.id", 64);
+  if (!getBuiltInShape(id))
+    throw new SnapshotValidationError("presentation.shape.id 不受支援。");
+  return {
+    id: id as BuiltInShapeId,
+    widthScale: numberValue(
+      object.widthScale,
+      "presentation.shape.widthScale",
+      MIN_SHAPE_SCALE,
+      MAX_SHAPE_SCALE,
+    ),
+    heightScale: numberValue(
+      object.heightScale,
+      "presentation.shape.heightScale",
+      MIN_SHAPE_SCALE,
+      MAX_SHAPE_SCALE,
+    ),
+  };
+}
+
+function validatePresentation(value: unknown, shaped: false): Presentation;
+function validatePresentation(
+  value: unknown,
+  shaped: true,
+): Presentation & { shape: ShapeSettings };
+function validatePresentation(value: unknown, shaped: boolean): Presentation {
   const object = record(value, "presentation");
   exactKeys(
     object,
@@ -183,9 +233,11 @@ function validatePresentation(value: unknown): Presentation {
       "seed",
       "version",
     ],
-    [],
+    shaped ? ["shape"] : [],
     "presentation",
   );
+  if (shaped && !Object.hasOwn(object, "shape"))
+    throw new SnapshotValidationError("presentation.shape 為必填欄位。");
   const canvas = record(object.canvas, "presentation.canvas");
   exactKeys(canvas, ["width", "height"], [], "presentation.canvas");
   const width = numberValue(
@@ -223,7 +275,7 @@ function validatePresentation(value: unknown): Presentation {
   const maxFontSize = numberValue(object.maxFontSize, "maxFontSize", 1, 512);
   if (minFontSize > maxFontSize)
     throw new SnapshotValidationError("minFontSize 不可大於 maxFontSize。");
-  return {
+  const presentation: Presentation = {
     canvas: { width, height },
     minFontSize,
     maxFontSize,
@@ -245,6 +297,8 @@ function validatePresentation(value: unknown): Presentation {
     seed: stringValue(object.seed, "seed", 128),
     version: stringValue(object.version, "presentation.version", 64),
   };
+  if (shaped) presentation.shape = validateShape(object.shape);
+  return presentation;
 }
 
 function validateSceneWord(
@@ -357,19 +411,22 @@ function validateScene(value: unknown): SceneModel {
     [],
     "scene",
   );
-  const presentation = validatePresentation({
-    canvas: object.canvas,
-    minFontSize: 1,
-    maxFontSize: 1,
-    scale: "sqrt",
-    padding: 0,
-    rotations: [0],
-    palette: ["#000000"],
-    background: object.background,
-    fontFamily: object.fontFamily,
-    seed: object.seed,
-    version: object.layoutVersion,
-  });
+  const presentation = validatePresentation(
+    {
+      canvas: object.canvas,
+      minFontSize: 1,
+      maxFontSize: 1,
+      scale: "sqrt",
+      padding: 0,
+      rotations: [0],
+      palette: ["#000000"],
+      background: object.background,
+      fontFamily: object.fontFamily,
+      seed: object.seed,
+      version: object.layoutVersion,
+    },
+    false,
+  );
   const layoutStatus = object.layoutStatus;
   if (
     layoutStatus !== "complete" &&
@@ -404,6 +461,15 @@ function validateScene(value: unknown): SceneModel {
 
 export function validateSnapshot(value: unknown): SnapshotPayload {
   const object = record(value, "snapshot");
+  const schemaVersion = object.schemaVersion;
+  if (
+    schemaVersion !== "wc-snapshot-v1" &&
+    schemaVersion !== "wc-snapshot-v2"
+  ) {
+    throw new SnapshotValidationError(
+      "snapshot schema 或 codec version 不支援。",
+    );
+  }
   exactKeys(
     object,
     [
@@ -420,7 +486,6 @@ export function validateSnapshot(value: unknown): SnapshotPayload {
     "snapshot",
   );
   if (
-    object.schemaVersion !== "wc-snapshot-v1" ||
     object.codecVersion !== CODEC_VERSION ||
     object.sceneVersion !== SCENE_VERSION
   ) {
@@ -429,7 +494,10 @@ export function validateSnapshot(value: unknown): SnapshotPayload {
     );
   }
   const wordSet = validateWordSet(object.wordSet);
-  const presentation = validatePresentation(object.presentation);
+  const presentation =
+    schemaVersion === "wc-snapshot-v2"
+      ? validatePresentation(object.presentation, true)
+      : validatePresentation(object.presentation, false);
   const scene = validateScene(object.scene);
   if (
     presentation.version !== object.layoutVersion ||
@@ -437,6 +505,13 @@ export function validateSnapshot(value: unknown): SnapshotPayload {
     scene.layoutVersion !== presentation.version
   ) {
     throw new SnapshotValidationError("snapshot 版本欄位與內容不一致。");
+  }
+  if (
+    schemaVersion === "wc-snapshot-v2" &&
+    (presentation.version !== "layout-v2" ||
+      object.layoutVersion !== "layout-v2")
+  ) {
+    throw new SnapshotValidationError("shape snapshot 必須使用 layout-v2。");
   }
   if (scene.words.length !== wordSet.words.length)
     throw new SnapshotValidationError(
@@ -465,8 +540,7 @@ export function validateSnapshot(value: unknown): SnapshotPayload {
     sceneRanks.add(word.rank);
     sceneTerms.add(word.term);
   }
-  return {
-    schemaVersion: "wc-snapshot-v1",
+  const common: SnapshotPayloadFields = {
     codecVersion: CODEC_VERSION,
     tokenizerVersion: stringValue(
       object.tokenizerVersion,
@@ -480,8 +554,19 @@ export function validateSnapshot(value: unknown): SnapshotPayload {
     ),
     sceneVersion: SCENE_VERSION,
     wordSet,
-    presentation,
     scene,
+  };
+  if (schemaVersion === "wc-snapshot-v1") {
+    return {
+      ...common,
+      schemaVersion,
+      presentation: presentation as Omit<Presentation, "shape">,
+    };
+  }
+  return {
+    ...common,
+    schemaVersion,
+    presentation: presentation as Presentation & { shape: ShapeSettings },
   };
 }
 
@@ -490,14 +575,17 @@ export function createSnapshot(
   presentation: Presentation,
   scene: SceneModel,
 ): SnapshotPayload {
+  const shaped = presentation.shape !== undefined;
+  const snapshotPresentation = { ...presentation };
+  if (!shaped) delete snapshotPresentation.shape;
   return validateSnapshot({
-    schemaVersion: "wc-snapshot-v1",
+    schemaVersion: shaped ? "wc-snapshot-v2" : "wc-snapshot-v1",
     codecVersion: CODEC_VERSION,
     tokenizerVersion: wordSet.tokenizerVersion,
     layoutVersion: presentation.version,
     sceneVersion: SCENE_VERSION,
     wordSet,
-    presentation,
+    presentation: snapshotPresentation,
     scene,
   });
 }

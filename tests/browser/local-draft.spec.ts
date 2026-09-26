@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { decodeSnapshotFragment } from "../../src/core/snapshot";
 
 async function advance(page: Page, destination: RegExp) {
   await page
@@ -157,4 +158,38 @@ test("restores token inputs and style preferences after a refresh", async ({
     .filter({ has: page.locator("#dictionary") })
     .locator(".tag-chip-value");
   await expect(dictionaryTags).toHaveText(["人工智慧", "Cloudflare Workers"]);
+});
+
+test("does not restore shape geometry from reusable style preferences", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.addInitScript((key) => {
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        version: 1,
+        minFontSize: 18,
+        maxFontSize: 64,
+        padding: 4,
+        rotationAngle: 35,
+        palette: ["#aa5948", "#27384a"],
+        shape: { id: "circle", widthScale: 0.64, heightScale: 0.78 },
+      }),
+    );
+  }, styleKey);
+
+  await open(page, "/");
+  await page.locator("#source-text").fill("A new unshaped cloud");
+  await advance(page, /\/create\/words$/);
+  await advance(page, /\/create\/style$/);
+  await expect(page.locator(".cloud-svg")).toBeVisible();
+  await advance(page, /\/create\/result$/);
+
+  await page.getByRole("button", { name: "產生 V 連結" }).click();
+  const shareUrl = await page.getByLabel("V URL").inputValue();
+  const snapshot = decodeSnapshotFragment(new URL(shareUrl).hash);
+
+  expect(snapshot.schemaVersion).toBe("wc-snapshot-v1");
+  expect(snapshot.presentation).not.toHaveProperty("shape");
 });

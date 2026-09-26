@@ -1,5 +1,15 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import {
+  decodeSnapshotFragment,
+  encodeSnapshot,
+} from "../../src/core/snapshot";
+import type { LayoutStyle } from "../../src/core/layout";
+import {
+  snapshotScene,
+  snapshotStyle,
+  snapshotWordSet,
+} from "../fixtures/snapshots";
 import { privateSourceText } from "../fixtures/multilingual-text";
 
 async function open(page: Page, url: string) {
@@ -19,7 +29,24 @@ async function createCloud(page: Page, sourceText: string) {
   await advance(page, /\/create\/style$/);
   await expect(page.locator(".cloud-svg")).toBeVisible();
   await advance(page, /\/create\/result$/);
+  await page.getByRole("button", { name: "開啟詞語索引" }).click();
   await expect(page.getByRole("table")).toBeVisible();
+}
+
+async function expectStyleOnlyRemix(page: Page) {
+  await expect(
+    page.getByRole("heading", { name: "設計文字雲風格" }),
+  ).toBeVisible();
+  await expect(page.getByText("可重混")).toBeVisible();
+  await expect(page.locator(".cloud-svg")).toBeVisible();
+}
+
+async function expectSnapshotFileRemix(page: Page) {
+  await expect(
+    page.getByRole("heading", { name: "文字雲已完成" }),
+  ).toBeVisible();
+  await expect(page.getByText("你正在編輯一個 V 快照。")).toBeVisible();
+  await expect(page.locator(".cloud-svg")).toBeVisible();
 }
 
 test.beforeEach(async ({ page }) => {
@@ -28,7 +55,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("reopens a V and a .wc file as style-only remix states", async ({
+test("reopens V links as style-only remixes and .wc files as editor remixes", async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -41,47 +68,71 @@ test("reopens a V and a .wc file as style-only remix states", async ({
   expect(originalUrl).not.toContain(privateSourceText);
 
   await open(page, originalUrl);
-  await expect
-    .poll(() => new URL(page.url()).pathname)
-    .toMatch(/\/create\/result$/);
-  await expect(page.locator(".remix-banner")).toBeVisible();
+  await expectStyleOnlyRemix(page);
   expect(await page.locator("#source-text").count()).toBe(0);
   expect(await page.locator("#dictionary").count()).toBe(0);
   expect(await page.getByRole("button", { name: "原文" }).count()).toBe(0);
-  await page
-    .getByRole("button", { name: "上一步" })
-    .evaluate((button) => (button as HTMLButtonElement).click());
-  await expect
-    .poll(() => new URL(page.url()).pathname)
-    .toMatch(/\/create\/style$/);
   await page.getByRole("button", { name: "套用色盤：校園霓虹" }).click();
-  await page
-    .getByRole("button", { name: "下一步" })
-    .evaluate((button) => (button as HTMLButtonElement).click());
-  await expect
-    .poll(() => new URL(page.url()).pathname)
-    .toMatch(/\/create\/result$/);
   await page.getByRole("button", { name: "產生 V 連結" }).click();
-  await expect(page.getByLabel("V URL")).toHaveValue(/#wc-pako:v1:/);
+  const remixedUrl = await page.getByLabel("V URL").inputValue();
+  const remixedSnapshot = decodeSnapshotFragment(new URL(remixedUrl).hash);
+  expect(remixedSnapshot.schemaVersion).toBe("wc-snapshot-v1");
+  expect(remixedSnapshot.presentation).not.toHaveProperty("shape");
 
-  await open(page, "/");
-  await createCloud(page, privateSourceText);
+  await open(page, remixedUrl);
+  await expectStyleOnlyRemix(page);
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: /下載完整 \.wc 快照/u }).click();
   const download = await downloadPromise;
   const filePath = await download.path();
   expect(download.suggestedFilename()).toBe("wordcloud.wc");
 
-  await page
-    .getByRole("button", { name: /開始新的文字雲/u })
-    .evaluate((button) => (button as HTMLButtonElement).click());
-  await expect
-    .poll(() => new URL(page.url()).pathname)
-    .toMatch(/\/create\/source$/);
-  await createCloud(page, privateSourceText);
   await page.locator('input[type="file"]').setInputFiles(filePath!);
-  await expect(page.locator(".remix-banner")).toBeVisible();
+  await expectSnapshotFileRemix(page);
   expect(await page.locator("#source-text").count()).toBe(0);
   expect(await page.locator("#dictionary").count()).toBe(0);
-  await expect(page.getByRole("table")).toBeVisible();
+  await expect(page.locator(".cloud-svg")).toBeVisible();
+  await page.getByRole("button", { name: "產生 V 連結" }).click();
+  const restoredUrl = await page.getByLabel("V URL").inputValue();
+  const restoredSnapshot = decodeSnapshotFragment(new URL(restoredUrl).hash);
+  expect(restoredSnapshot.schemaVersion).toBe("wc-snapshot-v1");
+  expect(restoredSnapshot.presentation).not.toHaveProperty("shape");
+});
+
+test("preserves shape geometry through v2 share and .wc round trips", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const presentation = {
+    ...snapshotStyle,
+    version: "layout-v2",
+    shape: { id: "circle", widthScale: 0.72, heightScale: 0.86 },
+  } satisfies LayoutStyle;
+  const scene = { ...snapshotScene, layoutVersion: "layout-v2" };
+  const originalFragment = encodeSnapshot(
+    snapshotWordSet,
+    presentation,
+    scene,
+  ).fragment;
+
+  await open(page, `/${originalFragment}`);
+  await expectStyleOnlyRemix(page);
+  await expect(page.locator(".cloud-svg")).toContainText("hello");
+
+  await page.getByRole("button", { name: "產生 V 連結" }).click();
+  const sharedUrl = await page.getByLabel("V URL").inputValue();
+  expect(new URL(sharedUrl).hash).toBe(originalFragment);
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: /下載完整 \.wc 快照/u }).click();
+  const download = await downloadPromise;
+  const filePath = await download.path();
+  expect(filePath).toBeTruthy();
+
+  await page.locator('input[type="file"]').setInputFiles(filePath!);
+  await expectSnapshotFileRemix(page);
+  await expect(page.locator(".cloud-svg")).toContainText("hello");
+  await page.getByRole("button", { name: "產生 V 連結" }).click();
+  const restoredUrl = await page.getByLabel("V URL").inputValue();
+  expect(new URL(restoredUrl).hash).toBe(originalFragment);
 });

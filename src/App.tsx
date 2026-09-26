@@ -728,23 +728,27 @@ export function App() {
   const handlePresentationChange = useCallback(
     (presentation: LayoutStyle) => {
       invalidatePendingWork();
-      writeCachedStylePreferences(presentation);
+      const nextPresentation = {
+        ...presentation,
+        version: presentation.shape ? "layout-v2" : "layout-v1",
+      };
+      writeCachedStylePreferences(nextPresentation);
       const previous = state.presentation;
       setState((current) => ({
         ...current,
-        presentation,
+        presentation: nextPresentation,
         shareUrl: undefined,
         shareError: undefined,
       }));
       if (!state.wordSet || !state.scene) return;
-      if (!isGeometryChanging(previous, presentation)) {
+      if (!isGeometryChanging(previous, nextPresentation)) {
         setState((current) => ({
           ...current,
           scene: current.scene
             ? recolorScene(
                 current.scene,
-                presentation.palette,
-                presentation.background,
+                nextPresentation.palette,
+                nextPresentation.background,
               )
             : current.scene,
         }));
@@ -753,7 +757,7 @@ export function App() {
       }
       void runLayout(
         state.wordSet,
-        presentation,
+        nextPresentation,
         state.mode === "remix" ? "remix" : "ready",
         state.tokenization,
       );

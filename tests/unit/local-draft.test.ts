@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createInitialEditorState,
   DEFAULT_PRESENTATION,
+  isGeometryChanging,
 } from "../../src/app/editor-state";
 import { LIMITS } from "../../src/core/limits";
 import {
@@ -22,6 +23,7 @@ import {
   writeCachedSource,
   writeCachedTokenizerSettings,
 } from "../../src/app/local-draft";
+import type { LayoutStyle } from "../../src/core/layout";
 
 function createStorage() {
   const values = new Map<string, string>();
@@ -138,6 +140,53 @@ describe("local editor preferences", () => {
         .presentation,
     ).toEqual(expected);
     expect(storage.getItem(LOCAL_STYLE_STORAGE_KEY)).toContain('"version":1');
+  });
+
+  it("does not save selected shape geometry as reusable style preferences", () => {
+    const storage = createStorage();
+    const presentation = {
+      ...DEFAULT_PRESENTATION,
+      version: "layout-v2",
+      shape: { id: "heart", widthScale: 0.64, heightScale: 0.78 },
+    } satisfies LayoutStyle;
+
+    writeCachedStylePreferences(presentation, storage);
+
+    expect(readCachedEditorPreferences(storage).presentation).toEqual({
+      minFontSize: DEFAULT_PRESENTATION.minFontSize,
+      maxFontSize: DEFAULT_PRESENTATION.maxFontSize,
+      padding: DEFAULT_PRESENTATION.padding,
+      rotations: DEFAULT_PRESENTATION.rotations,
+      palette: DEFAULT_PRESENTATION.palette,
+    });
+    expect(storage.getItem(LOCAL_STYLE_STORAGE_KEY)).not.toContain('"shape"');
+  });
+
+  it("treats shape selection and dimensions as geometry changes", () => {
+    const previous: LayoutStyle = {
+      ...DEFAULT_PRESENTATION,
+      version: "layout-v2",
+      shape: { id: "heart", widthScale: 0.64, heightScale: 0.78 },
+    };
+
+    expect(
+      isGeometryChanging(previous, {
+        ...previous,
+        shape: { id: "circle", widthScale: 0.64, heightScale: 0.78 },
+      }),
+    ).toBe(true);
+    expect(
+      isGeometryChanging(previous, {
+        ...previous,
+        shape: { id: "heart", widthScale: 0.8, heightScale: 0.78 },
+      }),
+    ).toBe(true);
+    expect(
+      isGeometryChanging(previous, {
+        ...previous,
+        shape: { id: "heart", widthScale: 0.64, heightScale: 0.9 },
+      }),
+    ).toBe(true);
   });
 
   it("restores tokenizer options and custom rules", () => {
