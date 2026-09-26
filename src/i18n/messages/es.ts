@@ -8,6 +8,7 @@ export const ES_MESSAGES: MessageMap = {
   caseLabel: "Mayúsculas",
   ignoreCase: "Ignorar mayúsculas",
   stopWordsLabel: "Palabras vacías",
+  addTokenToStopWords: "Añadir {{tag}} a las palabras vacías",
   tokenPreview: "Vista previa de tokens",
   vocabularyHeading: "Da un papel a las frases.",
   customDictionaryLabel: "Diccionario personalizado",

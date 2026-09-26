@@ -24,6 +24,10 @@ export function SourcePanel({
   const { locale, t } = useI18n();
   const update = (patch: Partial<TokenizerSettings>) =>
     onSettingsChange({ ...settings, ...patch });
+  const addTokenToStopWords = (term: string) => {
+    if (disabled || settings.stopWords.includes(term)) return;
+    update({ stopWords: [...settings.stopWords, term] });
+  };
   const localeOptions = [
     ...new Set([...getSupportedTokenizerLocales(), settings.locale]),
   ];
@@ -173,6 +177,16 @@ export function SourcePanel({
                 key={`${token.sourceIndex}-${index}`}
               >
                 {token.term}
+                <button
+                  className="token-stopword-add"
+                  type="button"
+                  disabled={disabled || settings.stopWords.includes(token.term)}
+                  aria-label={t("addTokenToStopWords", { tag: token.term })}
+                  title={t("addTokenToStopWords", { tag: token.term })}
+                  onClick={() => addTokenToStopWords(token.term)}
+                >
+                  ×
+                </button>
               </span>
             ))}
           </div>

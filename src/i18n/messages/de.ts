@@ -8,6 +8,7 @@ export const DE_MESSAGES: MessageMap = {
   caseLabel: "Groß-/Kleinschreibung",
   ignoreCase: "Groß-/Kleinschreibung ignorieren",
   stopWordsLabel: "Stoppwörter",
+  addTokenToStopWords: "{{tag}} zu den Stoppwörtern hinzufügen",
   tokenPreview: "Token-Vorschau",
   vocabularyHeading: "Gib Phrasen eine Rolle.",
   customDictionaryLabel: "Benutzerwörterbuch",

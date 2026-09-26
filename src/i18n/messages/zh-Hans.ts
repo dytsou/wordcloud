@@ -12,6 +12,7 @@ export const ZH_HANS_MESSAGES: MessageMap = {
   includeNumbers: "保留数字",
   includeSymbols: "保留符号",
   stopWordsLabel: "停用词",
+  addTokenToStopWords: "将 {{tag}} 加入停用词",
   tokenPreview: "分词预览",
   vocabularyHeading: "让词组各就各位。",
   customDictionaryLabel: "自定义词典",

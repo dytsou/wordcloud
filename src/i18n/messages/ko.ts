@@ -8,6 +8,7 @@ export const KO_MESSAGES: MessageMap = {
   caseLabel: "대소문자",
   ignoreCase: "대소문자 무시",
   stopWordsLabel: "불용어",
+  addTokenToStopWords: "불용어에 {{tag}} 추가",
   tokenPreview: "토큰 미리보기",
   vocabularyHeading: "구문에 역할을 부여하세요.",
   customDictionaryLabel: "사용자 사전",

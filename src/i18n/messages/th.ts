@@ -8,6 +8,7 @@ export const TH_MESSAGES: MessageMap = {
   caseLabel: "ตัวพิมพ์",
   ignoreCase: "ไม่สนใจตัวพิมพ์ใหญ่เล็ก",
   stopWordsLabel: "คำหยุด",
+  addTokenToStopWords: "เพิ่ม {{tag}} เป็นคำหยุด",
   tokenPreview: "ตัวอย่างโทเคน",
   vocabularyHeading: "กำหนดบทบาทให้วลี",
   customDictionaryLabel: "พจนานุกรมกำหนดเอง",

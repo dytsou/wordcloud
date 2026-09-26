@@ -13,6 +13,7 @@ export const JA_MESSAGES: MessageMap = {
   includeNumbers: "数字を含める",
   includeSymbols: "記号を含める",
   stopWordsLabel: "ストップワード",
+  addTokenToStopWords: "{{tag}}をストップワードに追加",
   tokenPreview: "トークンのプレビュー",
   vocabularyHeading: "フレーズに役割を与える。",
   customDictionaryLabel: "カスタム辞書",

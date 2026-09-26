@@ -27,6 +27,7 @@ export const EN_MESSAGES = {
   includeNumbers: "Keep numbers",
   includeSymbols: "Keep symbols",
   stopWordsLabel: "Stop words",
+  addTokenToStopWords: "Add {{tag}} to stop words",
   enterTag: "(press Enter to add)",
   stopWordsPlaceholder: "Type a stop word, then press Enter",
   tokenPreview: "Token preview",

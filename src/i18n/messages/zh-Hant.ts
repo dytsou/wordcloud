@@ -21,6 +21,7 @@ export const ZH_HANT_MESSAGES: MessageMap = {
   includeNumbers: "保留數字",
   includeSymbols: "保留符號",
   stopWordsLabel: "停用詞",
+  addTokenToStopWords: "將 {{tag}} 加入停用詞",
   enterTag: "（按 Enter 新增）",
   stopWordsPlaceholder: "輸入停用詞後按 Enter",
   tokenPreview: "分詞預覽",

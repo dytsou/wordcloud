@@ -8,6 +8,7 @@ export const FR_MESSAGES: MessageMap = {
   caseLabel: "Casse",
   ignoreCase: "Ignorer la casse",
   stopWordsLabel: "Mots vides",
+  addTokenToStopWords: "Ajouter {{tag}} aux mots vides",
   tokenPreview: "Aperçu des tokens",
   vocabularyHeading: "Donnez un rôle aux expressions.",
   customDictionaryLabel: "Dictionnaire personnalisé",
