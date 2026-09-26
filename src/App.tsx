@@ -58,6 +58,7 @@ import {
 } from "./i18n";
 import {
   pathForStep,
+  SHARE_VIEW_PATH,
   stepForPath,
   WIZARD_STEPS,
   type WizardStep,
@@ -85,23 +86,25 @@ function errorText(error: unknown): string {
     : "An unknown error occurred. Please try again.";
 }
 
-function initialCachedSource(): string {
-  if (
+function isSharedViewPath(pathname: string): boolean {
+  return pathname.replace(/\/+$/, "") === SHARE_VIEW_PATH;
+}
+
+function isSnapshotLocation(): boolean {
+  return (
     typeof window !== "undefined" &&
-    window.location.hash.startsWith("#wc-pako:")
-  ) {
-    return "";
-  }
+    (isSharedViewPath(window.location.pathname) ||
+      window.location.hash.startsWith("#wc-pako:"))
+  );
+}
+
+function initialCachedSource(): string {
+  if (isSnapshotLocation()) return "";
   return readCachedSource();
 }
 
 function initialCachedPreferences(): CachedEditorPreferences {
-  if (
-    typeof window !== "undefined" &&
-    window.location.hash.startsWith("#wc-pako:")
-  ) {
-    return {};
-  }
+  if (isSnapshotLocation()) return {};
   return readCachedEditorPreferences();
 }
 
@@ -190,7 +193,12 @@ export function App() {
   const hasGeneratedCloudRef = useRef(Boolean(state.scene || state.wordSet));
 
   const navigateToStep = useCallback((step: WizardStep, replace = false) => {
-    const url = `${pathForStep(step)}${window.location.search}${window.location.hash}`;
+    const path =
+      isSharedViewPath(window.location.pathname) ||
+      window.location.hash.startsWith("#wc-pako:")
+        ? SHARE_VIEW_PATH
+        : pathForStep(step);
+    const url = `${path}${window.location.search}${window.location.hash}`;
     if (replace) window.history.replaceState(null, "", url);
     else window.history.pushState(null, "", url);
     setActiveStep(step);
@@ -224,7 +232,11 @@ export function App() {
       invalidatePendingWork();
       try {
         const snapshot = decodeSnapshotFragment(hash);
-        setState(fromSnapshot(snapshot));
+        const shareUrl = buildShareUrl(
+          `${window.location.origin}${SHARE_VIEW_PATH}`,
+          hash,
+        );
+        setState({ ...fromSnapshot(snapshot), shareUrl });
         hasGeneratedCloudRef.current = true;
         setStatus(t("snapshotLoaded"));
         navigateToStep("result", true);
@@ -258,6 +270,7 @@ export function App() {
   useEffect(() => {
     const syncRoute = () => {
       const hasSnapshot = window.location.hash.startsWith("#wc-pako:");
+      const sharedView = isSharedViewPath(window.location.pathname);
       const requestedStep = hasSnapshot
         ? "result"
         : stepForPath(window.location.pathname);
@@ -267,7 +280,9 @@ export function App() {
         hasSnapshot || canOpenStep(requestedStep, currentState, currentPreview)
           ? requestedStep
           : firstIncompleteStep(currentState, currentPreview);
-      const canonicalUrl = `${pathForStep(nextStep)}${window.location.search}${window.location.hash}`;
+      const canonicalPath =
+        hasSnapshot || sharedView ? SHARE_VIEW_PATH : pathForStep(nextStep);
+      const canonicalUrl = `${canonicalPath}${window.location.search}${window.location.hash}`;
       if (
         `${window.location.pathname}${window.location.search}${window.location.hash}` !==
         canonicalUrl
@@ -764,7 +779,7 @@ export function App() {
         state.scene,
       ).fragment;
       const url = buildShareUrl(
-        `${window.location.origin}${window.location.pathname}`,
+        `${window.location.origin}${SHARE_VIEW_PATH}`,
         fragment,
       );
       setState((current) => ({
@@ -972,6 +987,12 @@ export function App() {
       LIMITS.maxSourceBytes
       ? t("diagnosticSourceLimit")
       : undefined;
+  const hasSharedFragment =
+    typeof window !== "undefined" &&
+    window.location.hash.startsWith("#wc-pako:");
+  const isSharedView =
+    typeof window !== "undefined" &&
+    (isSharedViewPath(window.location.pathname) || hasSharedFragment);
 
   return (
     <div className="app-shell">
@@ -1007,194 +1028,112 @@ export function App() {
         </div>
       </header>
       <StatusAnnouncer message={status} />
-      <main className="wizard-main">
-        <WizardStepper
-          currentStep={activeStep}
-          remix={state.mode === "remix"}
-          onNavigate={navigateToStep}
-        />
-        <section
-          className={`wizard-page wizard-page--${activeStep}`}
-          aria-labelledby="wizard-page-title"
-          aria-busy={state.mode === "generating"}
-        >
-          <header className="wizard-page-heading">
-            <p className="section-kicker">
-              {t("wizardProgressLabel", {
-                current: activeStepNumber,
-                total: 4,
-              })}
-            </p>
-            <h1 id="wizard-page-title" tabIndex={-1}>
-              {t(pageTitleKeys[activeStep])}
-            </h1>
-            <p>{t(pageDescriptionKeys[activeStep])}</p>
-          </header>
+      {!isSharedView && (
+        <main className="wizard-main">
+          <WizardStepper
+            currentStep={activeStep}
+            remix={state.mode === "remix"}
+            onNavigate={navigateToStep}
+          />
+          <section
+            className={`wizard-page wizard-page--${activeStep}`}
+            aria-labelledby="wizard-page-title"
+            aria-busy={state.mode === "generating"}
+          >
+            <header className="wizard-page-heading">
+              <p className="section-kicker">
+                {t("wizardProgressLabel", {
+                  current: activeStepNumber,
+                  total: 4,
+                })}
+              </p>
+              <h1
+                id={isSharedView ? "studio-page-title" : "wizard-page-title"}
+                tabIndex={-1}
+              >
+                {t(pageTitleKeys[activeStep])}
+              </h1>
+              <p>{t(pageDescriptionKeys[activeStep])}</p>
+            </header>
 
-          {state.mode === "remix" && activeStep === "result" && (
-            <div className="remix-banner">
-              <strong>{t("remixTitle")}</strong>
-              <p>{t("remixBody")}</p>
-            </div>
-          )}
-
-          {state.error && (
-            <div className="wizard-error" role="alert">
-              <strong>{t("attention")}</strong>
-              <p>{state.error}</p>
-              {activeStep === "style" &&
-                state.mode !== "remix" &&
-                state.wordSet && (
-                  <button
-                    className="button button-quiet"
-                    type="button"
-                    onClick={handleGenerate}
-                  >
-                    {t("wizardRetry")}
-                  </button>
-                )}
-            </div>
-          )}
-
-          {state.mode === "generating" && (
-            <p className="wizard-updating" role="status">
-              {t("wizardUpdating")}
-            </p>
-          )}
-
-          {activeStep === "source" && (
-            <form
-              className="wizard-form"
-              noValidate
-              onSubmit={handleStepSubmit}
-            >
-              <SourcePanel
-                sourceText={state.sourceText}
-                disabled={state.mode === "remix"}
-                error={stepError ?? sourceLimitError}
-                onSourceChange={handleSourceChange}
-              />
-              <div className="wizard-actions wizard-actions-end">
-                <button className="button button-primary" type="submit">
-                  {t("wizardContinue")}
-                </button>
+            {state.mode === "remix" && activeStep === "result" && (
+              <div className="remix-banner">
+                <strong>{t("remixTitle")}</strong>
+                <p>{t("remixBody")}</p>
               </div>
-            </form>
-          )}
+            )}
 
-          {activeStep === "words" && (
-            <form
-              className="wizard-form"
-              noValidate
-              onSubmit={handleStepSubmit}
-            >
-              <TokenizationPanel
-                settings={state.settings}
-                preview={tokenPreview}
-                disabled={state.mode === "remix"}
-                onSettingsChange={handleSettingsChange}
-              />
-              <TokenRulesPanel
-                settings={state.settings}
-                disabled={state.mode === "remix"}
-                onSettingsChange={handleSettingsChange}
-              />
-              {stepError && (
-                <p
-                  className="warning-note wizard-step-error"
-                  id="wizard-step-error"
-                  role="alert"
-                  tabIndex={-1}
-                >
-                  {stepError}
-                </p>
-              )}
-              <div className="wizard-actions">
-                <button
-                  className="button button-quiet"
-                  type="button"
-                  onClick={handlePreviousStep}
-                >
-                  {t("wizardBack")}
-                </button>
-                <button className="button button-primary" type="submit">
-                  {t("wizardContinue")}
-                </button>
+            {state.error && (
+              <div className="wizard-error" role="alert">
+                <strong>{t("attention")}</strong>
+                <p>{state.error}</p>
+                {activeStep === "style" &&
+                  state.mode !== "remix" &&
+                  state.wordSet && (
+                    <button
+                      className="button button-quiet"
+                      type="button"
+                      onClick={handleGenerate}
+                    >
+                      {t("wizardRetry")}
+                    </button>
+                  )}
               </div>
-            </form>
-          )}
+            )}
 
-          {activeStep === "style" && (
-            <form
-              className="wizard-form"
-              noValidate
-              onSubmit={handleStepSubmit}
-            >
-              <div className="wizard-style-layout">
-                <StylePanel
-                  presentation={state.presentation}
-                  disabled={state.mode === "generating"}
-                  onChange={handlePresentationChange}
+            {state.mode === "generating" && (
+              <p className="wizard-updating" role="status">
+                {t("wizardUpdating")}
+              </p>
+            )}
+
+            {activeStep === "source" && (
+              <form
+                className="wizard-form"
+                noValidate
+                onSubmit={handleStepSubmit}
+              >
+                <SourcePanel
+                  sourceText={state.sourceText}
+                  disabled={state.mode === "remix"}
+                  error={stepError ?? sourceLimitError}
+                  onSourceChange={handleSourceChange}
                 />
-                <CloudPreview
-                  scene={state.scene}
-                  highlightedTerm={highlightedTerm}
-                />
-              </div>
-              {stepError && (
-                <p
-                  className="warning-note wizard-step-error"
-                  id="wizard-step-error"
-                  role="alert"
-                  tabIndex={-1}
-                >
-                  {stepError}
-                </p>
-              )}
-              <div className="wizard-actions">
-                {!(state.mode === "remix" && activeStep === "style") && (
-                  <button
-                    className="button button-quiet"
-                    type="button"
-                    onClick={handlePreviousStep}
-                  >
-                    {t("wizardBack")}
+                <div className="wizard-actions wizard-actions-end">
+                  <button className="button button-primary" type="submit">
+                    {t("wizardContinue")}
                   </button>
-                )}
-                <button className="button button-primary" type="submit">
-                  {t("wizardContinue")}
-                </button>
-              </div>
-            </form>
-          )}
+                </div>
+              </form>
+            )}
 
-          {activeStep === "result" && (
-            <div className="wizard-form">
-              <CloudPreview
-                scene={state.scene}
-                highlightedTerm={highlightedTerm}
-                captionAside={
-                  <WordTable
-                    wordSet={state.wordSet}
-                    scene={state.scene}
-                    onFocusWord={focusWord}
-                  />
-                }
-              />
-              <SharePanel
-                shareUrl={state.shareUrl}
-                shareError={state.shareError}
-                disabled={!state.scene || state.mode === "generating"}
-                onCreateLink={handleCreateLink}
-                onCopy={handleCopy}
-                onDownload={handleDownload}
-                onExportSvg={handleExportSvg}
-                onExportPng={handleExportPng}
-                exporting={exporting}
-                onImport={handleImport}
-                onNewSource={handleNewSource}
-              />
-              {activeStep === "result" && (
+            {activeStep === "words" && (
+              <form
+                className="wizard-form"
+                noValidate
+                onSubmit={handleStepSubmit}
+              >
+                <TokenizationPanel
+                  settings={state.settings}
+                  preview={tokenPreview}
+                  disabled={state.mode === "remix"}
+                  onSettingsChange={handleSettingsChange}
+                />
+                <TokenRulesPanel
+                  settings={state.settings}
+                  disabled={state.mode === "remix"}
+                  onSettingsChange={handleSettingsChange}
+                />
+                {stepError && (
+                  <p
+                    className="warning-note wizard-step-error"
+                    id="wizard-step-error"
+                    role="alert"
+                    tabIndex={-1}
+                  >
+                    {stepError}
+                  </p>
+                )}
                 <div className="wizard-actions">
                   <button
                     className="button button-quiet"
@@ -1203,12 +1142,162 @@ export function App() {
                   >
                     {t("wizardBack")}
                   </button>
+                  <button className="button button-primary" type="submit">
+                    {t("wizardContinue")}
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
-        </section>
-      </main>
+              </form>
+            )}
+
+            {activeStep === "style" && (
+              <form
+                className="wizard-form"
+                noValidate
+                onSubmit={handleStepSubmit}
+              >
+                <div className="wizard-style-layout">
+                  <StylePanel
+                    presentation={state.presentation}
+                    disabled={state.mode === "generating"}
+                    onChange={handlePresentationChange}
+                  />
+                  <CloudPreview
+                    scene={state.scene}
+                    highlightedTerm={highlightedTerm}
+                  />
+                </div>
+                {stepError && (
+                  <p
+                    className="warning-note wizard-step-error"
+                    id="wizard-step-error"
+                    role="alert"
+                    tabIndex={-1}
+                  >
+                    {stepError}
+                  </p>
+                )}
+                <div className="wizard-actions">
+                  {!(state.mode === "remix" && activeStep === "style") && (
+                    <button
+                      className="button button-quiet"
+                      type="button"
+                      onClick={handlePreviousStep}
+                    >
+                      {t("wizardBack")}
+                    </button>
+                  )}
+                  <button className="button button-primary" type="submit">
+                    {t("wizardContinue")}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {activeStep === "result" && (
+              <div className="wizard-form">
+                <CloudPreview
+                  scene={state.scene}
+                  highlightedTerm={highlightedTerm}
+                  captionAside={
+                    <WordTable
+                      wordSet={state.wordSet}
+                      scene={state.scene}
+                      onFocusWord={focusWord}
+                    />
+                  }
+                />
+                <SharePanel
+                  shareUrl={state.shareUrl}
+                  shareError={state.shareError}
+                  disabled={!state.scene || state.mode === "generating"}
+                  onCreateLink={handleCreateLink}
+                  onCopy={handleCopy}
+                  onDownload={handleDownload}
+                  onExportSvg={handleExportSvg}
+                  onExportPng={handleExportPng}
+                  exporting={exporting}
+                  onImport={handleImport}
+                  onNewSource={handleNewSource}
+                />
+                {activeStep === "result" && (
+                  <div className="wizard-actions">
+                    <button
+                      className="button button-quiet"
+                      type="button"
+                      onClick={handlePreviousStep}
+                    >
+                      {t("wizardBack")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        </main>
+      )}
+      {isSharedView && (
+        <main className="wizard-main">
+          <section
+            className="wizard-page wizard-page--style"
+            aria-labelledby="wizard-page-title"
+            aria-busy={state.mode === "generating"}
+          >
+            <header className="wizard-page-heading">
+              <p className="section-kicker">{t("previewHeading")}</p>
+              <h1 id="wizard-page-title" tabIndex={-1}>
+                {state.mode === "error" || !hasSharedFragment
+                  ? t("snapshotInvalid")
+                  : t("wizardPageStyleTitle")}
+              </h1>
+              <p>{t("wizardPageStyleDescription")}</p>
+            </header>
+            {state.scene && state.mode !== "error" ? (
+              <div className="wizard-form">
+                <div className="wizard-style-layout">
+                  <StylePanel
+                    presentation={state.presentation}
+                    disabled={state.mode === "generating"}
+                    onChange={handlePresentationChange}
+                  />
+                  <CloudPreview
+                    scene={state.scene}
+                    highlightedTerm={highlightedTerm}
+                  />
+                </div>
+                <SharePanel
+                  shareUrl={state.shareUrl}
+                  shareError={state.shareError}
+                  disabled={!state.scene || state.mode === "generating"}
+                  onCreateLink={handleCreateLink}
+                  onCopy={handleCopy}
+                  onDownload={handleDownload}
+                  onExportSvg={handleExportSvg}
+                  onExportPng={handleExportPng}
+                  exporting={exporting}
+                  onImport={handleImport}
+                  onNewSource={handleNewSource}
+                />
+              </div>
+            ) : hasSharedFragment && state.mode !== "error" ? (
+              <p className="wizard-updating" role="status">
+                {t("wizardUpdating")}
+              </p>
+            ) : (
+              <div className="wizard-error" role="alert">
+                <strong>{t("attention")}</strong>
+                <p>{state.error ?? t("snapshotInvalid")}</p>
+                <button
+                  className="button button-primary"
+                  type="button"
+                  onClick={handleNewSource}
+                >
+                  {t("newCloud")}
+                </button>
+              </div>
+            )}
+          </section>
+        </main>
+      )}
     </div>
   );
 }

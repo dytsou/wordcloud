@@ -2,6 +2,8 @@ export const WIZARD_STEPS = ["source", "words", "style", "result"] as const;
 
 export type WizardStep = (typeof WIZARD_STEPS)[number];
 
+export const SHARE_VIEW_PATH = "/view";
+
 export const WIZARD_STEP_PATHS: Record<WizardStep, string> = {
   source: "/create/source",
   words: "/create/words",
