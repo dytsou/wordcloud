@@ -12,6 +12,10 @@ export const LIMITS = {
   maxInflateRatio: 64,
   maxCanvasDimension: 4096,
   maxExportPixels: 16_000_000,
+  maxGlyphSpritePixels: 32_000_000,
+  maxShapeFitSpansPerCandidate: 4_096,
+  maxShapeFitSpansPerLayout: 1_000_000,
+  shapeFitCheckChunkSize: 64,
   minPadding: -12,
   maxPadding: 128,
 } as const;

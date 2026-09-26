@@ -1,5 +1,10 @@
 import { LIMITS } from "./limits";
 import { GlyphGrid } from "./glyph-grid";
+import {
+  compileShapeMask,
+  type CompiledShapeMask,
+  type ShapeSettings,
+} from "./shapes";
 import { safeBackground, safeFontFamily, safePalette } from "./style-safety";
 import {
   metricsFingerprint,
@@ -24,12 +29,15 @@ export interface LayoutStyle {
   fontFamily: string;
   seed: string;
   version: string;
+  shape?: ShapeSettings;
 }
 
 export interface LayoutOptions {
   maxProbes?: number;
   maxLayoutMs?: number;
   shouldCancel?: () => boolean;
+  maxShapeFitSpans?: number;
+  maxShapeFitSpansPerCandidate?: number;
 }
 
 interface Rect {
@@ -334,6 +342,67 @@ function makeWordPlacement(
   };
 }
 
+type ShapeFitResult = "inside" | "outside" | "probe-budget" | "cancelled";
+
+interface ShapeFitWork {
+  checked: number;
+  maxLayoutSpans: number;
+  maxCandidateSpans: number;
+}
+
+function checkShapeFootprint(
+  mask: CompiledShapeMask,
+  visual: Rect,
+  inkSpans: Uint16Array | undefined,
+  work: ShapeFitWork,
+  options: LayoutOptions,
+): ShapeFitResult {
+  const hasInkSpans = Boolean(inkSpans?.length);
+  const firstRow = Math.floor(visual.y);
+  const lastRow = Math.ceil(visual.y + visual.height);
+  const rectangleSpanCount = Math.max(0, lastRow - firstRow);
+  const spanCount = hasInkSpans
+    ? Math.floor((inkSpans?.length ?? 0) / 3)
+    : rectangleSpanCount;
+
+  if (
+    (hasInkSpans && (inkSpans?.length ?? 0) % 3 !== 0) ||
+    spanCount > work.maxCandidateSpans
+  ) {
+    return "probe-budget";
+  }
+
+  const chunkSize = LIMITS.shapeFitCheckChunkSize;
+  const xStart = Math.floor(visual.x);
+  const xEnd = Math.ceil(visual.x + visual.width);
+  for (let index = 0; index < spanCount; index++) {
+    if (index % chunkSize === 0 && options.shouldCancel?.()) return "cancelled";
+    if (work.checked >= work.maxLayoutSpans) return "probe-budget";
+    work.checked++;
+
+    let row = firstRow + index;
+    let start = xStart;
+    let end = xEnd;
+    if (hasInkSpans) {
+      const offset = index * 3;
+      row = Math.floor(visual.y) + (inkSpans?.[offset] ?? -1);
+      start = Math.floor(visual.x) + (inkSpans?.[offset + 1] ?? -1);
+      end = Math.floor(visual.x) + (inkSpans?.[offset + 2] ?? -1);
+      if (
+        row < Math.floor(visual.y) ||
+        row >= Math.ceil(visual.y + visual.height) ||
+        start < Math.floor(visual.x) ||
+        end > Math.ceil(visual.x + visual.width) ||
+        end <= start
+      ) {
+        return "outside";
+      }
+    }
+    if (!mask.containsSpan(row, start, end)) return "outside";
+  }
+  return "inside";
+}
+
 function* layoutWordCloudSteps(
   wordSet: WordSet,
   style: LayoutStyle,
@@ -371,6 +440,37 @@ function* layoutWordCloudSteps(
     style.canvas.width > LIMITS.maxCanvasDimension ||
     style.canvas.height > LIMITS.maxCanvasDimension ||
     style.canvas.width * style.canvas.height > LIMITS.maxExportPixels;
+  const shapeMask =
+    style.shape && !invalidCanvas
+      ? compileShapeMask(style.shape, style.canvas)
+      : undefined;
+  const requestedLayoutSpanLimit = options.maxShapeFitSpans;
+  const requestedCandidateSpanLimit = options.maxShapeFitSpansPerCandidate;
+  const shapeWork: ShapeFitWork = {
+    checked: 0,
+    maxLayoutSpans:
+      requestedLayoutSpanLimit === undefined ||
+      !Number.isFinite(requestedLayoutSpanLimit)
+        ? LIMITS.maxShapeFitSpansPerLayout
+        : Math.max(
+            0,
+            Math.min(
+              LIMITS.maxShapeFitSpansPerLayout,
+              Math.floor(requestedLayoutSpanLimit),
+            ),
+          ),
+    maxCandidateSpans:
+      requestedCandidateSpanLimit === undefined ||
+      !Number.isFinite(requestedCandidateSpanLimit)
+        ? LIMITS.maxShapeFitSpansPerCandidate
+        : Math.max(
+            0,
+            Math.min(
+              LIMITS.maxShapeFitSpansPerCandidate,
+              Math.floor(requestedCandidateSpanLimit),
+            ),
+          ),
+  };
   const glyphGrid =
     metrics.sprites && !invalidCanvas
       ? new GlyphGrid(style.canvas.width, style.canvas.height)
@@ -411,6 +511,14 @@ function* layoutWordCloudSteps(
           color,
           "invalid-canvas",
         ),
+      );
+      layoutStatus = "budget-limited";
+      continue;
+    }
+
+    if (shapeMask && shapeWork.checked >= shapeWork.maxLayoutSpans) {
+      words.push(
+        makeUnplaceable(word, fontSize, horizontalSize, color, "probe-budget"),
       );
       layoutStatus = "budget-limited";
       continue;
@@ -476,14 +584,37 @@ function* layoutWordCloudSteps(
           candidate.shape.centerY = candidate.visual.y + sprite.height / 2;
         }
         if (
-          withinCanvas(candidate.visual, style.canvas) &&
-          withinCanvas(candidate.collision, style.canvas) &&
-          !(glyphGrid && sprite
-            ? glyphGrid.collides(sprite, candidate.visual.x, candidate.visual.y)
-            : grid.collides(candidate.collision, candidate.shape))
+          !withinCanvas(candidate.visual, style.canvas) ||
+          !withinCanvas(candidate.collision, style.canvas)
         ) {
-          placed = candidate;
+          return;
         }
+        if (shapeMask) {
+          const shapeFit = checkShapeFootprint(
+            shapeMask,
+            candidate.visual,
+            sprite?.inkSpans,
+            shapeWork,
+            options,
+          );
+          if (shapeFit === "cancelled") {
+            terminalReason = "cancelled";
+            return;
+          }
+          if (shapeFit === "probe-budget") {
+            terminalReason = "probe-budget";
+            return;
+          }
+          if (shapeFit === "outside") return;
+        }
+        if (
+          glyphGrid && sprite
+            ? glyphGrid.collides(sprite, candidate.visual.x, candidate.visual.y)
+            : grid.collides(candidate.collision, candidate.shape)
+        ) {
+          return;
+        }
+        placed = candidate;
       };
       const checkBudget = () => {
         if (options.shouldCancel?.()) return "cancelled" as const;
@@ -529,7 +660,7 @@ function* layoutWordCloudSteps(
           }
           tryPlacement(centerX, centerY);
           yield;
-          if (placed) break;
+          if (placed || terminalReason) break;
         }
       }
 

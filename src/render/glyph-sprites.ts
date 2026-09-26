@@ -3,7 +3,7 @@ import {
   rotationCandidates,
   type LayoutStyle,
 } from "../core/layout";
-import { padGlyph } from "../core/glyph-grid";
+import { glyphInkSpans, padGlyph } from "../core/glyph-grid";
 import type { FontMetricsTable } from "../core/metrics";
 import type { WordSet } from "../core/types";
 import { LIMITS } from "../core/limits";
@@ -82,7 +82,7 @@ export async function createGlyphSprites(
       }
       totalPixels += width * height;
       // Fall back as one complete set rather than mixing incompatible collision models.
-      if (totalPixels > 32_000_000) return undefined;
+      if (totalPixels > LIMITS.maxGlyphSpritePixels) return undefined;
       canvas.width = width;
       canvas.height = height;
       context.translate(width / 2, height / 2);
@@ -99,16 +99,22 @@ export async function createGlyphSprites(
       const alpha = new Uint8Array(width * height);
       for (let pixel = 0; pixel < alpha.length; pixel++)
         alpha[pixel] = rgba[pixel * 4 + 3] > 0 ? 1 : 0;
+      const inkSpans = glyphInkSpans(alpha, width, height);
       // One pixel of raster tolerance at non-negative spacing protects antialiased edges.
+      const pixels = padGlyph(
+        alpha,
+        width,
+        height,
+        padding >= 0 ? padding + 1 : padding,
+      );
+      // Count the sparse visible-ink and padded collision representations too.
+      totalPixels += pixels.length + inkSpans.length;
+      if (totalPixels > LIMITS.maxGlyphSpritePixels) return undefined;
       variants[angle] = {
         width,
         height,
-        pixels: padGlyph(
-          alpha,
-          width,
-          height,
-          padding >= 0 ? padding + 1 : padding,
-        ),
+        pixels,
+        inkSpans,
       };
     }
     sprites[word.term] = variants;

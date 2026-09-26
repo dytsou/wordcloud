@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GlyphGrid, padGlyph } from "../../src/core/glyph-grid";
+import { GlyphGrid, glyphInkSpans, padGlyph } from "../../src/core/glyph-grid";
 import { layoutWordCloud } from "../../src/core/layout";
 import { DEFAULT_PRESENTATION } from "../../src/app/editor-state";
 
@@ -50,6 +50,22 @@ describe("glyph occupancy", () => {
     dot[12] = 1;
     expect(padGlyph(dot, 5, 5, 1)).toHaveLength(9);
     expect(padGlyph(dot, 5, 5, 0)).toHaveLength(1);
+  });
+
+  it("retains compact unpadded visible-ink spans separately from collision pixels", () => {
+    const alpha = new Uint8Array(20);
+    alpha[5] = 1;
+    alpha[6] = 1;
+    alpha[8] = 1;
+    alpha[9] = 1;
+    alpha[17] = 1;
+
+    const inkSpans = glyphInkSpans(alpha, 5, 4);
+    const paddedPixels = padGlyph(alpha, 5, 4, 1);
+
+    expect(inkSpans).toEqual(new Uint16Array([1, 0, 2, 1, 3, 5, 3, 2, 3]));
+    expect(paddedPixels.length).toBeGreaterThan(inkSpans.length / 3);
+    expect(glyphInkSpans(alpha, 5, 4)).toEqual(inkSpans);
   });
 
   it("packs overlapping word boxes using non-overlapping pixels deterministically", () => {

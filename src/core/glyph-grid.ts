@@ -68,6 +68,38 @@ export class GlyphGrid {
   }
 }
 
+/** Encodes contiguous, unpadded alpha runs as compact [row, start, end) triples. */
+export function glyphInkSpans(
+  alpha: Uint8Array,
+  width: number,
+  height: number,
+): Uint16Array {
+  if (
+    !Number.isInteger(width) ||
+    !Number.isInteger(height) ||
+    width <= 0 ||
+    height <= 0 ||
+    width > 65_535 ||
+    height > 65_535 ||
+    alpha.length !== width * height
+  ) {
+    throw new RangeError("Glyph dimensions must match a 16-bit alpha raster");
+  }
+
+  const spans: number[] = [];
+  for (let y = 0; y < height; y++) {
+    let x = 0;
+    while (x < width) {
+      while (x < width && !alpha[y * width + x]) x++;
+      if (x >= width) break;
+      const start = x;
+      while (x < width && alpha[y * width + x]) x++;
+      spans.push(y, start, x);
+    }
+  }
+  return Uint16Array.from(spans);
+}
+
 /** Square dilation/erosion via a summed-area table, bounded independently of radius. */
 export function padGlyph(
   alpha: Uint8Array,

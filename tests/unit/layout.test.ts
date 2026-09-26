@@ -134,6 +134,176 @@ describe("layoutWordCloud", () => {
     );
   });
 
+  it("fits visible ink inside a shape without using padded collision pixels", () => {
+    const oneWord: WordSet = {
+      ...wordSet,
+      totalTokens: 4,
+      words: [wordSet.words[0]!],
+    };
+    const shapeStyle: LayoutStyle = {
+      ...style,
+      canvas: { width: 100, height: 100 },
+      minFontSize: 16,
+      maxFontSize: 16,
+      padding: 0,
+      rotations: [0],
+      shape: { id: "circle", widthScale: 1, heightScale: 1 },
+    };
+    const metricTable: FontMetricsTable = {
+      baseFontSize: 16,
+      fingerprint: "shape-ink-test",
+      words: { alpha: { width: 20, height: 20 } },
+      sprites: {
+        alpha: {
+          0: {
+            width: 100,
+            height: 100,
+            pixels: new Uint32Array([0, 99, 9_900, 9_999]),
+            inkSpans: new Uint16Array([50, 40, 60]),
+          },
+        },
+      },
+    };
+
+    for (const padding of [12, -12]) {
+      const scene = layoutWordCloud(
+        oneWord,
+        { ...shapeStyle, padding },
+        metricTable,
+        { maxProbes: 1 },
+      );
+      expect(scene.words[0]?.status).toBe("placed");
+      expect(
+        layoutWordCloud(oneWord, { ...shapeStyle, padding }, metricTable, {
+          maxProbes: 1,
+        }),
+      ).toEqual(scene);
+    }
+
+    for (const padding of [12, -12]) {
+      const outsideInk = layoutWordCloud(
+        oneWord,
+        { ...shapeStyle, padding },
+        {
+          ...metricTable,
+          sprites: {
+            alpha: {
+              0: {
+                ...metricTable.sprites!.alpha![0]!,
+                inkSpans: new Uint16Array([0, 0, 1, 99, 99, 100]),
+              },
+            },
+          },
+        },
+        { maxProbes: 1 },
+      );
+      expect(outsideInk.words[0]?.reason).toBe("no-fit");
+    }
+    expect(
+      layoutWordCloud(
+        oneWord,
+        { ...shapeStyle, shape: undefined },
+        metricTable,
+        {
+          maxProbes: 1,
+        },
+      ).words[0]?.status,
+    ).toBe("placed");
+  });
+
+  it("uses the rotated metric rectangle for sprite-less shape containment", () => {
+    const oneWord: WordSet = {
+      ...wordSet,
+      totalTokens: 4,
+      words: [wordSet.words[0]!],
+    };
+    const metricTable: FontMetricsTable = {
+      baseFontSize: 16,
+      fingerprint: "shape-metric-test",
+      words: { alpha: { width: 90, height: 90 } },
+    };
+    const shapeStyle: LayoutStyle = {
+      ...style,
+      canvas: { width: 100, height: 100 },
+      minFontSize: 16,
+      maxFontSize: 16,
+      padding: 0,
+      rotations: [0],
+      shape: { id: "circle", widthScale: 1, heightScale: 1 },
+    };
+
+    const shaped = layoutWordCloud(oneWord, shapeStyle, metricTable, {
+      maxProbes: 1,
+    });
+    const unshaped = layoutWordCloud(
+      oneWord,
+      { ...shapeStyle, shape: undefined },
+      metricTable,
+      { maxProbes: 1 },
+    );
+
+    expect(shaped.words[0]?.reason).toBe("no-fit");
+    expect(unshaped.words[0]?.status).toBe("placed");
+  });
+
+  it("bounds shape span work and checks cancellation between span chunks", () => {
+    const oneWord: WordSet = {
+      ...wordSet,
+      totalTokens: 4,
+      words: [wordSet.words[0]!],
+    };
+    const spans = new Uint16Array(
+      Array.from({ length: 160 }, (_, y) => [y, 50, 51]).flat(),
+    );
+    const metricTable: FontMetricsTable = {
+      baseFontSize: 16,
+      fingerprint: "shape-budget-test",
+      words: { alpha: { width: 50, height: 160 } },
+      sprites: {
+        alpha: {
+          0: {
+            width: 100,
+            height: 160,
+            pixels: new Uint32Array([5_050]),
+            inkSpans: spans,
+          },
+        },
+      },
+    };
+    const shapeStyle: LayoutStyle = {
+      ...style,
+      canvas: { width: 200, height: 200 },
+      minFontSize: 16,
+      maxFontSize: 16,
+      padding: 0,
+      rotations: [0],
+      shape: { id: "square", widthScale: 1, heightScale: 1 },
+    };
+
+    const limited = layoutWordCloud(oneWord, shapeStyle, metricTable, {
+      maxProbes: 1,
+      maxShapeFitSpans: 8,
+    });
+    expect(limited.layoutStatus).toBe("budget-limited");
+    expect(limited.words[0]?.reason).toBe("probe-budget");
+
+    const candidateLimited = layoutWordCloud(oneWord, shapeStyle, metricTable, {
+      maxProbes: 1,
+      maxShapeFitSpans: 1_000,
+      maxShapeFitSpansPerCandidate: 8,
+    });
+    expect(candidateLimited.layoutStatus).toBe("budget-limited");
+
+    let cancellationChecks = 0;
+    const cancelled = layoutWordCloud(oneWord, shapeStyle, metricTable, {
+      maxProbes: 1,
+      shouldCancel: () => ++cancellationChecks >= 4,
+    });
+    expect(cancelled.layoutStatus).toBe("cancelled");
+    expect(cancelled.words[0]?.reason).toBe("cancelled");
+    expect(cancellationChecks).toBeLessThan(6);
+  });
+
   it("never rotates a newly laid-out word beyond ±120 degrees", () => {
     const scene = layoutWordCloud(
       wordSet,

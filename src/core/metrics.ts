@@ -15,6 +15,8 @@ export interface GlyphSprite {
   width: number;
   height: number;
   pixels: Uint32Array;
+  /** Compact triples of unpadded visible ink: row, inclusive start, exclusive end. */
+  inkSpans?: Uint16Array;
 }
 
 export interface FontProfile {
