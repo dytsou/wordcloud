@@ -55,40 +55,6 @@ export function SharePanel({
         <button
           className="button button-quiet"
           type="button"
-          disabled={!shareUrl}
-          onClick={onCopy}
-        >
-          {t("copy")}
-        </button>
-      </div>
-      <label className="field-label" htmlFor="share-url">
-        {t("vUrl")}
-      </label>
-      <input
-        id="share-url"
-        className={hasShareUrl ? "share-url" : "share-url is-empty"}
-        readOnly
-        value={shareUrl ?? ""}
-        placeholder={t("sharePlaceholder")}
-        aria-describedby={shareError ? "share-error" : undefined}
-      />
-      {shareError && (
-        <p id="share-error" className="warning-note">
-          {shareError}
-        </p>
-      )}
-      <div className="file-actions">
-        <button
-          className="button button-quiet"
-          type="button"
-          disabled={disabled || exporting}
-          onClick={onDownload}
-        >
-          {t("downloadSnapshot", { extension: SNAPSHOT_FILE_EXTENSION })}
-        </button>
-        <button
-          className="button button-quiet"
-          type="button"
           disabled={disabled || exporting}
           onClick={onExportSvg}
         >
@@ -102,21 +68,61 @@ export function SharePanel({
         >
           {exporting ? t("downloadingPng") : t("downloadPng")}
         </button>
-        <button
-          className="button button-quiet"
-          type="button"
-          onClick={() => inputRef.current?.click()}
-        >
-          {t("importSnapshot", { extension: SNAPSHOT_FILE_EXTENSION })}
-        </button>
-        <input
-          ref={inputRef}
-          className="sr-only"
-          type="file"
-          accept={`${SNAPSHOT_FILE_EXTENSION},application/octet-stream,text/plain`}
-          onChange={onImport}
-        />
+        {hasShareUrl && (
+          <button
+            className="button button-quiet"
+            type="button"
+            onClick={onCopy}
+          >
+            {t("copy")}
+          </button>
+        )}
       </div>
+      {hasShareUrl && (
+        <>
+          <label className="field-label" htmlFor="share-url">
+            {t("vUrl")}
+          </label>
+          <input
+            id="share-url"
+            className="share-url"
+            readOnly
+            value={shareUrl}
+            aria-describedby={shareError ? "share-error" : undefined}
+          />
+        </>
+      )}
+      {shareError && (
+        <p id="share-error" className="warning-note">
+          {shareError}
+        </p>
+      )}
+      {hasShareUrl && (
+        <div className="file-actions">
+          <button
+            className="button button-quiet"
+            type="button"
+            disabled={disabled || exporting}
+            onClick={onDownload}
+          >
+            {t("downloadSnapshot", { extension: SNAPSHOT_FILE_EXTENSION })}
+          </button>
+          <button
+            className="button button-quiet"
+            type="button"
+            onClick={() => inputRef.current?.click()}
+          >
+            {t("importSnapshot", { extension: SNAPSHOT_FILE_EXTENSION })}
+          </button>
+          <input
+            ref={inputRef}
+            className="sr-only"
+            type="file"
+            accept={`${SNAPSHOT_FILE_EXTENSION},application/octet-stream,text/plain`}
+            onChange={onImport}
+          />
+        </div>
+      )}
       <button className="text-button" type="button" onClick={onNewSource}>
         {disabled ? t("newCloudDisabled") : t("newCloud")}
       </button>
