@@ -2,6 +2,32 @@ import type { MessageMap } from "./types";
 
 export const ES_MESSAGES: MessageMap = {
   language: "Idioma de la interfaz",
+  wizardNavigation: "Pasos para crear la nube de palabras",
+  wizardProgressLabel: "PASO {{current}} DE {{total}}",
+  wizardStepSource: "Texto",
+  wizardStepWords: "Palabras",
+  wizardStepStyle: "Estilo",
+  wizardStepResult: "Resultado",
+  wizardPageSourceTitle: "Empieza con tu texto.",
+  wizardPageSourceDescription:
+    "Pega un artículo, una conversación o una nota para darle forma.",
+  wizardPageWordsTitle: "Ajusta el vocabulario.",
+  wizardPageWordsDescription:
+    "Elige cómo contar las expresiones y revisa los términos antes del diseño.",
+  wizardPageStyleTitle: "Define el ambiente.",
+  wizardPageStyleDescription:
+    "Ajusta la tipografía, la escala y la paleta; la vista previa se actualiza al editar.",
+  wizardPageResultTitle: "Tu nube está lista.",
+  wizardPageResultDescription:
+    "Revisa el índice y crea un enlace para compartir o exporta una imagen.",
+  wizardContinue: "Continuar",
+  wizardBack: "Atrás",
+  wizardUpdating: "Actualizando la nube en este navegador…",
+  wizardPreviewPending:
+    "La vista previa aún se está actualizando. Espera para continuar.",
+  wizardRetry: "Reintentar diseño",
+  tokenSettingsKicker: "AJUSTES DE TOKENS",
+  tokenSettingsHeading: "Elige qué cuenta.",
   sourceHeading: "Trae las palabras.",
   sourceLabel: "Texto original",
   tokenizerLocaleLabel: "Locale de segmentación predeterminado",

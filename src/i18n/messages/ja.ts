@@ -2,6 +2,31 @@ import type { MessageMap } from "./types";
 
 export const JA_MESSAGES: MessageMap = {
   language: "表示言語",
+  wizardNavigation: "ワードクラウド作成の手順",
+  wizardProgressLabel: "{{total}} ステップ中 {{current}} ステップ目",
+  wizardStepSource: "原文",
+  wizardStepWords: "単語",
+  wizardStepStyle: "スタイル",
+  wizardStepResult: "完成",
+  wizardPageSourceTitle: "まず原文を入れます",
+  wizardPageSourceDescription:
+    "クラウドにしたい記事、会話、メモを貼り付けます。",
+  wizardPageWordsTitle: "単語と分割を調整",
+  wizardPageWordsDescription:
+    "語句の数え方を選び、レイアウト前にプレビューを確認します。",
+  wizardPageStyleTitle: "雰囲気を整える",
+  wizardPageStyleDescription:
+    "書体、比率、配色を調整するとプレビューが更新されます。",
+  wizardPageResultTitle: "ワードクラウドが完成しました",
+  wizardPageResultDescription:
+    "単語一覧を確認し、共有リンクや画像を書き出せます。",
+  wizardContinue: "次へ",
+  wizardBack: "戻る",
+  wizardUpdating: "ブラウザー内でワードクラウドを更新中…",
+  wizardPreviewPending: "プレビューを更新しています。完了後に続行できます。",
+  wizardRetry: "再レイアウト",
+  tokenSettingsKicker: "トークン設定",
+  tokenSettingsHeading: "数え方を調整",
   sourceHeading: "言葉を持ち込む。",
   sourceLabel: "原文",
   tokenizerLocaleLabel: "既定の分かち書き locale",

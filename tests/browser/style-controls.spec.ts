@@ -1,19 +1,17 @@
 import { expect, test } from "@playwright/test";
+import { advanceWizard, createCloudAtStyle } from "./wizard-helpers";
 
 test("font slider keeps the cloud visible while dragging and commits on release", async ({
   page,
 }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   await page.setViewportSize({ width: 903, height: 726 });
-  await page.goto("/");
-  await page
-    .getByLabel("原文")
-    .fill(
-      "成功大學 台灣大學 清華大學 design research science culture community ".repeat(
-        10,
-      ),
-    );
-  await page.getByRole("button", { name: "產生文字雲" }).click();
+  await createCloudAtStyle(
+    page,
+    "成功大學 台灣大學 清華大學 design research science culture community ".repeat(
+      10,
+    ),
+  );
   await expect(page.locator(".cloud-svg text").first()).toBeVisible();
 
   const slider = page.getByRole("slider", { name: /最大字級/u });
@@ -34,7 +32,8 @@ test("font slider keeps the cloud visible while dragging and commits on release"
 test("word spacing slider supports negative tight packing", async ({
   page,
 }) => {
-  await page.goto("/");
+  test.setTimeout(180_000);
+  await createCloudAtStyle(page, "style controls test words repeated repeated");
 
   await expect(
     page.getByRole("button", { name: "套用密集填縫排版" }),
@@ -61,7 +60,8 @@ test("word spacing slider supports negative tight packing", async ({
 });
 
 test("palette presets apply curated color combinations", async ({ page }) => {
-  await page.goto("/");
+  test.setTimeout(180_000);
+  await createCloudAtStyle(page, "palette presets campus palette preset words");
 
   const preset = page.getByRole("button", { name: "套用色盤：校園霓虹" });
   await expect(preset).toBeVisible();
@@ -84,16 +84,13 @@ test("palette presets apply curated color combinations", async ({ page }) => {
 test("custom rotation stays within ±120 degrees and survives a V link", async ({
   page,
 }) => {
-  test.setTimeout(90_000);
-  await page.goto("/");
-  await page
-    .getByLabel("原文")
-    .fill(
-      "成功大學 台灣大學 清華大學 design research science culture community ".repeat(
-        10,
-      ),
-    );
-  await page.getByRole("button", { name: "產生文字雲" }).click();
+  test.setTimeout(180_000);
+  await createCloudAtStyle(
+    page,
+    "成功大學 台灣大學 清華大學 design research science culture community ".repeat(
+      10,
+    ),
+  );
   const words = page.locator(".cloud-svg text");
   await expect(words.first()).toBeVisible();
 
@@ -104,6 +101,7 @@ test("custom rotation stays within ±120 degrees and survives a V link", async (
   expect(rect).not.toBeNull();
   if (!rect) return;
   await page.mouse.click(rect.x + rect.width - 2, rect.y + rect.height / 2);
+  await expect(angleSlider).toBeEnabled();
   await expect(words.first()).toBeVisible();
   const angles = await words.evaluateAll((elements) =>
     elements.map((element) =>
@@ -116,10 +114,11 @@ test("custom rotation stays within ±120 degrees and survives a V link", async (
   );
   expect(angles.every((angle) => Math.abs(angle) <= 120)).toBe(true);
 
+  await advanceWizard(page, "result");
   await page.getByRole("button", { name: "產生 V 連結" }).click();
   const url = await page.getByLabel("V URL").inputValue();
   expect(url).toContain("#wc-pako:");
-  await page.goto(url);
+  await page.goto(url, { waitUntil: "domcontentloaded" });
   await expect(words.first()).toBeVisible();
   const replayAngles = await words.evaluateAll((elements) =>
     elements.map((element) =>

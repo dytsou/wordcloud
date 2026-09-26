@@ -2,6 +2,32 @@ import type { MessageMap } from "./types";
 
 export const KO_MESSAGES: MessageMap = {
   language: "인터페이스 언어",
+  wizardNavigation: "워드 클라우드 만들기 단계",
+  wizardProgressLabel: "전체 {{total}}단계 중 {{current}}단계",
+  wizardStepSource: "원문",
+  wizardStepWords: "단어",
+  wizardStepStyle: "스타일",
+  wizardStepResult: "결과",
+  wizardPageSourceTitle: "원문부터 시작하세요",
+  wizardPageSourceDescription:
+    "워드 클라우드로 만들 글, 대화 또는 메모를 붙여 넣으세요.",
+  wizardPageWordsTitle: "단어와 분할을 다듬으세요",
+  wizardPageWordsDescription:
+    "표현을 세는 방식을 선택하고 배치 전에 미리보기를 확인하세요.",
+  wizardPageStyleTitle: "분위기를 설정하세요",
+  wizardPageStyleDescription:
+    "서체, 비율, 팔레트를 조정하면 미리보기가 업데이트됩니다.",
+  wizardPageResultTitle: "워드 클라우드가 완성됐어요",
+  wizardPageResultDescription:
+    "단어 색인을 확인한 뒤 공유 링크를 만들거나 이미지를 내보내세요.",
+  wizardContinue: "다음",
+  wizardBack: "이전",
+  wizardUpdating: "브라우저에서 워드 클라우드를 업데이트하는 중…",
+  wizardPreviewPending:
+    "미리보기를 업데이트하고 있습니다. 완료 후 계속할 수 있어요.",
+  wizardRetry: "다시 배치",
+  tokenSettingsKicker: "토큰 설정",
+  tokenSettingsHeading: "집계 방식을 조정하세요.",
   sourceHeading: "단어를 가져오세요.",
   sourceLabel: "원문",
   tokenizerLocaleLabel: "기본 토큰화 locale",

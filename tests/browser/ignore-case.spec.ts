@@ -1,11 +1,13 @@
 import { expect, test } from "@playwright/test";
+import { advanceWizard, openWizard } from "./wizard-helpers";
 
 test("ignore case merges variants and keeps the first spelling", async ({
   page,
 }) => {
   test.setTimeout(90_000);
-  await page.goto("/");
-  await page.getByLabel("原文").fill("Apple apple APPLE banana");
+  await openWizard(page);
+  await page.locator("#source-text").fill("Apple apple APPLE banana");
+  await advanceWizard(page, "words");
 
   const ignoreCase = page.getByRole("checkbox", { name: "忽略大小寫" });
   await expect(ignoreCase).not.toBeChecked();
@@ -13,7 +15,9 @@ test("ignore case merges variants and keeps the first spelling", async ({
     page.getByRole("button", { name: "忽略大小寫說明" }),
   ).toHaveAttribute("aria-describedby", "case-insensitive-help");
   await ignoreCase.check();
-  await page.getByRole("button", { name: "產生文字雲" }).click();
+  await advanceWizard(page, "style");
+  await expect(page.locator(".cloud-svg text").first()).toBeVisible();
+  await advanceWizard(page, "result");
 
   const table = page.getByRole("table", {
     name: "文字雲詞頻排名與排版狀態",

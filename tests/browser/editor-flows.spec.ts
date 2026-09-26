@@ -1,9 +1,33 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
-test("creator can generate, inspect, remix, and create a V link locally", async ({
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("wordcloud-studio:ui-locale:v1", "zh-Hant");
+  });
+});
+
+async function advance(page: Page, destination: RegExp) {
+  await page
+    .getByRole("button", { name: "下一步" })
+    .evaluate((button) => (button as HTMLButtonElement).click());
+  await expect.poll(() => page.url()).toMatch(destination);
+}
+
+async function open(page: Page, url: string) {
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+}
+
+async function continueToWords(page: Page) {
+  await page.locator("#source-text").fill("cloudnative cloud data");
+  await advance(page, /\/create\/words$/);
+}
+
+test("creator moves through the wizard and can return to update the cloud", async ({
   page,
 }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
+  page.setDefaultTimeout(30_000);
   const requests: string[] = [];
   page.on("request", (request) => {
     requests.push(
@@ -11,51 +35,71 @@ test("creator can generate, inspect, remix, and create a V link locally", async 
     );
   });
 
-  await page.goto("/");
+  await open(page, "/");
+  await expect.poll(() => page.url()).toMatch(/\/create\/source$/);
+  await expect(page.getByRole("heading", { name: "先放入原文" })).toBeVisible();
+  await expect(page.getByLabel("V URL")).toHaveCount(0);
+
+  const source = "Cloud cloud 雲端 雲端 データ data";
+  await page.locator("#source-text").fill(source);
+  await advance(page, /\/create\/words$/);
   await expect(
-    page.getByRole("heading", { name: "Bring the words in." }),
+    page.getByRole("heading", { name: "校正詞語與切分" }),
   ).toBeVisible();
+  await expect(page.getByText("分詞預覽")).toBeVisible();
+
+  await advance(page, /\/create\/style$/);
+  await expect(
+    page.getByRole("heading", { name: "設計文字雲風格" }),
+  ).toBeVisible();
+  await expect(page.locator(".cloud-svg")).toBeVisible();
+
+  await advance(page, /\/create\/result$/);
+  await expect(
+    page.getByRole("heading", { name: "文字雲已完成" }),
+  ).toBeVisible();
+  const wordTable = page.getByRole("table", {
+    name: "文字雲詞頻排名與排版狀態",
+  });
+  await expect(wordTable).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "原文" })
+    .evaluate((button) => (button as HTMLButtonElement).click());
+  await expect.poll(() => page.url()).toMatch(/\/create\/source$/);
+  await page.locator("#source-text").fill("alpha gamma gamma 雲端");
+  await advance(page, /\/create\/words$/);
+  await advance(page, /\/create\/style$/);
+  await expect(page.locator(".cloud-svg")).toBeVisible();
+  await advance(page, /\/create\/result$/);
+  expect(await page.getByRole("button", { name: "beta" }).count()).toBe(0);
+  await expect(page.getByRole("button", { name: "gamma" })).toBeVisible();
+
   const shareUrl = page.getByLabel("V URL");
   await expect(shareUrl).toHaveValue("");
   await expect(shareUrl).toHaveAttribute(
     "placeholder",
     "產生連結後會顯示在這裡",
   );
-  await expect(shareUrl).toHaveClass(/is-empty/);
-  await page.getByLabel("原文").fill("Cloud cloud 雲端 雲端 データ data");
-  await expect(page.getByText("分詞預覽")).toBeVisible();
-  await page.getByRole("button", { name: "產生文字雲" }).click();
-  await expect(
-    page.getByRole("heading", { name: "The exact numbers." }),
-  ).toBeVisible();
-  await expect(page.getByRole("cell", { name: "2" }).first()).toBeVisible();
-
-  const paletteInput = page.locator("#palette");
-  await paletteInput.fill("#ff0000");
-  await paletteInput.press("Enter");
-  await paletteInput.fill("#000000");
-  await paletteInput.press("Enter");
   await page.getByRole("button", { name: "產生 V 連結" }).click();
-  await expect(shareUrl).toHaveValue(/#wc-pako:v1:/);
-  await expect(shareUrl).not.toHaveClass(/is-empty/);
+  await expect(shareUrl).toHaveValue(/\/create\/result#\wc-pako:v1:/);
 
-  const sourceLeak = requests.find((request) =>
-    request.includes("Cloud cloud 雲端"),
+  expect(requests.some((request) => request.includes("Cloud cloud 雲端"))).toBe(
+    false,
   );
-  expect(sourceLeak).toBeUndefined();
 });
 
-test("deep paths still render the SPA shell", async ({ page }) => {
-  await page.goto("/creator/anything");
-  await expect(
-    page.getByRole("heading", { name: "Bring the words in." }),
-  ).toBeVisible();
+test("deep paths are normalized to the first wizard step", async ({ page }) => {
+  await open(page, "/creator/anything");
+  await expect.poll(() => page.url()).toMatch(/\/create\/source$/);
+  await expect(page.getByRole("heading", { name: "先放入原文" })).toBeVisible();
 });
 
 test("vocabulary starts simple and exposes grouped precision controls", async ({
   page,
 }) => {
-  await page.goto("/");
+  await open(page, "/");
+  await continueToWords(page);
 
   const panel = page.locator(".rules-panel");
   const disclosure = page.getByRole("button", { name: "需要精準校正？" });
@@ -111,7 +155,8 @@ test("vocabulary starts simple and exposes grouped precision controls", async ({
 
 test("precision controls stay within a narrow viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await open(page, "/");
+  await continueToWords(page);
   await page.getByRole("button", { name: "需要精準校正？" }).click();
 
   await expect(

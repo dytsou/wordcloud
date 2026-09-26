@@ -4,6 +4,32 @@ export const EN_MESSAGES = {
     "Create, tune, and share multilingual word clouds locally in your browser.",
   brandSubtitle: "A local-first word-cloud generator for individual creators.",
   language: "Interface language",
+  wizardNavigation: "Word cloud creation steps",
+  wizardProgressLabel: "STEP {{current}} OF {{total}}",
+  wizardStepSource: "Source",
+  wizardStepWords: "Words",
+  wizardStepStyle: "Style",
+  wizardStepResult: "Result",
+  wizardPageSourceTitle: "Start with your words.",
+  wizardPageSourceDescription:
+    "Paste text from a project, a conversation, or a page you want to shape.",
+  wizardPageWordsTitle: "Tune the vocabulary.",
+  wizardPageWordsDescription:
+    "Choose how phrases are counted, then check the terms before layout.",
+  wizardPageStyleTitle: "Set the atmosphere.",
+  wizardPageStyleDescription:
+    "Adjust type, scale, and palette; the poster preview updates as you work.",
+  wizardPageResultTitle: "Your cloud is ready.",
+  wizardPageResultDescription:
+    "Review the word index, then create a share link or export an image.",
+  wizardContinue: "Continue",
+  wizardBack: "Back",
+  wizardUpdating: "Updating your word cloud locally…",
+  wizardPreviewPending:
+    "The preview is still updating. Wait for it to finish before continuing.",
+  wizardRetry: "Retry layout",
+  tokenSettingsKicker: "TOKEN SETTINGS",
+  tokenSettingsHeading: "Tune what counts.",
   noRawText: "NO RAW TEXT",
   sourceKicker: "SOURCE",
   sourceHeading: "Bring the words in.",

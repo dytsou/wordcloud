@@ -1,13 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
+import { advanceWizard, createCloudAtStyle } from "./wizard-helpers";
 
 test("exports the current SceneModel as safe SVG and PNG downloads", async ({
   page,
 }) => {
-  test.setTimeout(90_000);
-  await page.goto("/");
-  await page.getByLabel("原文").fill("export export 文字雲");
-  await page.getByRole("button", { name: "產生文字雲" }).click();
+  test.setTimeout(180_000);
+  await createCloudAtStyle(page, "export export 文字雲");
+  await advanceWizard(page, "result");
   await expect(page.getByRole("table")).toBeVisible();
 
   const svgDownloadPromise = page.waitForEvent("download");

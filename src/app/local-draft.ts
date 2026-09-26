@@ -1,10 +1,13 @@
 import { LIMITS } from "../core/limits";
 import type { LayoutStyle } from "../core/layout";
+import type { TokenRule, TokenizerSettings } from "../core/types";
 
 export const LOCAL_DRAFT_STORAGE_KEY = "wordcloud-studio:source-draft:v1";
 export const LOCAL_STOP_WORDS_STORAGE_KEY = "wordcloud-studio:stop-words:v1";
 export const LOCAL_DICTIONARY_STORAGE_KEY = "wordcloud-studio:dictionary:v1";
 export const LOCAL_STYLE_STORAGE_KEY = "wordcloud-studio:style-preferences:v1";
+export const LOCAL_TOKENIZER_STORAGE_KEY =
+  "wordcloud-studio:tokenizer-settings:v1";
 export const TOKEN_INPUT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 const CACHE_VERSION = 1 as const;
@@ -35,9 +38,20 @@ interface CachedStylePreferences {
   palette: string[];
 }
 
+type CachedTokenizerSettings = Pick<
+  TokenizerSettings,
+  | "locale"
+  | "caseMode"
+  | "caseInsensitive"
+  | "numberPolicy"
+  | "symbolPolicy"
+  | "rules"
+> & { version: typeof CACHE_VERSION };
+
 export interface CachedEditorPreferences {
   stopWords?: string[];
   dictionary?: string[];
+  tokenizerSettings?: Omit<CachedTokenizerSettings, "version">;
   presentation?: Pick<
     LayoutStyle,
     "minFontSize" | "maxFontSize" | "padding" | "rotations" | "palette"
@@ -63,6 +77,66 @@ function isStringArray(value: unknown): value is string[] {
   return (
     Array.isArray(value) && value.every((item) => typeof item === "string")
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isTokenRule(value: unknown): value is TokenRule {
+  if (!isRecord(value) || typeof value.id !== "string") return false;
+  if (
+    value.priority !== undefined &&
+    (typeof value.priority !== "number" || !Number.isFinite(value.priority))
+  ) {
+    return false;
+  }
+  if (value.kind === "protected") return typeof value.phrase === "string";
+  if (value.kind === "split") {
+    return typeof value.source === "string" && isStringArray(value.terms);
+  }
+  return (
+    value.kind === "merge" &&
+    typeof value.source === "string" &&
+    typeof value.term === "string"
+  );
+}
+
+function readCachedTokenizerSettings(
+  storage: DraftStorage | undefined,
+): CachedEditorPreferences["tokenizerSettings"] {
+  if (!storage) return undefined;
+  try {
+    const raw = storage.getItem(LOCAL_TOKENIZER_STORAGE_KEY);
+    if (!raw) return undefined;
+    const cached = JSON.parse(raw) as Partial<CachedTokenizerSettings>;
+    if (
+      cached.version !== CACHE_VERSION ||
+      typeof cached.locale !== "string" ||
+      !cached.locale ||
+      cached.locale.length > 80 ||
+      !["preserve", "lower", "upper"].includes(cached.caseMode ?? "") ||
+      typeof cached.caseInsensitive !== "boolean" ||
+      !["exclude", "include"].includes(cached.numberPolicy ?? "") ||
+      !["exclude", "include"].includes(cached.symbolPolicy ?? "") ||
+      !Array.isArray(cached.rules) ||
+      cached.rules.length > LIMITS.maxCustomRules ||
+      !cached.rules.every(isTokenRule)
+    ) {
+      storage.removeItem(LOCAL_TOKENIZER_STORAGE_KEY);
+      return undefined;
+    }
+    return {
+      locale: cached.locale,
+      caseMode: cached.caseMode!,
+      caseInsensitive: cached.caseInsensitive,
+      numberPolicy: cached.numberPolicy!,
+      symbolPolicy: cached.symbolPolicy!,
+      rules: cached.rules.map((rule) => ({ ...rule })),
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 function isNumberInRange(
@@ -199,8 +273,30 @@ export function readCachedEditorPreferences(
   return {
     stopWords: readCachedStopWords(storage, now),
     dictionary: readCachedDictionary(storage, now),
+    tokenizerSettings: readCachedTokenizerSettings(storage),
     presentation: readCachedStyle(storage),
   };
+}
+
+export function writeCachedTokenizerSettings(
+  settings: TokenizerSettings,
+  storage = browserStorage(),
+): void {
+  if (!storage) return;
+  try {
+    const cached: CachedTokenizerSettings = {
+      version: CACHE_VERSION,
+      locale: settings.locale,
+      caseMode: settings.caseMode,
+      caseInsensitive: settings.caseInsensitive,
+      numberPolicy: settings.numberPolicy,
+      symbolPolicy: settings.symbolPolicy,
+      rules: settings.rules.map((rule) => ({ ...rule })),
+    };
+    storage.setItem(LOCAL_TOKENIZER_STORAGE_KEY, JSON.stringify(cached));
+  } catch {
+    // localStorage may be unavailable or full; the editor still works in memory.
+  }
 }
 
 export function writeCachedStylePreferences(

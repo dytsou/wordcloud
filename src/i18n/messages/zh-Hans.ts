@@ -1,6 +1,28 @@
 import type { MessageMap } from "./types";
 
 export const ZH_HANS_MESSAGES: MessageMap = {
+  wizardNavigation: "文字云创建步骤",
+  wizardProgressLabel: "第 {{current}} 步，共 {{total}} 步",
+  wizardStepSource: "原文",
+  wizardStepWords: "词语",
+  wizardStepStyle: "风格",
+  wizardStepResult: "成品",
+  wizardPageSourceTitle: "先放入原文",
+  wizardPageSourceDescription: "粘贴想整理成文字云的文章、访谈或笔记。",
+  wizardPageWordsTitle: "校对词语与切分",
+  wizardPageWordsDescription:
+    "调整词语统计方式并检查预览；保留默认设置也可以继续。",
+  wizardPageStyleTitle: "设计文字云风格",
+  wizardPageStyleDescription: "调整字体、比例和色盘，预览会随修改更新。",
+  wizardPageResultTitle: "文字云已完成",
+  wizardPageResultDescription: "检查词频索引，然后创建分享链接或导出图片。",
+  wizardContinue: "下一步",
+  wizardBack: "上一步",
+  wizardUpdating: "正在本机更新文字云⋯",
+  wizardPreviewPending: "预览仍在更新，完成后即可继续。",
+  wizardRetry: "重新排版",
+  tokenSettingsKicker: "分词设置",
+  tokenSettingsHeading: "选择词语统计方式。",
   sourceHeading: "把文字带进来。",
   sourceLabel: "原文",
   tokenizerLocaleLabel: "默认分词 locale",

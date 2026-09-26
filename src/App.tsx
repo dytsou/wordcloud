@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { buildShareUrl } from "./core/codec";
 import {
   createFontMetricsTable,
@@ -20,6 +20,7 @@ import {
   writeCachedSource,
   writeCachedStopWords,
   writeCachedStylePreferences,
+  writeCachedTokenizerSettings,
 } from "./app/local-draft";
 import type { CachedEditorPreferences } from "./app/local-draft";
 import {
@@ -38,8 +39,10 @@ import { SharePanel } from "./components/SharePanel";
 import { SourcePanel } from "./components/SourcePanel";
 import { StatusAnnouncer } from "./components/StatusAnnouncer";
 import { StylePanel } from "./components/StylePanel";
+import { TokenizationPanel } from "./components/TokenizationPanel";
 import { TokenRulesPanel } from "./components/TokenRulesPanel";
 import { WordTable } from "./components/WordTable";
+import { WizardStepper } from "./components/WizardStepper";
 import {
   createBrowserEngineClient,
   EngineClient,
@@ -53,6 +56,12 @@ import {
   UI_LOCALE_OPTIONS,
   useI18n,
 } from "./i18n";
+import {
+  pathForStep,
+  stepForPath,
+  WIZARD_STEPS,
+  type WizardStep,
+} from "./app/wizard-route";
 
 function measureWithCanvas(term: string, font: string): FontMetric {
   const canvas = document.createElement("canvas");
@@ -108,8 +117,10 @@ function initialEditorState(): EditorState {
     sourceText,
     settings: {
       ...initial.settings,
+      ...(cached.tokenizerSettings ?? {}),
       stopWords: [...(cached.stopWords ?? initial.settings.stopWords)],
       dictionary: [...(cached.dictionary ?? initial.settings.dictionary)],
+      rules: [...(cached.tokenizerSettings?.rules ?? initial.settings.rules)],
     },
     presentation: {
       ...initial.presentation,
@@ -125,17 +136,72 @@ function initialEditorState(): EditorState {
   };
 }
 
+function initialWizardStep(): WizardStep {
+  if (typeof window === "undefined") return "source";
+  if (window.location.hash.startsWith("#wc-pako:")) return "result";
+  return stepForPath(window.location.pathname);
+}
+
+function sourceIsReady(sourceText: string): boolean {
+  return (
+    sourceText.trim().length > 0 &&
+    new TextEncoder().encode(sourceText).byteLength <= LIMITS.maxSourceBytes
+  );
+}
+
+function wordsAreReady(preview?: ReturnType<typeof tokenize>): boolean {
+  return preview?.status === "ok" && preview.tokens.length > 0;
+}
+
+function canOpenStep(
+  step: WizardStep,
+  state: EditorState,
+  preview?: ReturnType<typeof tokenize>,
+): boolean {
+  if (state.mode === "remix") return step === "style" || step === "result";
+  if (step === "source") return true;
+  if (!sourceIsReady(state.sourceText)) return false;
+  if (step === "words") return true;
+  return wordsAreReady(preview);
+}
+
+function firstIncompleteStep(
+  state: EditorState,
+  preview?: ReturnType<typeof tokenize>,
+): WizardStep {
+  if (state.mode === "remix") return "result";
+  if (!sourceIsReady(state.sourceText)) return "source";
+  if (!wordsAreReady(preview)) return "words";
+  return "style";
+}
+
 export function App() {
   const { locale: uiLocale, setLocale, t } = useI18n();
   const [state, setState] = useState<EditorState>(initialEditorState);
+  const [activeStep, setActiveStep] = useState<WizardStep>(initialWizardStep);
+  const [stepError, setStepError] = useState<string>();
   const [status, setStatus] = useState(() =>
     state.sourceText ? t("readyRestored") : t("ready"),
   );
   const [exporting, setExporting] = useState(false);
   const clientRef = useRef<EngineClient | null>(null);
   const generationRef = useRef(0);
+  const layoutTimerRef = useRef<number | undefined>(undefined);
+  const hasGeneratedCloudRef = useRef(Boolean(state.scene || state.wordSet));
+
+  const navigateToStep = useCallback((step: WizardStep, replace = false) => {
+    const url = `${pathForStep(step)}${window.location.search}${window.location.hash}`;
+    if (replace) window.history.replaceState(null, "", url);
+    else window.history.pushState(null, "", url);
+    setActiveStep(step);
+    setStepError(undefined);
+  }, []);
 
   const invalidatePendingWork = useCallback(() => {
+    if (layoutTimerRef.current !== undefined) {
+      window.clearTimeout(layoutTimerRef.current);
+      layoutTimerRef.current = undefined;
+    }
     generationRef.current += 1;
     clientRef.current?.cancel();
     setExporting(false);
@@ -159,7 +225,9 @@ export function App() {
       try {
         const snapshot = decodeSnapshotFragment(hash);
         setState(fromSnapshot(snapshot));
+        hasGeneratedCloudRef.current = true;
         setStatus(t("snapshotLoaded"));
+        navigateToStep("result", true);
       } catch (error) {
         setState((current) => ({
           ...current,
@@ -167,17 +235,59 @@ export function App() {
           error: `${t("snapshotInvalid")} ${errorText(error)}`,
         }));
         setStatus(t("snapshotInvalid"));
+        navigateToStep("result", true);
       }
     };
     loadHash();
     window.addEventListener("hashchange", loadHash);
     return () => window.removeEventListener("hashchange", loadHash);
-  }, [invalidatePendingWork]);
+  }, [invalidatePendingWork, navigateToStep, t]);
 
   const tokenPreview = useMemo(() => {
     if (!state.sourceText || state.mode === "remix") return undefined;
     return tokenize(state.sourceText, state.settings);
   }, [state.mode, state.settings, state.sourceText]);
+
+  const stateRef = useRef(state);
+  const tokenPreviewRef = useRef(tokenPreview);
+  useEffect(() => {
+    stateRef.current = state;
+    tokenPreviewRef.current = tokenPreview;
+  }, [state, tokenPreview]);
+
+  useEffect(() => {
+    const syncRoute = () => {
+      const hasSnapshot = window.location.hash.startsWith("#wc-pako:");
+      const requestedStep = hasSnapshot
+        ? "result"
+        : stepForPath(window.location.pathname);
+      const currentState = stateRef.current;
+      const currentPreview = tokenPreviewRef.current;
+      const nextStep =
+        hasSnapshot || canOpenStep(requestedStep, currentState, currentPreview)
+          ? requestedStep
+          : firstIncompleteStep(currentState, currentPreview);
+      const canonicalUrl = `${pathForStep(nextStep)}${window.location.search}${window.location.hash}`;
+      if (
+        `${window.location.pathname}${window.location.search}${window.location.hash}` !==
+        canonicalUrl
+      ) {
+        window.history.replaceState(null, "", canonicalUrl);
+      }
+      setActiveStep(nextStep);
+    };
+
+    syncRoute();
+    window.addEventListener("popstate", syncRoute);
+    return () => window.removeEventListener("popstate", syncRoute);
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+    requestAnimationFrame(() => {
+      document.getElementById("wizard-page-title")?.focus();
+    });
+  }, [activeStep]);
 
   const makeMetrics = useCallback(
     async (
@@ -265,6 +375,7 @@ export function App() {
           scene,
           error: undefined,
         }));
+        hasGeneratedCloudRef.current = true;
         setStatus(
           scene.words.some((word) => word.status !== "placed")
             ? t("someOmitted")
@@ -283,11 +394,91 @@ export function App() {
     [makeMetrics, t],
   );
 
+  const refreshFromInput = useCallback(
+    (
+      sourceText: string,
+      settings: EditorState["settings"],
+      presentation: LayoutStyle,
+    ) => {
+      if (!sourceIsReady(sourceText)) return;
+      const result = tokenize(sourceText, settings);
+      if (result.status !== "ok" || result.tokens.length === 0) {
+        const diagnostic = result.diagnostics[0];
+        const message = diagnostic
+          ? translateTokenizerDiagnostic(diagnostic, t)
+          : t("noWords");
+        setState((current) => ({
+          ...current,
+          mode: "error",
+          tokenization: result,
+          wordSet: undefined,
+          scene: undefined,
+          error: message,
+          shareUrl: undefined,
+          shareError: undefined,
+        }));
+        setStatus(message);
+        return;
+      }
+
+      try {
+        const wordSet = buildWordSet(result.tokens, {
+          caseMode: settings.caseMode,
+          caseInsensitive: settings.caseInsensitive,
+          locale: settings.locale,
+          tokenizerVersion: result.tokenizerVersion,
+        });
+        setState((current) => ({
+          ...current,
+          mode: "generating",
+          tokenization: result,
+          wordSet,
+          scene: undefined,
+          error: undefined,
+          shareUrl: undefined,
+          shareError: undefined,
+        }));
+        void runLayout(wordSet, presentation, "ready", result);
+      } catch (error) {
+        const message = errorText(error);
+        setState((current) => ({
+          ...current,
+          mode: "error",
+          tokenization: result,
+          wordSet: undefined,
+          scene: undefined,
+          error: message,
+          shareUrl: undefined,
+          shareError: undefined,
+        }));
+        setStatus(message);
+      }
+    },
+    [runLayout, t],
+  );
+
+  const scheduleInputRefresh = useCallback(
+    (
+      sourceText: string,
+      settings: EditorState["settings"],
+      presentation: LayoutStyle,
+    ) => {
+      if (layoutTimerRef.current !== undefined) {
+        window.clearTimeout(layoutTimerRef.current);
+      }
+      layoutTimerRef.current = window.setTimeout(() => {
+        layoutTimerRef.current = undefined;
+        refreshFromInput(sourceText, settings, presentation);
+      }, 250);
+    },
+    [refreshFromInput],
+  );
+
   const handleGenerate = useCallback(() => {
     invalidatePendingWork();
     const result = tokenize(state.sourceText, state.settings);
     setState((current) => ({ ...current, tokenization: result }));
-    if (result.status !== "ok") {
+    if (result.status !== "ok" || result.tokens.length === 0) {
       const diagnostic = result.diagnostics[0];
       const message = diagnostic
         ? translateTokenizerDiagnostic(diagnostic, t)
@@ -309,6 +500,14 @@ export function App() {
         locale: state.settings.locale,
         tokenizerVersion: result.tokenizerVersion,
       });
+      setState((current) => ({
+        ...current,
+        tokenization: result,
+        wordSet,
+        error: undefined,
+        shareUrl: undefined,
+        shareError: undefined,
+      }));
       void runLayout(wordSet, state.presentation, "ready", result);
     } catch (error) {
       const message = errorText(error);
@@ -330,38 +529,118 @@ export function App() {
     state.sourceText,
   ]);
 
-  const handleSourceChange = useCallback(
-    (sourceText: string) => {
-      invalidatePendingWork();
-      writeCachedSource(sourceText);
-      setState((current) => ({
-        ...current,
-        mode: sourceText ? "source" : "empty",
-        sourceText,
-        wordSet: undefined,
-        scene: undefined,
-        error: undefined,
-        shareUrl: undefined,
-        shareError: undefined,
-      }));
-      setStatus(sourceText ? t("sourceUpdated") : t("enterSource"));
+  useEffect(() => {
+    if (
+      (activeStep !== "style" && activeStep !== "result") ||
+      state.mode === "remix" ||
+      state.mode === "generating" ||
+      state.mode === "error" ||
+      state.scene ||
+      !sourceIsReady(state.sourceText) ||
+      !wordsAreReady(tokenPreview)
+    ) {
+      return;
+    }
+    handleGenerate();
+  }, [
+    activeStep,
+    handleGenerate,
+    state.mode,
+    state.scene,
+    state.sourceText,
+    tokenPreview,
+  ]);
+
+  const handleStepSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      setStepError(undefined);
+
+      if (activeStep === "source") {
+        if (!state.sourceText.trim()) {
+          setStepError(t("diagnosticEmptyInput"));
+          requestAnimationFrame(() =>
+            document.getElementById("source-text")?.focus(),
+          );
+          return;
+        }
+        if (!sourceIsReady(state.sourceText)) {
+          setStepError(t("diagnosticSourceLimit"));
+          requestAnimationFrame(() =>
+            document.getElementById("source-text")?.focus(),
+          );
+          return;
+        }
+        navigateToStep("words");
+        return;
+      }
+
+      if (activeStep === "words") {
+        if (!wordsAreReady(tokenPreview)) {
+          const diagnostic = tokenPreview?.diagnostics[0];
+          setStepError(
+            diagnostic
+              ? translateTokenizerDiagnostic(diagnostic, t)
+              : t("noWords"),
+          );
+          requestAnimationFrame(() =>
+            document.getElementById("wizard-step-error")?.focus(),
+          );
+          return;
+        }
+        navigateToStep("style");
+        return;
+      }
+
+      if (activeStep === "style") {
+        if (state.mode === "generating" || !state.scene) {
+          setStepError(t("wizardPreviewPending"));
+          requestAnimationFrame(() =>
+            document.getElementById("wizard-step-error")?.focus(),
+          );
+          return;
+        }
+        navigateToStep("result");
+      }
     },
-    [invalidatePendingWork, t],
+    [
+      activeStep,
+      navigateToStep,
+      state.mode,
+      state.scene,
+      state.sourceText,
+      t,
+      tokenPreview,
+    ],
   );
 
-  const handleSettingsChange = useCallback(
-    (settings: EditorState["settings"]) => {
+  const handlePreviousStep = useCallback(() => {
+    const index = WIZARD_STEPS.indexOf(activeStep);
+    const previous = WIZARD_STEPS[index - 1];
+    if (previous && canOpenStep(previous, state, tokenPreview)) {
+      navigateToStep(previous);
+    }
+  }, [activeStep, navigateToStep, state, tokenPreview]);
+
+  const handleSourceChange = useCallback(
+    (sourceText: string) => {
+      const shouldRefresh = Boolean(
+        hasGeneratedCloudRef.current || state.wordSet || state.scene,
+      );
+      const settings = state.settings;
+      const presentation = state.presentation;
       invalidatePendingWork();
-      if (state.settings.stopWords !== settings.stopWords) {
-        writeCachedStopWords(settings.stopWords);
-      }
-      if (state.settings.dictionary !== settings.dictionary) {
-        writeCachedDictionary(settings.dictionary);
-      }
+      writeCachedSource(sourceText);
+      setStepError(undefined);
       setState((current) => ({
         ...current,
-        settings,
-        mode: current.sourceText ? "source" : "empty",
+        mode:
+          shouldRefresh && sourceIsReady(sourceText)
+            ? "generating"
+            : sourceText
+              ? "source"
+              : "empty",
+        sourceText,
         wordSet: undefined,
         scene: undefined,
         tokenization: undefined,
@@ -369,11 +648,65 @@ export function App() {
         shareUrl: undefined,
         shareError: undefined,
       }));
+      if (shouldRefresh && sourceIsReady(sourceText)) {
+        scheduleInputRefresh(sourceText, settings, presentation);
+      }
     },
     [
       invalidatePendingWork,
+      scheduleInputRefresh,
+      state.presentation,
+      state.scene,
+      state.settings,
+      state.wordSet,
+    ],
+  );
+
+  const handleSettingsChange = useCallback(
+    (settings: EditorState["settings"]) => {
+      const shouldRefresh = Boolean(
+        hasGeneratedCloudRef.current || state.wordSet || state.scene,
+      );
+      const sourceText = state.sourceText;
+      const presentation = state.presentation;
+      invalidatePendingWork();
+      if (state.settings.stopWords !== settings.stopWords) {
+        writeCachedStopWords(settings.stopWords);
+      }
+      if (state.settings.dictionary !== settings.dictionary) {
+        writeCachedDictionary(settings.dictionary);
+      }
+      writeCachedTokenizerSettings(settings);
+      setStepError(undefined);
+      setState((current) => ({
+        ...current,
+        settings,
+        mode:
+          shouldRefresh && sourceIsReady(sourceText)
+            ? "generating"
+            : current.sourceText
+              ? "source"
+              : "empty",
+        wordSet: undefined,
+        scene: undefined,
+        tokenization: undefined,
+        error: undefined,
+        shareUrl: undefined,
+        shareError: undefined,
+      }));
+      if (shouldRefresh && sourceIsReady(sourceText)) {
+        scheduleInputRefresh(sourceText, settings, presentation);
+      }
+    },
+    [
+      invalidatePendingWork,
+      scheduleInputRefresh,
+      state.presentation,
+      state.scene,
+      state.sourceText,
       state.settings.dictionary,
       state.settings.stopWords,
+      state.wordSet,
     ],
   );
 
@@ -578,7 +911,15 @@ export function App() {
         const snapshot = decodeSnapshotFile(await file.arrayBuffer());
         if (importGeneration !== generationRef.current) return;
         setState(fromSnapshot(snapshot));
+        hasGeneratedCloudRef.current = true;
         setStatus(t("snapshotImported"));
+        window.history.replaceState(
+          null,
+          "",
+          `${pathForStep("result")}${window.location.search}`,
+        );
+        setActiveStep("result");
+        setStepError(undefined);
       } catch (error) {
         if (importGeneration !== generationRef.current) return;
         setState((current) => ({
@@ -593,16 +934,17 @@ export function App() {
   );
 
   const handleNewSource = useCallback(() => {
-    if (window.location.hash) {
-      window.history.replaceState(
-        null,
-        "",
-        `${window.location.pathname}${window.location.search}`,
-      );
-    }
     invalidatePendingWork();
     clearCachedSource();
-    setState(createInitialEditorState());
+    hasGeneratedCloudRef.current = false;
+    window.history.replaceState(
+      null,
+      "",
+      `${pathForStep("source")}${window.location.search}`,
+    );
+    setActiveStep("source");
+    setStepError(undefined);
+    setState(initialEditorState());
     setStatus(t("newCloudStarted"));
   }, [invalidatePendingWork, t]);
 
@@ -610,6 +952,26 @@ export function App() {
   const focusWord = useCallback((term: string) => {
     setHighlightedTerm(term);
   }, []);
+
+  const pageTitleKeys = {
+    source: "wizardPageSourceTitle",
+    words: "wizardPageWordsTitle",
+    style: "wizardPageStyleTitle",
+    result: "wizardPageResultTitle",
+  } as const;
+  const pageDescriptionKeys = {
+    source: "wizardPageSourceDescription",
+    words: "wizardPageWordsDescription",
+    style: "wizardPageStyleDescription",
+    result: "wizardPageResultDescription",
+  } as const;
+  const activeStepNumber = WIZARD_STEPS.indexOf(activeStep) + 1;
+  const sourceLimitError =
+    state.sourceText &&
+    new TextEncoder().encode(state.sourceText).byteLength >
+      LIMITS.maxSourceBytes
+      ? t("diagnosticSourceLimit")
+      : undefined;
 
   return (
     <div className="app-shell">
@@ -645,93 +1007,207 @@ export function App() {
         </div>
       </header>
       <StatusAnnouncer message={status} />
-      <main className="studio-grid">
-        <aside className="control-column">
-          {state.mode === "remix" && (
+      <main className="wizard-main">
+        <WizardStepper
+          currentStep={activeStep}
+          remix={state.mode === "remix"}
+          onNavigate={navigateToStep}
+        />
+        <section
+          className={`wizard-page wizard-page--${activeStep}`}
+          aria-labelledby="wizard-page-title"
+          aria-busy={state.mode === "generating"}
+        >
+          <header className="wizard-page-heading">
+            <p className="section-kicker">
+              {t("wizardProgressLabel", {
+                current: activeStepNumber,
+                total: 4,
+              })}
+            </p>
+            <h1 id="wizard-page-title" tabIndex={-1}>
+              {t(pageTitleKeys[activeStep])}
+            </h1>
+            <p>{t(pageDescriptionKeys[activeStep])}</p>
+          </header>
+
+          {state.mode === "remix" && activeStep === "result" && (
             <div className="remix-banner">
               <strong>{t("remixTitle")}</strong>
               <p>{t("remixBody")}</p>
             </div>
           )}
+
           {state.error && (
-            <div className="remix-banner" role="alert">
+            <div className="wizard-error" role="alert">
               <strong>{t("attention")}</strong>
               <p>{state.error}</p>
-              <button
-                className="text-button"
-                type="button"
-                onClick={handleNewSource}
-              >
-                {t("backToNew")}
-              </button>
+              {activeStep === "style" &&
+                state.mode !== "remix" &&
+                state.wordSet && (
+                  <button
+                    className="button button-quiet"
+                    type="button"
+                    onClick={handleGenerate}
+                  >
+                    {t("wizardRetry")}
+                  </button>
+                )}
             </div>
           )}
-          <SourcePanel
-            sourceText={state.sourceText}
-            settings={state.settings}
-            preview={tokenPreview}
-            disabled={state.mode === "remix"}
-            onSourceChange={handleSourceChange}
-            onSettingsChange={handleSettingsChange}
-          />
-          <TokenRulesPanel
-            settings={state.settings}
-            disabled={state.mode === "remix"}
-            onSettingsChange={handleSettingsChange}
-          />
-          {state.mode !== "remix" && (
-            <div className="generate-bar">
-              <button
-                id="generate-cloud"
-                className="button button-primary"
-                type="button"
-                onClick={handleGenerate}
-                disabled={state.mode === "generating"}
-              >
-                {t("generate")}
-              </button>
-              <p className="generate-hint">
-                {state.mode === "generating"
-                  ? t("generating")
-                  : t("generateHint")}
-              </p>
+
+          {state.mode === "generating" && (
+            <p className="wizard-updating" role="status">
+              {t("wizardUpdating")}
+            </p>
+          )}
+
+          {activeStep === "source" && (
+            <form
+              className="wizard-form"
+              noValidate
+              onSubmit={handleStepSubmit}
+            >
+              <SourcePanel
+                sourceText={state.sourceText}
+                disabled={state.mode === "remix"}
+                error={stepError ?? sourceLimitError}
+                onSourceChange={handleSourceChange}
+              />
+              <div className="wizard-actions wizard-actions-end">
+                <button className="button button-primary" type="submit">
+                  {t("wizardContinue")}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {activeStep === "words" && (
+            <form
+              className="wizard-form"
+              noValidate
+              onSubmit={handleStepSubmit}
+            >
+              <TokenizationPanel
+                settings={state.settings}
+                preview={tokenPreview}
+                disabled={state.mode === "remix"}
+                onSettingsChange={handleSettingsChange}
+              />
+              <TokenRulesPanel
+                settings={state.settings}
+                disabled={state.mode === "remix"}
+                onSettingsChange={handleSettingsChange}
+              />
+              {stepError && (
+                <p
+                  className="warning-note wizard-step-error"
+                  id="wizard-step-error"
+                  role="alert"
+                  tabIndex={-1}
+                >
+                  {stepError}
+                </p>
+              )}
+              <div className="wizard-actions">
+                <button
+                  className="button button-quiet"
+                  type="button"
+                  onClick={handlePreviousStep}
+                >
+                  {t("wizardBack")}
+                </button>
+                <button className="button button-primary" type="submit">
+                  {t("wizardContinue")}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {activeStep === "style" && (
+            <form
+              className="wizard-form"
+              noValidate
+              onSubmit={handleStepSubmit}
+            >
+              <div className="wizard-style-layout">
+                <StylePanel
+                  presentation={state.presentation}
+                  disabled={state.mode === "generating"}
+                  onChange={handlePresentationChange}
+                />
+                <CloudPreview
+                  scene={state.scene}
+                  highlightedTerm={highlightedTerm}
+                />
+              </div>
+              {stepError && (
+                <p
+                  className="warning-note wizard-step-error"
+                  id="wizard-step-error"
+                  role="alert"
+                  tabIndex={-1}
+                >
+                  {stepError}
+                </p>
+              )}
+              <div className="wizard-actions">
+                {!(state.mode === "remix" && activeStep === "style") && (
+                  <button
+                    className="button button-quiet"
+                    type="button"
+                    onClick={handlePreviousStep}
+                  >
+                    {t("wizardBack")}
+                  </button>
+                )}
+                <button className="button button-primary" type="submit">
+                  {t("wizardContinue")}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {activeStep === "result" && (
+            <div className="wizard-form">
+              <CloudPreview
+                scene={state.scene}
+                highlightedTerm={highlightedTerm}
+              />
+              <div className="wizard-results-layout">
+                <WordTable
+                  wordSet={state.wordSet}
+                  scene={state.scene}
+                  onFocusWord={focusWord}
+                />
+                <SharePanel
+                  shareUrl={state.shareUrl}
+                  shareError={state.shareError}
+                  disabled={!state.scene || state.mode === "generating"}
+                  onCreateLink={handleCreateLink}
+                  onCopy={handleCopy}
+                  onDownload={handleDownload}
+                  onExportSvg={handleExportSvg}
+                  onExportPng={handleExportPng}
+                  exporting={exporting}
+                  onImport={handleImport}
+                  onNewSource={handleNewSource}
+                />
+              </div>
+              {activeStep === "result" && (
+                <div className="wizard-actions">
+                  <button
+                    className="button button-quiet"
+                    type="button"
+                    onClick={handlePreviousStep}
+                  >
+                    {t("wizardBack")}
+                  </button>
+                </div>
+              )}
             </div>
           )}
-          <StylePanel
-            presentation={state.presentation}
-            disabled={state.mode === "generating"}
-            onChange={handlePresentationChange}
-          />
-          {!state.scene && (
-            <CloudPreview scene={undefined} highlightedTerm={highlightedTerm} />
-          )}
-          <SharePanel
-            shareUrl={state.shareUrl}
-            shareError={state.shareError}
-            disabled={!state.scene || state.mode === "generating"}
-            onCreateLink={handleCreateLink}
-            onCopy={handleCopy}
-            onDownload={handleDownload}
-            onExportSvg={handleExportSvg}
-            onExportPng={handleExportPng}
-            exporting={exporting}
-            onImport={handleImport}
-            onNewSource={handleNewSource}
-          />
-          <WordTable
-            wordSet={state.wordSet}
-            scene={state.scene}
-            onFocusWord={focusWord}
-          />
-        </aside>
-        {state.scene && (
-          <section className="preview-column">
-            <CloudPreview
-              scene={state.scene}
-              highlightedTerm={highlightedTerm}
-            />
-          </section>
-        )}
+        </section>
       </main>
     </div>
   );

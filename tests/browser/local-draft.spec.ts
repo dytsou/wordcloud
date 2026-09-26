@@ -1,17 +1,36 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+
+async function advance(page: Page, destination: RegExp) {
+  await page
+    .getByRole("button", { name: "下一步" })
+    .evaluate((button) => (button as HTMLButtonElement).click());
+  await expect.poll(() => page.url()).toMatch(destination);
+}
+
+async function open(page: Page, url: string) {
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("wordcloud-studio:ui-locale:v1", "zh-Hant");
+  });
+});
 
 const draftKey = "wordcloud-studio:source-draft:v1";
 const stopWordsKey = "wordcloud-studio:stop-words:v1";
 const dictionaryKey = "wordcloud-studio:dictionary:v1";
 const styleKey = "wordcloud-studio:style-preferences:v1";
+const tokenizerKey = "wordcloud-studio:tokenizer-settings:v1";
 
 test("restores the last source draft after a refresh", async ({ page }) => {
   test.setTimeout(90_000);
-  await page.goto("/");
+  await open(page, "/");
   await page.evaluate((key) => localStorage.removeItem(key), draftKey);
 
   const source = "這是一段會留在本機的草稿。 local draft 123";
-  const sourceInput = page.getByLabel("原文");
+  const sourceInput = page.locator("#source-text");
   await sourceInput.fill(source);
   await expect(sourceInput).toHaveValue(source);
 
@@ -27,27 +46,35 @@ test("starting a new cloud clears the cached source draft", async ({
   page,
 }) => {
   test.setTimeout(90_000);
-  await page.goto("/");
+  await open(page, "/");
   await page.evaluate((key) => localStorage.removeItem(key), draftKey);
-  await page.getByLabel("原文").fill("temporary local draft");
+  await page.locator("#source-text").fill("temporary local draft");
+  await advance(page, /\/create\/words$/);
+  await advance(page, /\/create\/style$/);
+  await expect(page.locator(".cloud-svg")).toBeVisible();
+  await advance(page, /\/create\/result$/);
 
-  await page.getByRole("button", { name: /開始新的文字雲/u }).click();
+  await page
+    .getByRole("button", { name: /開始新的文字雲/u })
+    .evaluate((button) => (button as HTMLButtonElement).click());
   await page.reload({ waitUntil: "commit" });
 
-  await expect(page.getByLabel("原文")).toHaveValue("");
+  await expect(page.locator("#source-text")).toHaveValue("");
 });
 
 test("restores token inputs and style preferences after a refresh", async ({
   page,
 }) => {
-  test.setTimeout(90_000);
-  await page.goto("/");
+  test.setTimeout(180_000);
+  await open(page, "/");
   await page.evaluate(
     (keys) => keys.forEach((key) => localStorage.removeItem(key)),
-    [draftKey, stopWordsKey, dictionaryKey, styleKey],
+    [draftKey, stopWordsKey, dictionaryKey, styleKey, tokenizerKey],
   );
   await page.reload({ waitUntil: "commit" });
 
+  await page.locator("#source-text").fill("這是一段 local draft 123 words");
+  await advance(page, /\/create\/words$/);
   const stopWordsInput = page.locator("#stop-words");
   for (const tag of ["的 是", "the, and"]) {
     await stopWordsInput.fill(tag);
@@ -58,20 +85,35 @@ test("restores token inputs and style preferences after a refresh", async ({
     await dictionaryInput.fill(tag);
     await dictionaryInput.press("Enter");
   }
+  await page.getByLabel("預設分詞 locale").selectOption("zh-Hant");
+  await page.getByLabel("大小寫", { exact: true }).selectOption("lower");
+  await page.locator("#case-insensitive").uncheck();
+  await advance(page, /\/create\/style$/);
+  await expect.poll(() => page.url()).toMatch(/\/create\/style$/);
+  await expect(page.locator(".cloud-svg")).toBeVisible();
 
   const minFontSize = page.getByRole("slider", { name: "最小字級" });
   await minFontSize.press("ArrowRight");
+  await expect(minFontSize).toBeEnabled();
   const maxFontSize = page.getByRole("slider", { name: "最大字級" });
   await maxFontSize.press("Home");
+  await expect(maxFontSize).toBeEnabled();
   await maxFontSize.press("ArrowRight");
+  await expect(maxFontSize).toBeEnabled();
   await maxFontSize.press("ArrowRight");
+  await expect(maxFontSize).toBeEnabled();
   const wordSpacing = page.getByRole("slider", { name: "詞間距" });
   await wordSpacing.press("Home");
+  await expect(wordSpacing).toBeEnabled();
   await wordSpacing.press("ArrowRight");
+  await expect(wordSpacing).toBeEnabled();
   await wordSpacing.press("ArrowRight");
+  await expect(wordSpacing).toBeEnabled();
   await wordSpacing.press("ArrowRight");
+  await expect(wordSpacing).toBeEnabled();
   const rotationAngle = page.getByRole("slider", { name: "旋轉方式" });
   await rotationAngle.press("End");
+  await expect(rotationAngle).toBeEnabled();
   const paletteInput = page.locator("#palette");
   for (const tag of ["#123456", "#654321"]) {
     await paletteInput.fill(tag);
@@ -80,16 +122,6 @@ test("restores token inputs and style preferences after a refresh", async ({
 
   await page.reload({ waitUntil: "commit" });
 
-  const stopWordTags = page
-    .locator(".tag-input")
-    .filter({ has: page.locator("#stop-words") })
-    .locator(".tag-chip-value");
-  await expect(stopWordTags).toHaveText(["的 是", "the, and"]);
-  const dictionaryTags = page
-    .locator(".tag-input")
-    .filter({ has: page.locator("#dictionary") })
-    .locator(".tag-chip-value");
-  await expect(dictionaryTags).toHaveText(["人工智慧", "Cloudflare Workers"]);
   await expect(minFontSize).toHaveValue("9");
   await expect(maxFontSize).toHaveValue("26");
   await expect(wordSpacing).toHaveValue("-9");
@@ -106,4 +138,23 @@ test("restores token inputs and style preferences after a refresh", async ({
     "#123456",
     "#654321",
   ]);
+
+  await page
+    .getByRole("button", { name: "詞語" })
+    .evaluate((button) => (button as HTMLButtonElement).click());
+  await expect.poll(() => page.url()).toMatch(/\/create\/words$/);
+  await expect(page.getByLabel("預設分詞 locale")).toHaveValue("zh-Hant");
+  await expect(page.getByLabel("大小寫", { exact: true })).toHaveValue("lower");
+  await expect(page.locator("#case-insensitive")).not.toBeChecked();
+
+  const stopWordTags = page
+    .locator(".tag-input")
+    .filter({ has: page.locator("#stop-words") })
+    .locator(".tag-chip-value");
+  await expect(stopWordTags).toHaveText(["的 是", "the, and"]);
+  const dictionaryTags = page
+    .locator(".tag-input")
+    .filter({ has: page.locator("#dictionary") })
+    .locator(".tag-chip-value");
+  await expect(dictionaryTags).toHaveText(["人工智慧", "Cloudflare Workers"]);
 });

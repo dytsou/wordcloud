@@ -2,6 +2,30 @@ import type { MessageMap } from "./types";
 
 export const TH_MESSAGES: MessageMap = {
   language: "ภาษาของอินเทอร์เฟซ",
+  wizardNavigation: "ขั้นตอนสร้างเวิร์ดคลาวด์",
+  wizardProgressLabel: "ขั้นตอนที่ {{current}} จาก {{total}}",
+  wizardStepSource: "ข้อความต้นฉบับ",
+  wizardStepWords: "คำศัพท์",
+  wizardStepStyle: "รูปแบบ",
+  wizardStepResult: "ผลลัพธ์",
+  wizardPageSourceTitle: "เริ่มจากข้อความของคุณ",
+  wizardPageSourceDescription:
+    "วางบทความ บทสนทนา หรือบันทึกที่ต้องการจัดรูปแบบ",
+  wizardPageWordsTitle: "ปรับคำและการแบ่งคำ",
+  wizardPageWordsDescription: "เลือกวิธีนับวลี แล้วตรวจคำก่อนจัดวาง",
+  wizardPageStyleTitle: "กำหนดบรรยากาศ",
+  wizardPageStyleDescription:
+    "ปรับแบบอักษร สัดส่วน และชุดสี ตัวอย่างจะอัปเดตตามการแก้ไข",
+  wizardPageResultTitle: "เวิร์ดคลาวด์พร้อมแล้ว",
+  wizardPageResultDescription:
+    "ตรวจดัชนีคำ แล้วสร้างลิงก์แชร์หรือส่งออกเป็นรูปภาพ",
+  wizardContinue: "ถัดไป",
+  wizardBack: "ย้อนกลับ",
+  wizardUpdating: "กำลังอัปเดตเวิร์ดคลาวด์ในเบราว์เซอร์…",
+  wizardPreviewPending: "กำลังอัปเดตตัวอย่าง โปรดรอให้เสร็จก่อนดำเนินการต่อ",
+  wizardRetry: "จัดวางอีกครั้ง",
+  tokenSettingsKicker: "การตั้งค่าโทเคน",
+  tokenSettingsHeading: "เลือกวิธีนับคำ",
   sourceHeading: "นำคำเข้ามา",
   sourceLabel: "ข้อความต้นฉบับ",
   tokenizerLocaleLabel: "locale สำหรับตัดคำเริ่มต้น",

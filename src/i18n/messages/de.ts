@@ -2,6 +2,32 @@ import type { MessageMap } from "./types";
 
 export const DE_MESSAGES: MessageMap = {
   language: "Oberflächensprache",
+  wizardNavigation: "Schritte zur Wortwolke",
+  wizardProgressLabel: "SCHRITT {{current}} VON {{total}}",
+  wizardStepSource: "Text",
+  wizardStepWords: "Wörter",
+  wizardStepStyle: "Stil",
+  wizardStepResult: "Ergebnis",
+  wizardPageSourceTitle: "Beginne mit deinem Text.",
+  wizardPageSourceDescription:
+    "Füge einen Artikel, ein Gespräch oder eine Notiz ein, die du gestalten möchtest.",
+  wizardPageWordsTitle: "Stimme das Vokabular ab.",
+  wizardPageWordsDescription:
+    "Wähle, wie Begriffe gezählt werden, und prüfe die Wörter vor dem Layout.",
+  wizardPageStyleTitle: "Lege die Atmosphäre fest.",
+  wizardPageStyleDescription:
+    "Passe Schrift, Skalierung und Palette an; die Vorschau wird laufend aktualisiert.",
+  wizardPageResultTitle: "Deine Wortwolke ist fertig.",
+  wizardPageResultDescription:
+    "Prüfe den Wortindex und erstelle einen Link oder exportiere ein Bild.",
+  wizardContinue: "Weiter",
+  wizardBack: "Zurück",
+  wizardUpdating: "Wortwolke wird lokal aktualisiert…",
+  wizardPreviewPending:
+    "Die Vorschau wird noch aktualisiert. Warte, bevor du fortfährst.",
+  wizardRetry: "Layout erneut starten",
+  tokenSettingsKicker: "TOKEN-EINSTELLUNGEN",
+  tokenSettingsHeading: "Lege fest, was zählt.",
   sourceHeading: "Wörter hereinbringen.",
   sourceLabel: "Quelltext",
   tokenizerLocaleLabel: "Standard-Locale für Tokenisierung",

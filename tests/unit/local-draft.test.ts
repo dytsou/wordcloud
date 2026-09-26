@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PRESENTATION } from "../../src/app/editor-state";
+import {
+  createInitialEditorState,
+  DEFAULT_PRESENTATION,
+} from "../../src/app/editor-state";
 import { LIMITS } from "../../src/core/limits";
 import {
   clearCachedSource,
@@ -7,6 +10,7 @@ import {
   LOCAL_DRAFT_STORAGE_KEY,
   LOCAL_STOP_WORDS_STORAGE_KEY,
   LOCAL_STYLE_STORAGE_KEY,
+  LOCAL_TOKENIZER_STORAGE_KEY,
   TOKEN_INPUT_CACHE_TTL_MS,
   readCachedDictionary,
   readCachedEditorPreferences,
@@ -16,6 +20,7 @@ import {
   writeCachedStopWords,
   writeCachedStylePreferences,
   writeCachedSource,
+  writeCachedTokenizerSettings,
 } from "../../src/app/local-draft";
 
 function createStorage() {
@@ -133,6 +138,45 @@ describe("local editor preferences", () => {
         .presentation,
     ).toEqual(expected);
     expect(storage.getItem(LOCAL_STYLE_STORAGE_KEY)).toContain('"version":1');
+  });
+
+  it("restores tokenizer options and custom rules", () => {
+    const storage = createStorage();
+    const settings = {
+      ...createInitialEditorState().settings,
+      locale: "zh-Hant",
+      caseMode: "lower" as const,
+      caseInsensitive: false,
+      numberPolicy: "include" as const,
+      symbolPolicy: "include" as const,
+      rules: [
+        {
+          id: "protected-cloudflare",
+          kind: "protected" as const,
+          phrase: "Cloudflare Workers",
+        },
+        {
+          id: "split-cloudnative",
+          kind: "split" as const,
+          source: "cloudnative",
+          terms: ["cloud", "native"],
+        },
+      ],
+    };
+
+    writeCachedTokenizerSettings(settings, storage);
+
+    expect(readCachedEditorPreferences(storage).tokenizerSettings).toEqual({
+      locale: "zh-Hant",
+      caseMode: "lower",
+      caseInsensitive: false,
+      numberPolicy: "include",
+      symbolPolicy: "include",
+      rules: settings.rules,
+    });
+    expect(storage.getItem(LOCAL_TOKENIZER_STORAGE_KEY)).toContain(
+      '"version":1',
+    );
   });
 
   it("removes empty token caches and ignores invalid preference values", () => {
