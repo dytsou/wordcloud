@@ -642,11 +642,6 @@ export function App() {
               </option>
             ))}
           </select>
-          <span
-            className={`mode-badge ${state.mode === "remix" ? "remix" : ""}`}
-          >
-            {state.mode === "remix" ? t("styleRemix") : t("browserLocal")}
-          </span>
         </div>
       </header>
       <StatusAnnouncer message={status} />

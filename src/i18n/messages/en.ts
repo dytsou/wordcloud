@@ -2,11 +2,8 @@ export const EN_MESSAGES = {
   appTitle: "Wordcloud Studio",
   metaDescription:
     "Create, tune, and share multilingual word clouds locally in your browser.",
-  brandSubtitle: "private typography lab",
+  brandSubtitle: "A local-first word-cloud generator for individual creators.",
   language: "Interface language",
-  browserLocal: "BROWSER / LOCAL",
-  styleRemix: "V / STYLE REMIX",
-  localOnly: "LOCAL ONLY",
   noRawText: "NO RAW TEXT",
   sourceKicker: "SOURCE",
   sourceHeading: "Bring the words in.",

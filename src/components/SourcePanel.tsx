@@ -39,7 +39,6 @@ export function SourcePanel({
           <p className="section-kicker">{t("sourceKicker")}</p>
           <h2 id="source-heading">{t("sourceHeading")}</h2>
         </div>
-        <span className="privacy-chip">{t("localOnly")}</span>
       </div>
       <label className="field-label" htmlFor="source-text">
         {t("sourceLabel")}

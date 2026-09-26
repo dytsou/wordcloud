@@ -124,8 +124,7 @@ textarea:focus-visible {
   margin: 0.12rem 0 0;
   color: var(--ink-soft);
   font-size: 0.67rem;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .topbar-actions {
@@ -147,7 +146,6 @@ textarea:focus-visible {
   font-weight: 700;
 }
 
-.mode-badge,
 .privacy-chip,
 .count-badge {
   display: inline-flex;
@@ -162,12 +160,6 @@ textarea:focus-visible {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.mode-badge.remix {
-  border-color: rgb(167 216 91 / 55%);
-  color: #496221;
-  background: rgb(167 216 91 / 28%);
 }
 
 .studio-grid {
@@ -1210,11 +1202,6 @@ thead th {
   .topbar {
     align-items: flex-start;
     gap: 1rem;
-  }
-
-  .mode-badge {
-    max-width: 9rem;
-    text-align: right;
   }
 
   .topbar-actions {

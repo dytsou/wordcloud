@@ -2,10 +2,8 @@ import type { MessageMap } from "./types";
 
 export const ZH_HANT_MESSAGES: MessageMap = {
   metaDescription: "在瀏覽器本機製作、調整並分享多語言文字雲。",
-  brandSubtitle: "私人的字體實驗室",
+  brandSubtitle: "為個人創作者打造的本機優先文字雲產生器。",
   language: "介面語言",
-  browserLocal: "BROWSER / LOCAL",
-  styleRemix: "V / STYLE REMIX",
   sourceHeading: "Bring the words in.",
   sourceLabel: "原文",
   sourcePlaceholder: "貼上文章、訪談、詩，或一段正在發生的想法⋯",
