@@ -14,6 +14,7 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const controlRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const placement = new Map(
@@ -23,8 +24,13 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
   );
 
   useEffect(() => {
-    if (!isOpen) return;
+    const popover = popoverRef.current;
+    if (!isOpen) {
+      if (popover?.matches(":popover-open")) popover.hidePopover();
+      return;
+    }
 
+    if (popover && !popover.matches(":popover-open")) popover.showPopover();
     closeRef.current?.focus();
 
     const dismissOutside = (event: Event) => {
@@ -74,11 +80,12 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
         <span aria-hidden="true">i</span>
       </button>
       <div
+        ref={popoverRef}
         id="word-index-popout"
         className="word-index-popout"
+        popover="manual"
         role="dialog"
         aria-labelledby="word-index-heading"
-        hidden={!isOpen}
       >
         <div className="word-index-popout-heading">
           <h2 id="word-index-heading">{t("indexHeading")}</h2>
