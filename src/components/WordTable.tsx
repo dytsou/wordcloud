@@ -56,6 +56,11 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
 
   return (
     <div className="word-index-control" ref={controlRef}>
+      {wordSet && (
+        <span className="count-badge">
+          {t("wordCount", { count: wordSet.words.length })}
+        </span>
+      )}
       <button
         ref={triggerRef}
         className="info-button word-index-trigger"
@@ -68,11 +73,6 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
       >
         <span aria-hidden="true">i</span>
       </button>
-      {wordSet && (
-        <span className="count-badge">
-          {t("wordCount", { count: wordSet.words.length })}
-        </span>
-      )}
       <div
         id="word-index-popout"
         className="word-index-popout"
