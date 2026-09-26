@@ -609,35 +609,88 @@ input[type="checkbox"] {
   margin-top: 0.8rem;
 }
 
+.precision-disclosure-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 1rem;
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+}
+
 .precision-disclosure {
   display: flex;
   width: 100%;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-top: 1rem;
   padding: 0.75rem 0;
   border: 0;
-  border-top: 1px dashed var(--line);
-  border-bottom: 1px dashed var(--line);
   color: var(--ink);
   background: transparent;
   text-align: left;
 }
 
-.precision-disclosure > span:first-child {
-  display: grid;
-  gap: 0.15rem;
+.precision-disclosure-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .precision-disclosure strong {
   font-size: 0.8rem;
 }
 
-.precision-disclosure small {
-  color: var(--ink-soft);
-  font-size: 0.68rem;
+.precision-disclosure-info {
+  position: relative;
+  display: grid;
+  width: 1.15rem;
+  height: 1.15rem;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--coral-dark);
+  background: transparent;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.precision-disclosure-info::after {
+  position: absolute;
+  z-index: 2;
+  bottom: calc(100% + 0.45rem);
+  left: 50%;
+  width: max-content;
+  max-width: min(18rem, calc(100vw - 2rem));
+  padding: 0.65rem 0.75rem;
+  transform: translate(-50%, 0.2rem);
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  content: attr(data-tooltip);
+  font-size: 0.74rem;
   font-weight: 400;
+  line-height: 1.5;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.precision-disclosure:hover .precision-disclosure-info::after,
+.precision-disclosure:focus-visible .precision-disclosure-info::after {
+  transform: translate(-50%, 0);
+  opacity: 1;
+  visibility: visible;
+}
+
+.precision-disclosure:hover .precision-disclosure-info,
+.precision-disclosure:focus-visible .precision-disclosure-info {
+  color: var(--coral-dark);
 }
 
 .precision-disclosure-mark {

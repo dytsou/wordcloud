@@ -119,21 +119,33 @@ export function TokenRulesPanel({
         />
       </div>
 
-      <button
-        className="precision-disclosure"
-        type="button"
-        aria-expanded={isPrecisionOpen}
-        aria-controls="precision-rules"
-        onClick={() => setIsPrecisionOpen((open) => !open)}
-      >
-        <span>
-          <strong>{t("precisionOpen")}</strong>
-          <small>{t("precisionOpenHint")}</small>
+      <div className="precision-disclosure-row">
+        <button
+          className="precision-disclosure"
+          type="button"
+          aria-expanded={isPrecisionOpen}
+          aria-controls="precision-rules"
+          aria-describedby="precision-open-hint"
+          onClick={() => setIsPrecisionOpen((open) => !open)}
+        >
+          <span className="precision-disclosure-copy">
+            <strong>{t("precisionOpen")}</strong>
+            <span
+              className="precision-disclosure-info"
+              data-tooltip={t("precisionOpenHint")}
+              aria-hidden="true"
+            >
+              i
+            </span>
+          </span>
+          <span className="precision-disclosure-mark" aria-hidden="true">
+            {isPrecisionOpen ? "−" : "+"}
+          </span>
+        </button>
+        <span className="sr-only" id="precision-open-hint">
+          {t("precisionOpenHint")}
         </span>
-        <span className="precision-disclosure-mark" aria-hidden="true">
-          {isPrecisionOpen ? "−" : "+"}
-        </span>
-      </button>
+      </div>
 
       <div
         id="precision-rules"
