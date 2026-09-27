@@ -740,19 +740,20 @@ function* layoutWordCloudSteps(
             centerX = shapeMask.bounds.x + shapeMask.bounds.width / 2;
           }
         } else {
-          // A dense, evenly distributed ellipse probes interior holes before the perimeter.
-          const band = Math.floor(angleIndex / configuredAngles.length);
-          const radialProbe =
-            (probe + band * angleBudget) * configuredAngles.length;
-          const radius = glyphGrid
-            ? Math.sqrt(radialProbe) * 9
-            : 3 + Math.sqrt(probe) * 10;
+          // Search the entire available canvas so a large word set can use
+          // the space beyond the central cluster.
+          const radius = Math.sqrt((probe + 0.5) / angleBudget);
           const theta =
-            probe * (glyphGrid ? 2.399963229728653 : 0.37) +
-            (word.rank % 3) * 0.11 +
+            probe * 2.399963229728653 +
+            angleIndex * 1.618033988749895 +
+            word.rank * 0.618033988749895 +
             seedPhase;
-          centerX = style.canvas.width / 2 + Math.cos(theta) * radius;
-          centerY = style.canvas.height / 2 + Math.sin(theta) * radius * 0.72;
+          centerX =
+            style.canvas.width / 2 +
+            Math.cos(theta) * ((style.canvas.width - fitWidth) / 2) * radius;
+          centerY =
+            style.canvas.height / 2 +
+            Math.sin(theta) * ((style.canvas.height - fitHeight) / 2) * radius;
         }
         tryPlacement(centerX, centerY);
         yield;

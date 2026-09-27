@@ -99,7 +99,9 @@ export async function createGlyphSprites(
       const alpha = new Uint8Array(width * height);
       for (let pixel = 0; pixel < alpha.length; pixel++)
         alpha[pixel] = rgba[pixel * 4 + 3] > 0 ? 1 : 0;
-      const inkSpans = glyphInkSpans(alpha, width, height);
+      const inkSpans = style.shape
+        ? glyphInkSpans(alpha, width, height)
+        : undefined;
       // One pixel of raster tolerance at non-negative spacing protects antialiased edges.
       const pixels = padGlyph(
         alpha,
@@ -107,9 +109,11 @@ export async function createGlyphSprites(
         height,
         padding >= 0 ? padding + 1 : padding,
       );
-      // Count the sparse visible-ink and padded collision representations too.
-      totalPixels += pixels.length + inkSpans.length;
-      if (totalPixels > LIMITS.maxGlyphSpritePixels) return undefined;
+      if (style.shape) {
+        // Shaped layouts also retain the ink and collision representations.
+        totalPixels += pixels.length + (inkSpans?.length ?? 0);
+        if (totalPixels > LIMITS.maxGlyphSpritePixels) return undefined;
+      }
       variants[angle] = {
         width,
         height,
