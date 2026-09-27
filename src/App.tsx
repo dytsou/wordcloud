@@ -1058,7 +1058,7 @@ export function App() {
             ✳
           </span>
           <div>
-            <p className="brand-name">Wordcloud Studio</p>
+            <p className="brand-name">wordcloud.download</p>
             <p className="brand-subtitle">{t("brandSubtitle")}</p>
           </div>
         </div>

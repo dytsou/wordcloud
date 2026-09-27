@@ -1,5 +1,5 @@
 export const EN_MESSAGES = {
-  appTitle: "Wordcloud Studio",
+  appTitle: "wordcloud.download",
   metaDescription:
     "Create, tune, and share multilingual word clouds locally in your browser.",
   brandSubtitle: "A local-first word-cloud generator for individual creators.",
