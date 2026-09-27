@@ -54,6 +54,11 @@ export const FR_MESSAGES: MessageMap = {
   indexHeading: "Index des mots",
   indexInfoLabel: "Ouvrir l’index des mots",
   closeIndex: "Fermer l’index des mots",
+  moveIndexHint:
+    "Faites glisser le titre ou utilisez les flèches pour déplacer l’index des mots.",
+  resizeIndexHint:
+    "Faites glisser un bord ou utilisez les flèches pour redimensionner l’index des mots.",
+  indexOpacity: "Opacité de l’index des mots",
   rank: "Rang",
   word: "Mot",
   count: "Nombre",

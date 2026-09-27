@@ -54,6 +54,11 @@ export const ES_MESSAGES: MessageMap = {
   indexHeading: "Índice de palabras",
   indexInfoLabel: "Abrir el índice de palabras",
   closeIndex: "Cerrar el índice de palabras",
+  moveIndexHint:
+    "Arrastra el encabezado o usa las flechas para mover el índice de palabras.",
+  resizeIndexHint:
+    "Arrastra un borde o usa las flechas para cambiar el tamaño del índice de palabras.",
+  indexOpacity: "Opacidad del índice de palabras",
   rank: "Rango",
   word: "Palabra",
   count: "Cantidad",

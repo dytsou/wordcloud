@@ -1512,15 +1512,19 @@ input[type="checkbox"] {
 
 .word-index-popout {
   position: fixed;
-  inset-block-start: 50%;
-  inset-inline-start: 50%;
+  top: 50%;
+  left: 50%;
   translate: -50% -50%;
   margin: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 0;
   width: min(52rem, calc(100dvw - 2.5rem));
   max-height: min(70dvh, 42rem);
+  min-width: min(18rem, calc(100dvw - 1.5rem));
+  max-width: calc(100dvw - 1.5rem);
+  min-height: min(14rem, calc(100dvh - 1.5rem));
+  box-sizing: border-box;
   overflow: hidden;
   padding: 0;
   border: 1px solid var(--line);
@@ -1528,6 +1532,10 @@ input[type="checkbox"] {
   color: var(--ink);
   background: var(--paper);
   box-shadow: var(--shadow);
+}
+
+.word-index-popout.is-resizable {
+  max-height: calc(100dvh - 1.5rem);
 }
 
 .word-index-popout:not(:popover-open) {
@@ -1542,6 +1550,14 @@ input[type="checkbox"] {
   padding: 1rem;
   border-bottom: 1px solid var(--line);
   background: var(--paper);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.word-index-popout-heading:focus-visible {
+  outline: 2px solid var(--coral-dark);
+  outline-offset: -3px;
 }
 
 .word-index-popout-heading h2 {
@@ -1573,6 +1589,96 @@ input[type="checkbox"] {
   min-height: 0;
   overflow: auto;
   padding: 1rem;
+}
+
+.word-index-opacity-control {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0.25rem 0.9rem 0.55rem;
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.word-index-opacity-control input {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--coral-dark);
+  cursor: ew-resize;
+}
+
+.word-index-resize-edge {
+  position: absolute;
+  z-index: 2;
+  border-radius: 999px;
+  background: transparent;
+  touch-action: none;
+  user-select: none;
+}
+
+.word-index-resize-edge--top,
+.word-index-resize-edge--bottom {
+  right: 1rem;
+  left: 1rem;
+  height: 0.65rem;
+  cursor: ns-resize;
+}
+
+.word-index-resize-edge--top {
+  top: 0;
+}
+
+.word-index-resize-edge--bottom {
+  bottom: 0;
+}
+
+.word-index-resize-edge--left,
+.word-index-resize-edge--right {
+  top: 1rem;
+  bottom: 1rem;
+  width: 0.65rem;
+  cursor: ew-resize;
+}
+
+.word-index-resize-edge--left {
+  left: 0;
+}
+
+.word-index-resize-edge--right {
+  right: 0;
+}
+
+.word-index-resize-edge--top-left,
+.word-index-resize-edge--top-right,
+.word-index-resize-edge--bottom-left,
+.word-index-resize-edge--bottom-right {
+  width: 1rem;
+  height: 1rem;
+}
+
+.word-index-resize-edge--top-left {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.word-index-resize-edge--top-right {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.word-index-resize-edge--bottom-left {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.word-index-resize-edge--bottom-right {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
 }
 
 .table-wrap {

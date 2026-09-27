@@ -54,6 +54,10 @@ export const KO_MESSAGES: MessageMap = {
   indexHeading: "단어 색인",
   indexInfoLabel: "단어 색인 열기",
   closeIndex: "단어 색인 닫기",
+  moveIndexHint: "제목을 드래그하거나 방향키를 사용해 단어 색인을 이동하세요.",
+  resizeIndexHint:
+    "가장자리를 드래그하거나 방향키를 사용해 단어 색인 크기를 조정하세요.",
+  indexOpacity: "단어 색인 불투명도",
   rank: "순위",
   word: "단어",
   count: "횟수",

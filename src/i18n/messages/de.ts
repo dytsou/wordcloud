@@ -54,6 +54,11 @@ export const DE_MESSAGES: MessageMap = {
   indexHeading: "Wortindex",
   indexInfoLabel: "Wortindex öffnen",
   closeIndex: "Wortindex schließen",
+  moveIndexHint:
+    "Ziehe die Überschrift oder nutze die Pfeiltasten, um den Wortindex zu verschieben.",
+  resizeIndexHint:
+    "Ziehe einen Rand oder nutze die Pfeiltasten, um die Größe des Wortindex zu ändern.",
+  indexOpacity: "Transparenz des Wortindex",
   rank: "Rang",
   word: "Wort",
   count: "Anzahl",

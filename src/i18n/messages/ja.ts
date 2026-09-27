@@ -64,6 +64,10 @@ export const JA_MESSAGES: MessageMap = {
   indexHeading: "単語索引",
   indexInfoLabel: "単語索引を開く",
   closeIndex: "単語索引を閉じる",
+  moveIndexHint: "見出しをドラッグするか、矢印キーで単語索引を移動します。",
+  resizeIndexHint:
+    "端をドラッグするか、矢印キーで単語索引のサイズを変更します。",
+  indexOpacity: "単語索引の不透明度",
   rank: "順位",
   word: "語",
   count: "回数",
