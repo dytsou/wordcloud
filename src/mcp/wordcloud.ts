@@ -5,6 +5,12 @@ import { encodeJsonFragment, SNAPSHOT_PREFIX } from "../core/codec";
 import { layoutWordCloud, type LayoutStyle } from "../core/layout";
 import { LIMITS, utf8ByteLength } from "../core/limits";
 import type { FontMetric, FontMetricsTable } from "../core/metrics";
+import {
+  BUILT_IN_SHAPES,
+  MAX_SHAPE_SCALE,
+  MIN_SHAPE_SCALE,
+  type BuiltInShapeId,
+} from "../core/shapes";
 import { buildWordSet } from "../core/word-model";
 import {
   decodeSnapshotFragment,
@@ -33,6 +39,10 @@ const SERVER_METRICS_BASE_FONT_SIZE = 16;
 
 const CASE_MODES = ["preserve", "lower", "upper"] as const;
 const POLICY_VALUES = ["exclude", "include"] as const;
+const BUILT_IN_SHAPE_IDS = BUILT_IN_SHAPES.map((shape) => shape.id) as [
+  BuiltInShapeId,
+  ...BuiltInShapeId[],
+];
 
 // The control-character range is intentional for untrusted MCP metadata.
 const SAFE_TEXT_PATTERN =
@@ -302,6 +312,20 @@ const canvasInputSchema = z
     { message: "Canvas area exceeds the export safety limit." },
   );
 
+const shapeInputSchema = z.strictObject({
+  id: z.enum(BUILT_IN_SHAPE_IDS),
+  widthScale: z
+    .number()
+    .min(MIN_SHAPE_SCALE)
+    .max(MAX_SHAPE_SCALE)
+    .default(MAX_SHAPE_SCALE),
+  heightScale: z
+    .number()
+    .min(MIN_SHAPE_SCALE)
+    .max(MAX_SHAPE_SCALE)
+    .default(MAX_SHAPE_SCALE),
+});
+
 const styleInputSchema = z.strictObject({
   canvas: canvasInputSchema.optional(),
   minFontSize: z.number().min(1).max(512).optional(),
@@ -322,6 +346,7 @@ const styleInputSchema = z.strictObject({
     .optional(),
   seed: safeLiteralSchema.max(128).optional(),
   version: safeLiteralSchema.max(64).optional(),
+  shape: shapeInputSchema.optional(),
 });
 
 const generateInputSchema = z
@@ -377,9 +402,10 @@ const generateInputSchema = z
 
 type SummaryInput = z.infer<typeof summaryInputSchema>;
 type RenderInput = z.infer<typeof renderInputSchema>;
-type GenerateInput = z.infer<typeof generateInputSchema>;
+type GenerateInput = z.input<typeof generateInputSchema>;
+type ParsedGenerateInput = z.output<typeof generateInputSchema>;
 
-function buildGenerationStyle(input: GenerateInput): LayoutStyle {
+function buildGenerationStyle(input: ParsedGenerateInput): LayoutStyle {
   const style = input.style;
   return {
     ...DEFAULT_PRESENTATION,
@@ -396,12 +422,15 @@ function buildGenerationStyle(input: GenerateInput): LayoutStyle {
     background: style?.background ?? DEFAULT_PRESENTATION.background,
     fontFamily: style?.fontFamily ?? DEFAULT_PRESENTATION.fontFamily,
     seed: style?.seed ?? DEFAULT_PRESENTATION.seed,
-    version: style?.version ?? DEFAULT_PRESENTATION.version,
+    version: style?.shape
+      ? "layout-v2"
+      : (style?.version ?? DEFAULT_PRESENTATION.version),
+    ...(style?.shape ? { shape: style.shape } : {}),
   };
 }
 
 function generateWordcloudFromParsedInput(
-  values: GenerateInput,
+  values: ParsedGenerateInput,
 ): GeneratedWordcloud {
   const locale = values.locale ?? DEFAULT_TOKENIZER_SETTINGS.locale;
   const caseMode = values.caseMode ?? DEFAULT_TOKENIZER_SETTINGS.caseMode;
@@ -482,7 +511,7 @@ export function createWordcloudMcpServer(): McpServer {
         "Analyze sourceText in memory and return SVG plus a reproducible V fragment. The source text is not persisted, logged, or included in the V fragment, but the rendered SVG necessarily contains the derived terms.",
       inputSchema: generateInputSchema,
     },
-    async (input: GenerateInput) => {
+    async (input: ParsedGenerateInput) => {
       try {
         const generated = generateWordcloudFromParsedInput(input);
         return {

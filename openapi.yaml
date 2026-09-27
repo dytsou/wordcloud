@@ -108,6 +108,10 @@ paths:
                         scale: linear
                         padding: 0
                         rotations: [0, -35, 35]
+                        shape:
+                          id: heart
+                          widthScale: 0.9
+                          heightScale: 0.75
                         palette:
                           - "#aa5948"
                           - "#27384a"
@@ -739,7 +743,63 @@ components:
           minLength: 1
           maxLength: 64
           default: layout-v1
+          description: Shape selections always use layout-v2; unshaped requests use layout-v1 by default.
+        shape:
+          $ref: "#/components/schemas/ShapeInput"
       additionalProperties: false
+    ShapeInput:
+      type: object
+      required: [id]
+      properties:
+        id:
+          $ref: "#/components/schemas/BuiltInShapeId"
+        widthScale:
+          type: number
+          minimum: 0.2
+          maximum: 1
+          default: 1
+          description: Width scale relative to the largest mask that fits the canvas.
+        heightScale:
+          type: number
+          minimum: 0.2
+          maximum: 1
+          default: 1
+          description: Height scale relative to the largest mask that fits the canvas.
+      additionalProperties: false
+    BuiltInShapeId:
+      type: string
+      enum:
+        - circle
+        - ellipse
+        - square
+        - rectangle
+        - triangle
+        - diamond
+        - hexagon
+        - star
+        - heart
+        - speech-bubble
+        - crescent-moon
+        - lightning-bolt
+        - music-note
+        - smiling-face
+        - cloud
+        - sun
+        - flower
+        - leaf
+        - mountain
+        - wave
+        - cat
+        - dog
+        - bird
+        - fish
+        - butterfly
+        - house
+        - book
+        - light-bulb
+        - trophy
+        - game-controller
+      description: Stable IDs for the 30 built-in cloud silhouettes.
     Canvas:
       type: object
       properties:

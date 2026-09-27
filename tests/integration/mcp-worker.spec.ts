@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { encodeSnapshot } from "../../src/core/snapshot";
+import { fromSnapshot } from "../../src/app/editor-state";
+import { BUILT_IN_SHAPES } from "../../src/core/shapes";
+import {
+  decodeSnapshotFragment,
+  encodeSnapshot,
+} from "../../src/core/snapshot";
+import { decodeSnapshotInput } from "../../src/mcp/wordcloud";
 import worker from "../../src/worker/index";
 import {
   snapshotScene,
@@ -38,8 +44,22 @@ interface McpPayload {
     content?: Array<{ type: string; text?: string }>;
     isError?: boolean;
     structuredContent?: Record<string, unknown>;
-    tools?: Array<{ name?: string }>;
+    tools?: Array<{
+      inputSchema?: {
+        properties?: Record<string, McpSchemaProperty>;
+      };
+      name?: string;
+    }>;
   };
+}
+
+interface McpSchemaProperty {
+  default?: number;
+  enum?: string[];
+  maximum?: number;
+  minimum?: number;
+  properties?: Record<string, McpSchemaProperty>;
+  required?: string[];
 }
 
 async function readMcpPayload(response: Response): Promise<McpPayload> {
@@ -123,6 +143,25 @@ describe("MCP Worker", () => {
         "wordcloud-render-svg",
       ]),
     );
+    const generateTool = listPayload.result?.tools?.find(
+      (tool) => tool.name === "wordcloud-generate-from-text",
+    );
+    const shapeSchema =
+      generateTool?.inputSchema?.properties?.style?.properties?.shape;
+    expect(shapeSchema?.properties?.id?.enum).toEqual(
+      BUILT_IN_SHAPES.map((shape) => shape.id),
+    );
+    expect(shapeSchema?.required).toContain("id");
+    expect(shapeSchema?.properties?.widthScale).toMatchObject({
+      minimum: 0.2,
+      maximum: 1,
+      default: 1,
+    });
+    expect(shapeSchema?.properties?.heightScale).toMatchObject({
+      minimum: 0.2,
+      maximum: 1,
+      default: 1,
+    });
   });
 
   it("rejects declared MCP bodies above the Worker limit", async () => {
@@ -180,6 +219,28 @@ describe("MCP Worker", () => {
     expect(response.status).toBe(200);
     expect(payload.result?.content?.[0]?.text).toContain("<svg");
     expect(payload.result?.content?.[0]?.text).toContain(">hello</text>");
+
+    const inspectResponse = await worker.fetch(
+      mcpRequest({
+        jsonrpc: "2.0",
+        id: 9,
+        method: "tools/call",
+        params: {
+          name: "wordcloud-inspect",
+          arguments: {
+            vUrl: encodeSnapshot(snapshotWordSet, snapshotStyle, snapshotScene)
+              .fragment,
+          },
+        },
+      }),
+      env,
+    );
+    const inspectPayload = await readMcpPayload(inspectResponse);
+    expect(inspectResponse.status).toBe(200);
+    expect(inspectPayload.result?.structuredContent).toMatchObject({
+      schemaVersion: "wc-snapshot-v1",
+      layoutVersion: "layout-v1",
+    });
   });
 
   it("generates SVG and a V fragment from source text", async () => {
@@ -204,9 +265,12 @@ describe("MCP Worker", () => {
     const payload = await readMcpPayload(response);
     const resultText = payload.result?.content?.[0]?.text;
     const result = JSON.parse(resultText ?? "{}");
+    const snapshot = decodeSnapshotInput(result.vFragment);
 
     expect(response.status).toBe(200);
     expect(result.vFragment).toMatch(/^#wc-pako:v1:/);
+    expect(snapshot.schemaVersion).toBe("wc-snapshot-v1");
+    expect(result.vFragment).not.toContain("Apple apple Cloudflare");
     expect(result.summary.topWords).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ term: "Apple", count: 2 }),
@@ -216,6 +280,96 @@ describe("MCP Worker", () => {
     expect(payload.result?.content?.[1]?.text).toContain(">Apple</text>");
     expect(payload.result?.content?.[1]?.text).toContain(">Cloudflare</text>");
     expect(payload.result?.structuredContent).not.toHaveProperty("sourceText");
+  });
+
+  it("generates shaped snapshots accepted unchanged by inspect, render, and the editor", async () => {
+    const env = createEnv();
+    const sourceText = "community shape containment keeps words inside";
+    const response = await worker.fetch(
+      mcpRequest({
+        jsonrpc: "2.0",
+        id: 6,
+        method: "tools/call",
+        params: {
+          name: "wordcloud-generate-from-text",
+          arguments: {
+            sourceText,
+            locale: "en",
+            style: {
+              shape: {
+                id: "ellipse",
+                widthScale: 0.75,
+                heightScale: 0.6,
+              },
+            },
+          },
+        },
+      }),
+      env,
+    );
+    const generatedPayload = await readMcpPayload(response);
+    const generatedText = generatedPayload.result?.content?.[0]?.text;
+    const generated = JSON.parse(generatedText ?? "{}");
+    const snapshot = decodeSnapshotInput(generated.vFragment);
+
+    expect(response.status).toBe(200);
+    expect(generated.vFragment).toMatch(/^#wc-pako:v1:/);
+    expect(snapshot).toMatchObject({
+      schemaVersion: "wc-snapshot-v2",
+      layoutVersion: "layout-v2",
+      presentation: {
+        shape: { id: "ellipse", widthScale: 0.75, heightScale: 0.6 },
+      },
+    });
+    expect(generated.vFragment).not.toContain(sourceText);
+    expect(generatedPayload.result?.structuredContent).not.toHaveProperty(
+      "sourceText",
+    );
+    expect(
+      fromSnapshot(decodeSnapshotFragment(generated.vFragment)).presentation
+        .shape,
+    ).toEqual({
+      id: "ellipse",
+      widthScale: 0.75,
+      heightScale: 0.6,
+    });
+
+    const inspectResponse = await worker.fetch(
+      mcpRequest({
+        jsonrpc: "2.0",
+        id: 7,
+        method: "tools/call",
+        params: {
+          name: "wordcloud-inspect",
+          arguments: { vUrl: generated.vFragment },
+        },
+      }),
+      env,
+    );
+    const inspectPayload = await readMcpPayload(inspectResponse);
+    const inspectResult = inspectPayload.result?.structuredContent;
+    expect(inspectResponse.status).toBe(200);
+    expect(inspectPayload.result?.isError).not.toBe(true);
+    expect(inspectResult).toMatchObject({
+      schemaVersion: "wc-snapshot-v2",
+      layoutVersion: "layout-v2",
+    });
+
+    const renderResponse = await worker.fetch(
+      mcpRequest({
+        jsonrpc: "2.0",
+        id: 8,
+        method: "tools/call",
+        params: {
+          name: "wordcloud-render-svg",
+          arguments: { vUrl: generated.vFragment },
+        },
+      }),
+      env,
+    );
+    const renderPayload = await readMcpPayload(renderResponse);
+    expect(renderResponse.status).toBe(200);
+    expect(renderPayload.result?.content?.[0]?.text).toContain("<svg");
   });
 
   it("rejects unknown source-generation fields", async () => {
