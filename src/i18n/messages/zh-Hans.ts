@@ -113,4 +113,7 @@ export const ZH_HANS_MESSAGES: MessageMap = {
     "有 {{count}} 个词无法放入此轮廓。请缩小轮廓或移除轮廓以放置词语。",
   shapeAdjustSize: "调整轮廓大小",
   shapeRemoveMask: "移除轮廓",
+  shapeFillHintLabel: "点点填充说明",
+  shapeFillHint:
+    "点点表示现有词语都已放入，轮廓内还有空间。可以放大文字，或添加更多词语。",
 };

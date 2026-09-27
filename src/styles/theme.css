@@ -1350,6 +1350,69 @@ input[type="checkbox"] {
   transition: transform 220ms ease;
 }
 
+.shape-fill-hint {
+  position: absolute;
+  z-index: 2;
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
+.shape-fill-hint-trigger {
+  display: grid;
+  width: 1.9rem;
+  height: 1.9rem;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgb(39 56 74 / 28%);
+  border-radius: 50%;
+  color: #27384a;
+  background: rgb(255 255 255 / 88%);
+  box-shadow: 0 2px 8px rgb(35 30 21 / 12%);
+  cursor: help;
+  font:
+    700 0.95rem/1 Georgia,
+    serif;
+}
+
+.shape-fill-hint-trigger:hover,
+.shape-fill-hint-trigger:focus-visible {
+  border-color: #27384a;
+  background: #fff;
+  outline: 2px solid rgb(39 56 74 / 35%);
+  outline-offset: 2px;
+}
+
+.shape-fill-tooltip {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1;
+  width: min(19rem, calc(100vw - 3rem));
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 0.55rem;
+  color: #f8f3e8;
+  background: #27384a;
+  box-shadow: 0 6px 20px rgb(20 28 38 / 24%);
+  font-size: 0.78rem;
+  font-weight: 450;
+  line-height: 1.5;
+  text-align: start;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-0.2rem);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease,
+    visibility 150ms ease;
+}
+
+.shape-fill-hint.is-open .shape-fill-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
 .canvas-empty {
   color: var(--blue);
   text-align: center;

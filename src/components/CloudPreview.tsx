@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { SceneModel } from "../core/scene";
 import {
@@ -28,6 +28,11 @@ export function CloudPreview({
   onRemoveShape,
 }: CloudPreviewProps) {
   const [zoom, setZoom] = useState(1);
+  const [fillHintHovered, setFillHintHovered] = useState(false);
+  const [fillHintFocused, setFillHintFocused] = useState(false);
+  const [fillHintPinned, setFillHintPinned] = useState(false);
+  const [fillHintDismissed, setFillHintDismissed] = useState(false);
+  const fillHintId = useId();
   const { t } = useI18n();
   const placedWords = scene ? placedSceneWords(scene) : [];
   const fillDots = useMemo(
@@ -38,6 +43,19 @@ export function CloudPreview({
   const omittedCount = scene ? scene.words.length - placedWords.length : 0;
   const noWordsFit =
     hasSelectedShape && omittedCount > 0 && placedWords.length === 0;
+  const fillHintOpen =
+    (fillHintHovered || fillHintFocused || fillHintPinned) &&
+    !fillHintDismissed;
+  useEffect(() => {
+    if (!fillHintOpen) return;
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setFillHintPinned(false);
+      setFillHintDismissed(true);
+    };
+    window.addEventListener("keydown", dismissOnEscape);
+    return () => window.removeEventListener("keydown", dismissOnEscape);
+  }, [fillHintOpen]);
   const activeHighlight =
     scene &&
     highlightedTerm &&
@@ -138,6 +156,51 @@ export function CloudPreview({
               <br />
               <em>{t("emptyShape")}</em>
             </p>
+          </div>
+        )}
+        {fillDots.length > 0 && (
+          <div
+            className={`shape-fill-hint${fillHintOpen ? " is-open" : ""}`}
+            onMouseEnter={() => {
+              setFillHintHovered(true);
+              setFillHintDismissed(false);
+            }}
+            onMouseLeave={() => setFillHintHovered(false)}
+          >
+            <button
+              className="shape-fill-hint-trigger"
+              type="button"
+              aria-label={t("shapeFillHintLabel")}
+              aria-describedby={fillHintId}
+              aria-expanded={fillHintOpen}
+              onFocus={() => {
+                setFillHintFocused(true);
+                setFillHintDismissed(false);
+              }}
+              onBlur={() => {
+                setFillHintFocused(false);
+                setFillHintPinned(false);
+              }}
+              onClick={() => {
+                if (fillHintPinned) {
+                  setFillHintPinned(false);
+                  setFillHintDismissed(true);
+                } else {
+                  setFillHintPinned(true);
+                  setFillHintDismissed(false);
+                }
+              }}
+            >
+              <span aria-hidden="true">i</span>
+            </button>
+            <span
+              className="shape-fill-tooltip"
+              id={fillHintId}
+              role="tooltip"
+              aria-hidden={!fillHintOpen}
+            >
+              {t("shapeFillHint")}
+            </span>
           </div>
         )}
         {noWordsFit ? (

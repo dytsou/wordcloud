@@ -107,4 +107,7 @@ export const KO_MESSAGES: MessageMap = {
     "단어 {{count}}개가 이 모양 안에 들어가지 않습니다. 크기를 줄이거나 모양을 제거해 단어를 배치하세요.",
   shapeAdjustSize: "실루엣 크기 조정",
   shapeRemoveMask: "실루엣 제거",
+  shapeFillHintLabel: "점 채우기 안내",
+  shapeFillHint:
+    "점은 현재 단어가 모두 배치되었고 모양 안에 공간이 남아 있음을 뜻합니다. 글자 크기를 키우거나 단어를 더 추가할 수 있습니다.",
 };

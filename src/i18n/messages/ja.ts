@@ -117,4 +117,7 @@ export const JA_MESSAGES: MessageMap = {
     "{{count}} 個の単語がこの形に入りません。サイズを小さくするか形を削除して、単語を配置してください。",
   shapeAdjustSize: "シルエットのサイズを調整",
   shapeRemoveMask: "シルエットを削除",
+  shapeFillHintLabel: "点について",
+  shapeFillHint:
+    "点は、現在の単語がすべて配置され、形の中にまだ余白があることを示します。文字を大きくするか、単語を追加できます。",
 };

@@ -107,4 +107,7 @@ export const FR_MESSAGES: MessageMap = {
     "{{count}} mots ne tiennent pas dans cette forme. Réduisez-la ou retirez-la pour placer les mots.",
   shapeAdjustSize: "Ajuster la taille de la forme",
   shapeRemoveMask: "Retirer la forme",
+  shapeFillHintLabel: "À propos des points de remplissage",
+  shapeFillHint:
+    "Les points indiquent que tous les mots actuels sont placés et qu’il reste de la place dans la forme. Agrandissez le texte ou ajoutez des mots.",
 };

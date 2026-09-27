@@ -107,4 +107,7 @@ export const ES_MESSAGES: MessageMap = {
     "{{count}} palabras no caben en esta forma. Redúcela o quítala para volver a colocar palabras.",
   shapeAdjustSize: "Ajustar tamaño de forma",
   shapeRemoveMask: "Quitar forma",
+  shapeFillHintLabel: "Por qué hay puntos",
+  shapeFillHint:
+    "Los puntos indican que todas las palabras actuales están colocadas y que aún queda espacio dentro de la forma. Aumenta el tamaño del texto o añade más palabras.",
 };

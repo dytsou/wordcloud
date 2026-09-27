@@ -232,4 +232,7 @@ export const ZH_HANT_MESSAGES: MessageMap = {
     "有 {{count}} 個詞無法放入此輪廓。請縮小輪廓或移除輪廓以放置詞語。",
   shapeAdjustSize: "調整輪廓大小",
   shapeRemoveMask: "移除輪廓",
+  shapeFillHintLabel: "點點填充說明",
+  shapeFillHint:
+    "點點代表現有詞語都已放入，輪廓內還有空間。可以放大文字，或加入更多詞語。",
 };

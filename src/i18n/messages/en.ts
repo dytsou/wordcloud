@@ -269,4 +269,7 @@ export const EN_MESSAGES = {
     "{{count}} words do not fit inside this shape. Reduce its size or remove it to place words.",
   shapeAdjustSize: "Adjust shape size",
   shapeRemoveMask: "Remove shape",
+  shapeFillHintLabel: "Why are there dots?",
+  shapeFillHint:
+    "Dots mean all current words are placed and there is still room inside the shape. Increase the text size or add more words.",
 } as const;

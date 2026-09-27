@@ -107,4 +107,7 @@ export const DE_MESSAGES: MessageMap = {
     "{{count}} Wörter passen nicht in diese Form. Verkleinere sie oder entferne sie, damit Wörter wieder Platz finden.",
   shapeAdjustSize: "Formgröße anpassen",
   shapeRemoveMask: "Form entfernen",
+  shapeFillHintLabel: "Hinweis zu den Füllpunkten",
+  shapeFillHint:
+    "Die Punkte zeigen, dass alle vorhandenen Wörter platziert sind und in der Form noch Platz ist. Vergrößere die Schrift oder füge weitere Wörter hinzu.",
 };
