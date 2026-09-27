@@ -9,18 +9,26 @@ interface CloudPreviewProps {
   scene?: SceneModel;
   highlightedTerm?: string;
   captionAside?: ReactNode;
+  hasSelectedShape?: boolean;
+  onAdjustShapeSize?: () => void;
+  onRemoveShape?: () => void;
 }
 
 export function CloudPreview({
   scene,
   highlightedTerm,
   captionAside,
+  hasSelectedShape = false,
+  onAdjustShapeSize,
+  onRemoveShape,
 }: CloudPreviewProps) {
   const [zoom, setZoom] = useState(1);
   const { t } = useI18n();
   const placedWords = scene ? placedSceneWords(scene) : [];
   const accessibleSummary = scene ? renderAccessibleSummary(scene) : undefined;
   const omittedCount = scene ? scene.words.length - placedWords.length : 0;
+  const noWordsFit =
+    hasSelectedShape && omittedCount > 0 && placedWords.length === 0;
   const activeHighlight =
     scene &&
     highlightedTerm &&
@@ -107,11 +115,38 @@ export function CloudPreview({
             </p>
           </div>
         )}
-        {omittedCount > 0 && (
+        {noWordsFit ? (
+          <div
+            className="canvas-warning canvas-warning--recovery"
+            role="status"
+          >
+            <p>
+              {t(omittedCount === 1 ? "shapeOneWordNoFit" : "shapeNoWordsFit", {
+                count: omittedCount,
+              })}
+            </p>
+            <div className="canvas-warning-actions">
+              <button
+                className="button button-quiet"
+                type="button"
+                onClick={onAdjustShapeSize}
+              >
+                {t("shapeAdjustSize")}
+              </button>
+              <button
+                className="button button-primary"
+                type="button"
+                onClick={onRemoveShape}
+              >
+                {t("shapeRemoveMask")}
+              </button>
+            </div>
+          </div>
+        ) : omittedCount > 0 ? (
           <p className="canvas-warning">
             {t("omittedWords", { count: omittedCount })}
           </p>
-        )}
+        ) : null}
       </div>
     </section>
   );

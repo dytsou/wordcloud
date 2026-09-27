@@ -131,3 +131,167 @@ test("custom rotation stays within ±120 degrees and survives a V link", async (
   );
   expect(replayAngles).toEqual(angles);
 });
+
+test("built-in silhouette gallery preserves and resets shape proportions", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await createCloudAtStyle(page, "shape gallery campus research words");
+  await page.locator("#ui-locale").selectOption("en");
+
+  const categories = page.getByRole("group", { name: "Shape categories" });
+  const gallery = page.getByRole("group", { name: "Built-in shapes" });
+  const noShape = page.getByRole("button", { name: "No shape", exact: true });
+
+  await expect(categories).toBeVisible();
+  await expect(gallery).toBeVisible();
+  await expect(noShape).toHaveAttribute("aria-pressed", "true");
+
+  for (const [name, shapeNames] of [
+    [
+      "Basic forms",
+      [
+        "Circle",
+        "Ellipse",
+        "Square",
+        "Rectangle",
+        "Triangle",
+        "Diamond",
+        "Hexagon",
+        "Star",
+      ],
+    ],
+    [
+      "Symbols",
+      [
+        "Heart",
+        "Speech bubble",
+        "Crescent moon",
+        "Lightning bolt",
+        "Music note",
+        "Smiling face",
+      ],
+    ],
+    ["Nature", ["Cloud", "Sun", "Flower", "Leaf", "Mountain", "Wave"]],
+    ["Animals", ["Cat", "Dog", "Bird", "Fish", "Butterfly"]],
+    [
+      "Everyday and activities",
+      ["House", "Book", "Light bulb", "Trophy", "Game controller"],
+    ],
+  ] as const) {
+    await categories.getByRole("button", { name, exact: true }).click();
+    await expect(gallery.getByRole("button")).toHaveCount(shapeNames.length);
+    for (const shapeName of shapeNames) {
+      const option = gallery.getByRole("button", {
+        name: shapeName,
+        exact: true,
+      });
+      await expect(option).toBeVisible();
+      await expect(option.locator(".shape-thumbnail")).toBeVisible();
+    }
+  }
+
+  await categories.getByRole("button", { name: "Basic forms" }).click();
+  await gallery.getByRole("button", { name: "Ellipse", exact: true }).click();
+  await expect(
+    page.getByRole("checkbox", { name: "Lock aspect ratio" }),
+  ).toBeChecked();
+
+  const lockedSize = page.getByRole("slider", { name: "Shape size" });
+  await expect(lockedSize).toHaveValue("1");
+  await expect(lockedSize).toBeEnabled();
+  await lockedSize.focus();
+  await lockedSize.press("Home");
+  await expect(lockedSize).toHaveValue("0.2");
+
+  await page.getByRole("checkbox", { name: "Lock aspect ratio" }).uncheck();
+  const width = page.getByRole("slider", { name: "Shape width" });
+  const height = page.getByRole("slider", { name: "Shape height" });
+  await expect(width).toHaveValue("0.2");
+  await expect(height).toHaveValue("0.2");
+  await width.focus();
+  await width.press("ArrowRight");
+  await expect(width).toHaveValue("0.25");
+  await expect(height).toHaveValue("0.2");
+
+  await categories.getByRole("button", { name: "Symbols" }).click();
+  await gallery.getByRole("button", { name: "Heart", exact: true }).click();
+  await expect(
+    page.getByRole("checkbox", { name: "Lock aspect ratio" }),
+  ).toBeChecked();
+  const resetSize = page.getByRole("slider", { name: "Shape size" });
+  await expect(resetSize).toHaveValue("1");
+  await expect(resetSize).toBeEnabled();
+
+  await page.getByRole("checkbox", { name: "Lock aspect ratio" }).uncheck();
+  const resetButton = page.getByRole("button", { name: "Reset shape size" });
+  await expect(resetButton).toBeEnabled();
+  await resetButton.click();
+  await expect(
+    page.getByRole("checkbox", { name: "Lock aspect ratio" }),
+  ).toBeChecked();
+
+  await resetSize.press("Home");
+  await resetButton.click();
+  await expect(page.getByRole("slider", { name: "Shape size" })).toHaveValue(
+    "1",
+  );
+  await expect(
+    page.getByRole("checkbox", { name: "Lock aspect ratio" }),
+  ).toBeChecked();
+
+  await noShape.click();
+  await expect(noShape).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("slider", { name: "Shape size" })).toHaveCount(0);
+  await expect(page.locator(".cloud-svg text").first()).toBeVisible();
+});
+
+test("zero-fit silhouette offers focused size adjustment and mask removal", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await createCloudAtStyle(page, "community");
+  await page.locator("#ui-locale").selectOption("en");
+  const minimumFontSize = page.getByRole("slider", {
+    name: "Minimum size",
+  });
+  await expect(minimumFontSize).toBeEnabled();
+  await minimumFontSize.focus();
+  await minimumFontSize.press("End");
+
+  const gallery = page.getByRole("group", { name: "Built-in shapes" });
+  await gallery.getByRole("button", { name: "Circle", exact: true }).click();
+  const size = page.getByRole("slider", { name: "Shape size" });
+  await expect(size).toBeEnabled();
+  await size.press("Home");
+  await expect(page.locator(".cloud-svg text")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Adjust shape size" }),
+  ).toBeVisible();
+
+  await advanceWizard(page, "result", "Continue");
+  await page.getByRole("button", { name: "Open the word index" }).click();
+  const wordIndex = page.getByRole("dialog", { name: "Word index" });
+  await expect(
+    wordIndex.getByRole("row", {
+      name: /community.*(?:unplaceable|budget limited)/u,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Remove shape" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Adjust shape size" }).click();
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/create/style");
+  await expect(size).toBeFocused();
+
+  await page.getByRole("button", { name: "Remove shape" }).click();
+  await expect(page.locator(".cloud-svg text").first()).toBeVisible();
+  await advanceWizard(page, "result", "Continue");
+  await page.getByRole("button", { name: "Open the word index" }).click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Word index" })
+      .getByRole("row", { name: /community.*placed/u }),
+  ).toBeVisible();
+});

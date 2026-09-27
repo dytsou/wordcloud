@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import type { LayoutStyle } from "../core/layout";
 import { LIMITS } from "../core/limits";
+import {
+  BUILT_IN_SHAPES,
+  MAX_SHAPE_SCALE,
+  MIN_SHAPE_SCALE,
+  SHAPE_CATEGORIES,
+  type BuiltInShape,
+  type BuiltInShapeId,
+  type ShapeCategory,
+  type ShapeSettings,
+} from "../core/shapes";
 import { useI18n } from "../i18n";
+import type { TranslationKey } from "../i18n/messages/types";
 import { TagInput } from "./TagInput";
 
 type RangeDraft = Pick<LayoutStyle, "minFontSize" | "maxFontSize" | "padding">;
@@ -28,6 +39,103 @@ const PALETTE_PRESETS = [
     colors: ["#283618", "#606c38", "#dda15e", "#bc6c25", "#f2cc8f"],
   },
 ] as const;
+
+const SHAPE_CATEGORY_LABELS = {
+  basic: "shapeCategoryBasic",
+  symbols: "shapeCategorySymbols",
+  nature: "shapeCategoryNature",
+  animals: "shapeCategoryAnimals",
+  everyday: "shapeCategoryEveryday",
+} as const satisfies Record<ShapeCategory, TranslationKey>;
+
+const SHAPE_NAME_LABELS = {
+  circle: "shapeNameCircle",
+  ellipse: "shapeNameEllipse",
+  square: "shapeNameSquare",
+  rectangle: "shapeNameRectangle",
+  triangle: "shapeNameTriangle",
+  diamond: "shapeNameDiamond",
+  hexagon: "shapeNameHexagon",
+  star: "shapeNameStar",
+  heart: "shapeNameHeart",
+  "speech-bubble": "shapeNameSpeechBubble",
+  "crescent-moon": "shapeNameCrescentMoon",
+  "lightning-bolt": "shapeNameLightningBolt",
+  "music-note": "shapeNameMusicNote",
+  "smiling-face": "shapeNameSmilingFace",
+  cloud: "shapeNameCloud",
+  sun: "shapeNameSun",
+  flower: "shapeNameFlower",
+  leaf: "shapeNameLeaf",
+  mountain: "shapeNameMountain",
+  wave: "shapeNameWave",
+  cat: "shapeNameCat",
+  dog: "shapeNameDog",
+  bird: "shapeNameBird",
+  fish: "shapeNameFish",
+  butterfly: "shapeNameButterfly",
+  house: "shapeNameHouse",
+  book: "shapeNameBook",
+  "light-bulb": "shapeNameLightBulb",
+  trophy: "shapeNameTrophy",
+  "game-controller": "shapeNameGameController",
+} as const satisfies Record<BuiltInShapeId, TranslationKey>;
+
+function renderShapeRegion(
+  region: BuiltInShape["regions"][number],
+  fill: string,
+  key: string,
+) {
+  if (region.kind === "ellipse") {
+    return (
+      <ellipse
+        key={key}
+        cx={region.center[0]}
+        cy={region.center[1]}
+        rx={region.radiusX}
+        ry={region.radiusY}
+        fill={fill}
+      />
+    );
+  }
+  return (
+    <polygon
+      key={key}
+      points={region.points.map((point) => point.join(",")).join(" ")}
+      fill={fill}
+    />
+  );
+}
+
+function ShapeThumbnail({ shape }: { shape: BuiltInShape }) {
+  const maskId = `shape-thumb-${shape.id}`;
+  return (
+    <svg
+      className="shape-thumbnail"
+      viewBox="0 0 1 1"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <mask
+        id={maskId}
+        maskUnits="userSpaceOnUse"
+        x="0"
+        y="0"
+        width="1"
+        height="1"
+      >
+        <rect width="1" height="1" fill="black" />
+        {shape.regions.map((region, index) =>
+          renderShapeRegion(region, "white", `region-${index}`),
+        )}
+        {shape.holes?.map((region, index) =>
+          renderShapeRegion(region, "black", `hole-${index}`),
+        )}
+      </mask>
+      <rect width="1" height="1" fill="currentColor" mask={`url(#${maskId})`} />
+    </svg>
+  );
+}
 
 function paletteMatches(
   current: readonly string[],
@@ -74,6 +182,12 @@ export function StylePanel({
     angleFrom(presentation.rotations),
   );
   const angleRef = useRef(angleDraft);
+  const [activeShapeCategory, setActiveShapeCategory] =
+    useState<ShapeCategory>("basic");
+  const [ratioLocked, setRatioLocked] = useState(true);
+  const selectedShape = presentation.shape
+    ? BUILT_IN_SHAPES.find((shape) => shape.id === presentation.shape?.id)
+    : undefined;
   useEffect(() => {
     const next = rangeFrom(presentation);
     draftRef.current = next;
@@ -106,6 +220,32 @@ export function StylePanel({
   };
   const update = (patch: Partial<LayoutStyle>) =>
     onChange({ ...presentation, ...patch });
+  const updateShape = (patch: Partial<ShapeSettings>) => {
+    if (!presentation.shape) return;
+    update({ shape: { ...presentation.shape, ...patch } });
+  };
+  const selectShape = (id?: BuiltInShapeId) => {
+    setRatioLocked(true);
+    update({
+      shape: id ? { id, widthScale: 1, heightScale: 1 } : undefined,
+    });
+  };
+  const setShapeSize = (axis: "width" | "height", value: string) => {
+    const scale = Number(value);
+    if (!Number.isFinite(scale)) return;
+    if (ratioLocked) {
+      updateShape({ widthScale: scale, heightScale: scale });
+    } else if (axis === "width") {
+      updateShape({ widthScale: scale });
+    } else {
+      updateShape({ heightScale: scale });
+    }
+  };
+  const resetShapeSize = () => {
+    if (!presentation.shape) return;
+    setRatioLocked(true);
+    updateShape({ widthScale: MAX_SHAPE_SCALE, heightScale: MAX_SHAPE_SCALE });
+  };
   const updateCanvas = (key: "width" | "height", value: string) => {
     const parsed = Number(value);
     if (!Number.isInteger(parsed) || parsed < 1) return;
@@ -150,6 +290,164 @@ export function StylePanel({
         <span className="count-badge">{t("remixable")}</span>
       </div>
       <p className="muted-note">{t("styleNote")}</p>
+      <div className="shape-controls">
+        <p className="field-label shape-controls-heading">
+          {t("shapeGalleryLabel")}
+        </p>
+        <button
+          className={
+            "shape-option shape-no-shape" +
+            (!presentation.shape ? " is-active" : "")
+          }
+          type="button"
+          disabled={disabled}
+          aria-pressed={!presentation.shape}
+          onClick={() => selectShape()}
+        >
+          <span className="shape-no-shape-mark" aria-hidden="true">
+            ∅
+          </span>
+          <span>{t("shapeNoShape")}</span>
+        </button>
+        <div
+          className="shape-category-list"
+          role="group"
+          aria-label={t("shapeCategoryNavigation")}
+        >
+          {SHAPE_CATEGORIES.map((category) => (
+            <button
+              className="shape-category"
+              key={category}
+              type="button"
+              disabled={disabled}
+              aria-pressed={activeShapeCategory === category}
+              onClick={() => setActiveShapeCategory(category)}
+            >
+              {t(SHAPE_CATEGORY_LABELS[category])}
+            </button>
+          ))}
+        </div>
+        <div
+          className="shape-gallery"
+          role="group"
+          aria-label={t("shapeGalleryLabel")}
+        >
+          {BUILT_IN_SHAPES.filter(
+            (shape) => shape.category === activeShapeCategory,
+          ).map((shape) => (
+            <button
+              className={
+                "shape-option" +
+                (presentation.shape?.id === shape.id ? " is-active" : "")
+              }
+              key={shape.id}
+              type="button"
+              disabled={disabled}
+              aria-pressed={presentation.shape?.id === shape.id}
+              onClick={() => selectShape(shape.id)}
+            >
+              <ShapeThumbnail shape={shape} />
+              <span>{t(SHAPE_NAME_LABELS[shape.id])}</span>
+            </button>
+          ))}
+        </div>
+        {selectedShape && presentation.shape && (
+          <div className="shape-size-controls">
+            <label className="shape-ratio-lock">
+              <input
+                type="checkbox"
+                checked={ratioLocked}
+                disabled={disabled}
+                onChange={(event) => setRatioLocked(event.target.checked)}
+              />
+              <span>{t("shapeLockRatio")}</span>
+            </label>
+            <div className="shape-size-grid">
+              {ratioLocked ? (
+                <label className="range-field">
+                  <span>
+                    {t("shapeSize")}{" "}
+                    <output>
+                      {Math.round(presentation.shape.widthScale * 100)}%
+                    </output>
+                  </span>
+                  <input
+                    id="shape-size"
+                    type="range"
+                    aria-label={t("shapeSize")}
+                    min={MIN_SHAPE_SCALE}
+                    max={MAX_SHAPE_SCALE}
+                    step="0.05"
+                    value={presentation.shape.widthScale}
+                    disabled={disabled}
+                    onChange={(event) =>
+                      setShapeSize("width", event.target.value)
+                    }
+                  />
+                </label>
+              ) : (
+                <>
+                  <label className="range-field">
+                    <span>
+                      {t("shapeWidth")}{" "}
+                      <output>
+                        {Math.round(presentation.shape.widthScale * 100)}%
+                      </output>
+                    </span>
+                    <input
+                      id="shape-size"
+                      type="range"
+                      aria-label={t("shapeWidth")}
+                      min={MIN_SHAPE_SCALE}
+                      max={MAX_SHAPE_SCALE}
+                      step="0.05"
+                      value={presentation.shape.widthScale}
+                      disabled={disabled}
+                      onChange={(event) =>
+                        setShapeSize("width", event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="range-field">
+                    <span>
+                      {t("shapeHeight")}{" "}
+                      <output>
+                        {Math.round(presentation.shape.heightScale * 100)}%
+                      </output>
+                    </span>
+                    <input
+                      id="shape-height"
+                      type="range"
+                      aria-label={t("shapeHeight")}
+                      min={MIN_SHAPE_SCALE}
+                      max={MAX_SHAPE_SCALE}
+                      step="0.05"
+                      value={presentation.shape.heightScale}
+                      disabled={disabled}
+                      onChange={(event) =>
+                        setShapeSize("height", event.target.value)
+                      }
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+            <button
+              className="button button-quiet shape-reset"
+              type="button"
+              disabled={
+                disabled ||
+                (ratioLocked &&
+                  presentation.shape.widthScale === 1 &&
+                  presentation.shape.heightScale === 1)
+              }
+              onClick={resetShapeSize}
+            >
+              {t("shapeReset")}
+            </button>
+          </div>
+        )}
+      </div>
       <div className="field-row">
         <div className="field field-grow">
           <label className="field-label" htmlFor="font-family">

@@ -183,6 +183,8 @@ export function App() {
   const [state, setState] = useState<EditorState>(initialEditorState);
   const [activeStep, setActiveStep] = useState<WizardStep>(initialWizardStep);
   const [stepError, setStepError] = useState<string>();
+  const [focusShapeSizeAfterNavigation, setFocusShapeSizeAfterNavigation] =
+    useState(false);
   const [status, setStatus] = useState(() =>
     state.sourceText ? t("readyRestored") : t("ready"),
   );
@@ -971,6 +973,30 @@ export function App() {
   const focusWord = useCallback((term: string) => {
     setHighlightedTerm(term);
   }, []);
+  const handleAdjustShapeSize = useCallback(() => {
+    if (activeStep === "style") {
+      window.requestAnimationFrame(() =>
+        document.getElementById("shape-size")?.focus(),
+      );
+      return;
+    }
+    setFocusShapeSizeAfterNavigation(true);
+    navigateToStep("style");
+  }, [activeStep, navigateToStep]);
+  const handleRemoveShape = useCallback(() => {
+    handlePresentationChange({ ...state.presentation, shape: undefined });
+  }, [handlePresentationChange, state.presentation]);
+
+  useEffect(() => {
+    if (!focusShapeSizeAfterNavigation || activeStep !== "style") return;
+    const frame = window.requestAnimationFrame(() => {
+      const control = document.getElementById("shape-size");
+      if (!control) return;
+      control.focus();
+      setFocusShapeSizeAfterNavigation(false);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeStep, focusShapeSizeAfterNavigation]);
 
   const pageTitleKeys = {
     source: "wizardPageSourceTitle",
@@ -1168,6 +1194,9 @@ export function App() {
                   <CloudPreview
                     scene={state.scene}
                     highlightedTerm={highlightedTerm}
+                    hasSelectedShape={Boolean(state.presentation.shape)}
+                    onAdjustShapeSize={handleAdjustShapeSize}
+                    onRemoveShape={handleRemoveShape}
                   />
                 </div>
                 {stepError && (
@@ -1202,6 +1231,9 @@ export function App() {
                 <CloudPreview
                   scene={state.scene}
                   highlightedTerm={highlightedTerm}
+                  hasSelectedShape={Boolean(state.presentation.shape)}
+                  onAdjustShapeSize={handleAdjustShapeSize}
+                  onRemoveShape={handleRemoveShape}
                   captionAside={
                     <WordTable
                       wordSet={state.wordSet}
@@ -1266,6 +1298,9 @@ export function App() {
                   <CloudPreview
                     scene={state.scene}
                     highlightedTerm={highlightedTerm}
+                    hasSelectedShape={Boolean(state.presentation.shape)}
+                    onAdjustShapeSize={handleAdjustShapeSize}
+                    onRemoveShape={handleRemoveShape}
                   />
                 </div>
                 <SharePanel

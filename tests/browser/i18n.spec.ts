@@ -1,5 +1,24 @@
 import { expect, test } from "@playwright/test";
 import { advanceWizard, openWizard } from "./wizard-helpers";
+import { translate } from "../../src/i18n";
+
+const SHAPE_LOCALES = [
+  "de",
+  "en",
+  "es",
+  "fr",
+  "ja",
+  "ko",
+  "th",
+  "zh-Hans",
+  "zh-Hant",
+] as const;
+
+const shapeMessage = (locale: string, key: string) =>
+  translate(
+    locale as Parameters<typeof translate>[0],
+    key as Parameters<typeof translate>[1],
+  );
 
 test("uses the browser language as the initial tokenizer locale", async ({
   browser,
@@ -46,4 +65,46 @@ test("switches the interface without changing the tokenizer locale", async ({
   await expect(page.getByLabel("Source text")).toBeVisible();
   await advanceWizard(page, "words", "Continue");
   await expect(tokenizerLocale).toHaveValue("zh-Hant");
+});
+
+test("shape gallery and controls expose localized accessible names", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await openWizard(page);
+  await page.locator("#source-text").fill("Shape gallery accessibility words");
+  await advanceWizard(page, "words");
+  await advanceWizard(page, "style");
+
+  const localeSelect = page.locator("#ui-locale");
+  for (const locale of SHAPE_LOCALES) {
+    await localeSelect.selectOption(locale);
+    const categories = shapeMessage(locale, "shapeCategoryNavigation");
+    const gallery = shapeMessage(locale, "shapeGalleryLabel");
+    const basic = shapeMessage(locale, "shapeCategoryBasic");
+    const circle = shapeMessage(locale, "shapeNameCircle");
+    const noShape = shapeMessage(locale, "shapeNoShape");
+
+    await expect(page.getByRole("group", { name: categories })).toBeVisible();
+    await expect(page.getByRole("group", { name: gallery })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: basic, exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: circle, exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: noShape, exact: true }),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: circle, exact: true }).click();
+    await expect(
+      page.getByRole("slider", { name: shapeMessage(locale, "shapeSize") }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("checkbox", {
+        name: shapeMessage(locale, "shapeLockRatio"),
+      }),
+    ).toBeChecked();
+  }
 });
