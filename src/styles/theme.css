@@ -90,6 +90,7 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   max-width: 1560px;
   margin: 0 auto;
   padding: 1.6rem clamp(1.25rem, 4vw, 4rem);
@@ -166,6 +167,7 @@ textarea:focus-visible {
 
 .wizard-main {
   flex: 1 0 auto;
+  width: 100%;
   max-width: 1320px;
   margin: 0 auto;
   padding: 0 clamp(1.25rem, 4vw, 4rem) 4rem;
@@ -278,13 +280,9 @@ textarea:focus-visible {
 }
 
 .wizard-page {
-  max-width: 960px;
+  width: 100%;
   margin: 2rem auto 0;
   animation: wizard-page-enter 240ms ease both;
-}
-
-.wizard-page--result {
-  max-width: 1200px;
 }
 
 .wizard-page-heading {
