@@ -133,7 +133,7 @@ export const EN_MESSAGES = {
   emptyWords: "Your words will grow here",
   emptyShape: "into a shape.",
   omittedWords:
-    "{{count}} words could not fit on this canvas; see the index below.",
+    "{{count}} words could not fit; open the word index with i to see them.",
   outputKicker: "OUTPUT",
   outputHeading: "Make it travel.",
   shareDisclosure:

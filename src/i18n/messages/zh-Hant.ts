@@ -113,7 +113,7 @@ export const ZH_HANT_MESSAGES: MessageMap = {
   cloudPreview: "文字雲預覽",
   emptyWords: "你的詞語會在這裡",
   emptyShape: "長出形狀。",
-  omittedWords: "{{count}} 個詞語未能放入目前畫布，請查看下方索引。",
+  omittedWords: "有 {{count}} 個詞語未能放入，請點選詞數旁的 i 查看詞語索引。",
   outputHeading: "Make it travel.",
   shareDisclosure:
     "V 連結只包含正規化詞語、詞頻、排名與視覺衍生資料，不包含原文；它不是機密連結。",

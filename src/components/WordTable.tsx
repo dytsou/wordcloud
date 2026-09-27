@@ -7,7 +7,7 @@ import { getAccessibleWords, placementLabel } from "../render/accessibility";
 interface WordTableProps {
   wordSet?: WordSet;
   scene?: SceneModel;
-  onFocusWord?: (term: string) => void;
+  onFocusWord?: (term: string | undefined) => void;
 }
 
 export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
@@ -37,11 +37,13 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
       const target = event.target;
       if (target instanceof Node && !controlRef.current?.contains(target)) {
         setIsOpen(false);
+        onFocusWord?.(undefined);
       }
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setIsOpen(false);
+      onFocusWord?.(undefined);
       triggerRef.current?.focus();
     };
 
@@ -53,10 +55,11 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
       document.removeEventListener("focusin", dismissOutside);
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [isOpen]);
+  }, [isOpen, onFocusWord]);
 
   const closePopover = () => {
     setIsOpen(false);
+    onFocusWord?.(undefined);
     triggerRef.current?.focus();
   };
 
@@ -75,7 +78,10 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         aria-controls="word-index-popout"
-        onClick={() => setIsOpen((open) => !open)}
+        onClick={() => {
+          if (isOpen) onFocusWord?.(undefined);
+          setIsOpen(!isOpen);
+        }}
       >
         <span aria-hidden="true">i</span>
       </button>
@@ -99,68 +105,70 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
             <span aria-hidden="true">×</span>
           </button>
         </div>
-        {wordSet ? (
-          <div className="table-wrap">
-            <table>
-              <caption className="sr-only">{t("tableCaption")}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">{t("rank")}</th>
-                  <th scope="col">{t("word")}</th>
-                  <th scope="col">{t("count")}</th>
-                  <th scope="col">{t("state")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {wordSet.words.map((word) => {
-                  const placed = placement.get(word.term);
-                  return (
-                    <tr
-                      key={word.term}
-                      onMouseEnter={() => onFocusWord?.(word.term)}
-                    >
-                      <td>
-                        <span className="rank-mark">
-                          {String(word.rank).padStart(2, "0")}
-                        </span>
-                      </td>
-                      <th scope="row">
-                        <button
-                          className="word-link"
-                          type="button"
-                          onFocus={() => onFocusWord?.(word.term)}
-                          onClick={() => onFocusWord?.(word.term)}
-                        >
-                          {word.term}
-                        </button>
-                      </th>
-                      <td className="count-cell">{word.count}</td>
-                      <td>
-                        <span
-                          className={
-                            "placement-state " + (placed?.status ?? "pending")
-                          }
-                        >
-                          {placed
-                            ? placed.status === "placed"
-                              ? t("placed")
-                              : placed.status === "unplaceable"
-                                ? t("unplaceable")
-                                : placed.status === "budget-limited"
-                                  ? t("budgetLimited")
-                                  : placementLabel(placed)
-                            : t("pending")}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="empty-table">{t("emptyTable")}</div>
-        )}
+        <div className="word-index-content">
+          {wordSet ? (
+            <div className="table-wrap">
+              <table>
+                <caption className="sr-only">{t("tableCaption")}</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">{t("rank")}</th>
+                    <th scope="col">{t("word")}</th>
+                    <th scope="col">{t("count")}</th>
+                    <th scope="col">{t("state")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {wordSet.words.map((word) => {
+                    const placed = placement.get(word.term);
+                    return (
+                      <tr
+                        key={word.term}
+                        onMouseEnter={() => onFocusWord?.(word.term)}
+                      >
+                        <td>
+                          <span className="rank-mark">
+                            {String(word.rank).padStart(2, "0")}
+                          </span>
+                        </td>
+                        <th scope="row">
+                          <button
+                            className="word-link"
+                            type="button"
+                            onFocus={() => onFocusWord?.(word.term)}
+                            onClick={() => onFocusWord?.(word.term)}
+                          >
+                            {word.term}
+                          </button>
+                        </th>
+                        <td className="count-cell">{word.count}</td>
+                        <td>
+                          <span
+                            className={
+                              "placement-state " + (placed?.status ?? "pending")
+                            }
+                          >
+                            {placed
+                              ? placed.status === "placed"
+                                ? t("placed")
+                                : placed.status === "unplaceable"
+                                  ? t("unplaceable")
+                                  : placed.status === "budget-limited"
+                                    ? t("budgetLimited")
+                                    : placementLabel(placed)
+                              : t("pending")}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="empty-table">{t("emptyTable")}</div>
+          )}
+        </div>
       </div>
     </div>
   );

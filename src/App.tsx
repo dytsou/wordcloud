@@ -989,7 +989,7 @@ export function App() {
   }, [invalidatePendingWork, t]);
 
   const [highlightedTerm, setHighlightedTerm] = useState<string>();
-  const focusWord = useCallback((term: string) => {
+  const focusWord = useCallback((term: string | undefined) => {
     setHighlightedTerm(term);
   }, []);
   const handleAdjustShapeSize = useCallback(() => {
@@ -1042,6 +1042,13 @@ export function App() {
   const isSharedView =
     typeof window !== "undefined" &&
     (isSharedViewPath(window.location.pathname) || hasSharedFragment);
+  const wordIndex = (
+    <WordTable
+      wordSet={state.wordSet}
+      scene={state.scene}
+      onFocusWord={focusWord}
+    />
+  );
 
   return (
     <div className="app-shell">
@@ -1213,6 +1220,7 @@ export function App() {
                   <CloudPreview
                     scene={state.scene}
                     highlightedTerm={highlightedTerm}
+                    captionAside={wordIndex}
                     hasSelectedShape={Boolean(state.presentation.shape)}
                     onAdjustShapeSize={handleAdjustShapeSize}
                     onRemoveShape={handleRemoveShape}
@@ -1253,13 +1261,7 @@ export function App() {
                   hasSelectedShape={Boolean(state.presentation.shape)}
                   onAdjustShapeSize={handleAdjustShapeSize}
                   onRemoveShape={handleRemoveShape}
-                  captionAside={
-                    <WordTable
-                      wordSet={state.wordSet}
-                      scene={state.scene}
-                      onFocusWord={focusWord}
-                    />
-                  }
+                  captionAside={wordIndex}
                 />
                 <SharePanel
                   shareUrl={state.shareUrl}
