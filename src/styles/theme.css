@@ -81,6 +81,8 @@ textarea:focus-visible {
 }
 
 .app-shell {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
 }
 
@@ -163,9 +165,34 @@ textarea:focus-visible {
 }
 
 .wizard-main {
+  flex: 1 0 auto;
   max-width: 1320px;
   margin: 0 auto;
   padding: 0 clamp(1.25rem, 4vw, 4rem) 4rem;
+}
+
+.site-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem 1rem;
+  width: 100%;
+  max-width: 1560px;
+  margin: auto auto 0;
+  padding: 1rem clamp(1.25rem, 4vw, 4rem) 1.4rem;
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+}
+
+.site-footer-brand {
+  color: var(--ink);
+  font-family: Georgia, serif;
+  font-weight: 700;
+}
+
+.site-footer-copyright {
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .wizard-stepper {
@@ -1832,6 +1859,17 @@ thead th {
 
   .wizard-main {
     padding-bottom: 2rem;
+  }
+
+  .site-footer {
+    flex-wrap: wrap;
+    padding-top: 0.85rem;
+    padding-bottom: 1rem;
+  }
+
+  .site-footer-description {
+    flex-basis: 100%;
+    order: 1;
   }
 
   .wizard-page {

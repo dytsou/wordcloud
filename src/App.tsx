@@ -1358,6 +1358,13 @@ export function App() {
           </section>
         </main>
       )}
+      <footer className="site-footer">
+        <span className="site-footer-brand">wordcloud.download</span>
+        <span className="site-footer-description">{t("brandSubtitle")}</span>
+        <span className="site-footer-copyright">
+          © {new Date().getFullYear()}
+        </span>
+      </footer>
     </div>
   );
 }
