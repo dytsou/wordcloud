@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BUILT_IN_SHAPES,
   compileShapeMask,
+  recommendShapeFontRange,
   type BuiltInShapeId,
 } from "../../src/core/shapes";
 
@@ -39,6 +40,24 @@ const expectedIds: BuiltInShapeId[] = [
 ];
 
 describe("built-in shape catalog", () => {
+  it("recommends smaller default words for less usable shape area", () => {
+    const canvas = { width: 1000, height: 650 };
+    const full = { id: "house" as const, widthScale: 1, heightScale: 1 };
+    const small = { ...full, widthScale: 0.5, heightScale: 0.5 };
+    const house = recommendShapeFontRange(full, canvas, 36);
+    const circle = recommendShapeFontRange(
+      { id: "circle", widthScale: 1, heightScale: 1 },
+      canvas,
+      36,
+    );
+
+    expect(house.maxFontSize).toBeLessThan(circle.maxFontSize);
+    expect(recommendShapeFontRange(small, canvas, 36).maxFontSize).toBeLessThan(
+      house.maxFontSize,
+    );
+    expect(house.minFontSize).toBeGreaterThanOrEqual(8);
+    expect(house.maxFontSize).toBeLessThan(128);
+  });
   it("has the 30 stable IDs in their five established categories", () => {
     expect(BUILT_IN_SHAPES.map((shape) => shape.id)).toEqual(expectedIds);
     expect(new Set(BUILT_IN_SHAPES.map((shape) => shape.id)).size).toBe(30);

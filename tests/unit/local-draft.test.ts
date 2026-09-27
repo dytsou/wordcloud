@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   createInitialEditorState,
   DEFAULT_PRESENTATION,
+  hasShapeFontDefaults,
   isGeometryChanging,
+  withShapeFontDefaults,
 } from "../../src/app/editor-state";
 import { LIMITS } from "../../src/core/limits";
 import {
@@ -187,6 +189,44 @@ describe("local editor preferences", () => {
         shape: { id: "heart", widthScale: 0.64, heightScale: 0.9 },
       }),
     ).toBe(true);
+  });
+
+  it("adapts untouched default fonts to shapes and preserves manual edits", () => {
+    const selected = withShapeFontDefaults(
+      DEFAULT_PRESENTATION,
+      {
+        ...DEFAULT_PRESENTATION,
+        shape: { id: "house", widthScale: 1, heightScale: 1 },
+      },
+      36,
+    );
+    expect(selected.maxFontSize).toBeLessThan(DEFAULT_PRESENTATION.maxFontSize);
+    expect(hasShapeFontDefaults(selected, 36)).toBe(true);
+    const resized = withShapeFontDefaults(
+      selected,
+      {
+        ...selected,
+        shape: { id: "house", widthScale: 0.5, heightScale: 0.5 },
+      },
+      36,
+    );
+    expect(resized.maxFontSize).toBeLessThan(selected.maxFontSize);
+    const cleared = withShapeFontDefaults(
+      resized,
+      { ...resized, shape: undefined },
+      36,
+    );
+    expect(cleared.maxFontSize).toBe(DEFAULT_PRESENTATION.maxFontSize);
+
+    const manuallySized = { ...selected, maxFontSize: 80 };
+    expect(hasShapeFontDefaults(manuallySized, 36)).toBe(false);
+    expect(
+      withShapeFontDefaults(
+        manuallySized,
+        { ...manuallySized, shape: undefined },
+        36,
+      ).maxFontSize,
+    ).toBe(80);
   });
 
   it("restores tokenizer options and custom rules", () => {

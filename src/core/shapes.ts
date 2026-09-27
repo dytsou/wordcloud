@@ -680,3 +680,27 @@ export function compileShapeMask(
     containsSpan,
   };
 }
+
+export function recommendShapeFontRange(
+  settings: ShapeSettings,
+  canvas: { width: number; height: number },
+  wordCount: number,
+): { minFontSize: number; maxFontSize: number } {
+  const mask = compileShapeMask(settings, canvas);
+  const usableArea = mask.rows.reduce(
+    (area, spans) =>
+      area + spans.reduce((row, span) => row + span.end - span.start, 0),
+    0,
+  );
+  // Allow enough small words to describe narrow edges and cutouts even when
+  // the source contains only a few terms.
+  const targetWords = Math.max(24, wordCount);
+  const maxFontSize = Math.max(
+    24,
+    Math.min(128, Math.round(0.75 * Math.sqrt(usableArea / targetWords))),
+  );
+  return {
+    minFontSize: Math.max(8, Math.min(16, Math.round(maxFontSize / 8))),
+    maxFontSize,
+  };
+}

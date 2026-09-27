@@ -408,7 +408,7 @@ function validateScene(value: unknown): SceneModel {
       "layoutStatus",
       "words",
     ],
-    [],
+    ["shape"],
     "scene",
   );
   const presentation = validatePresentation(
@@ -453,6 +453,9 @@ function validateScene(value: unknown): SceneModel {
     ),
     seed: stringValue(object.seed, "scene.seed"),
     layoutStatus,
+    ...(object.shape === undefined
+      ? {}
+      : { shape: validateShape(object.shape) }),
     words: object.words.map((word, index) =>
       validateSceneWord(word, index, presentation.canvas),
     ),
@@ -499,6 +502,20 @@ export function validateSnapshot(value: unknown): SnapshotPayload {
       ? validatePresentation(object.presentation, true)
       : validatePresentation(object.presentation, false);
   const scene = validateScene(object.scene);
+  if (schemaVersion === "wc-snapshot-v1" && scene.shape) {
+    throw new SnapshotValidationError("v1 scene 不可包含 shape。");
+  }
+  if (schemaVersion === "wc-snapshot-v2") {
+    if (
+      scene.shape &&
+      (scene.shape.id !== presentation.shape?.id ||
+        scene.shape.widthScale !== presentation.shape?.widthScale ||
+        scene.shape.heightScale !== presentation.shape?.heightScale)
+    ) {
+      throw new SnapshotValidationError("scene shape 與 presentation 不一致。");
+    }
+    scene.shape = presentation.shape;
+  }
   if (
     presentation.version !== object.layoutVersion ||
     wordSet.tokenizerVersion !== object.tokenizerVersion ||

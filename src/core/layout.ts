@@ -409,15 +409,6 @@ function* layoutWordCloudSteps(
   metrics: FontMetricsTable,
   options: LayoutOptions = {},
 ): Generator<void, SceneModel, void> {
-  const fairShare = Math.max(
-    1,
-    Math.floor(LIMITS.maxLayoutProbes / Math.max(1, wordSet.words.length)),
-  );
-  const maxProbes = Math.min(
-    options.maxProbes ?? 2_000,
-    fairShare,
-    LIMITS.maxLayoutProbes,
-  );
   const maxLayoutMs = options.maxLayoutMs ?? 8_000;
   const startedAt = globalThis.performance?.now() ?? 0;
   const palette = safePalette(style.palette);
@@ -477,6 +468,23 @@ function* layoutWordCloudSteps(
       : undefined;
 
   for (const word of [...wordSet.words].sort((a, b) => a.rank - b.rank)) {
+    const remainingWords = Math.max(1, wordSet.words.length - words.length);
+    const fairShare = shapeMask
+      ? Math.max(
+          1,
+          Math.floor((LIMITS.maxLayoutProbes - probes) / remainingWords),
+        )
+      : Math.max(
+          1,
+          Math.floor(
+            LIMITS.maxLayoutProbes / Math.max(1, wordSet.words.length),
+          ),
+        );
+    const maxProbes = Math.min(
+      options.maxProbes ?? 2_000,
+      fairShare,
+      LIMITS.maxLayoutProbes,
+    );
     const fontSize = mapFrequency(
       word.count,
       minimum,
@@ -589,6 +597,13 @@ function* layoutWordCloudSteps(
         ) {
           return;
         }
+        if (
+          glyphGrid && sprite
+            ? glyphGrid.collides(sprite, candidate.visual.x, candidate.visual.y)
+            : grid.collides(candidate.collision, candidate.shape)
+        ) {
+          return;
+        }
         if (shapeMask) {
           const shapeFit = checkShapeFootprint(
             shapeMask,
@@ -607,13 +622,6 @@ function* layoutWordCloudSteps(
           }
           if (shapeFit === "outside") return;
         }
-        if (
-          glyphGrid && sprite
-            ? glyphGrid.collides(sprite, candidate.visual.x, candidate.visual.y)
-            : grid.collides(candidate.collision, candidate.shape)
-        ) {
-          return;
-        }
         placed = candidate;
       };
       const checkBudget = () => {
@@ -627,7 +635,7 @@ function* layoutWordCloudSteps(
         return undefined;
       };
 
-      if (!glyphGrid && placedRects.length > 0) {
+      if (!shapeMask && !glyphGrid && placedRects.length > 0) {
         const canvasCenterX = style.canvas.width / 2;
         const canvasCenterY = style.canvas.height / 2;
         const candidates = placedRects.slice(0, 64).flatMap((other) => {
@@ -676,20 +684,76 @@ function* layoutWordCloudSteps(
           terminalReason = reason;
           break;
         }
-        // A dense, evenly distributed ellipse probes interior holes before the perimeter.
-        const band = Math.floor(angleIndex / configuredAngles.length);
-        const radialProbe =
-          (probe + band * angleBudget) * configuredAngles.length;
-        const radius = glyphGrid
-          ? Math.sqrt(radialProbe) * 9
-          : 3 + Math.sqrt(probe) * 10;
-        const theta =
-          probe * (glyphGrid ? 2.399963229728653 : 0.37) +
-          (word.rank % 3) * 0.11 +
-          seedPhase;
-        const centerX = style.canvas.width / 2 + Math.cos(theta) * radius;
-        const centerY =
-          style.canvas.height / 2 + Math.sin(theta) * radius * 0.72;
+        let centerX: number;
+        let centerY: number;
+        if (shapeMask && wordSet.words.length === 1 && probe === 0) {
+          centerX = style.canvas.width / 2;
+          centerY = style.canvas.height / 2;
+        } else if (shapeMask) {
+          // Smaller words trace the silhouette before falling back to its
+          // interior. Each contour target is retried with increasing inset so
+          // sloped or concave edges can still accept a whole glyph.
+          const contourBudget = Math.min(256, Math.floor(angleBudget / 3));
+          const contourRetries = angleBudget < 512 ? 2 : 4;
+          const traceBoundary =
+            word.rank > Math.ceil(wordSet.words.length * 0.25) &&
+            probe < contourBudget;
+          const contourProbe = traceBoundary
+            ? Math.floor(probe / contourRetries)
+            : probe;
+          const sample =
+            word.rank - 1 + (contourProbe + angleIndex * angleBudget) * 97;
+          const yFraction =
+            (sample * 0.618033988749895 + seedPhase / (Math.PI * 2)) % 1;
+          const xFraction =
+            (sample * 0.754877666246693 + seedPhase / Math.PI) % 1;
+          centerY =
+            shapeMask.bounds.y +
+            fitHeight / 2 +
+            yFraction * Math.max(0, shapeMask.bounds.height - fitHeight);
+          const spans = shapeMask.rows[Math.floor(centerY)] ?? [];
+          const rowWidth = spans.reduce(
+            (total, span) => total + span.end - span.start,
+            0,
+          );
+          let offset = xFraction * rowWidth;
+          let selectedSpan = spans[0];
+          for (const span of spans) {
+            selectedSpan = span;
+            if (offset < span.end - span.start) break;
+            offset -= span.end - span.start;
+          }
+          if (selectedSpan) {
+            const spanWidth = selectedSpan.end - selectedSpan.start;
+            const room = Math.max(0, spanWidth - fitWidth);
+            const inset = Math.min(
+              room / 2,
+              (probe % contourRetries) * Math.min(12, fitHeight / 4),
+            );
+            const withinSpan = traceBoundary
+              ? (word.rank + contourProbe) % 2 === 0
+                ? inset
+                : room - inset
+              : (offset / spanWidth) * room;
+            centerX = selectedSpan.start + fitWidth / 2 + withinSpan;
+          } else {
+            centerX = shapeMask.bounds.x + shapeMask.bounds.width / 2;
+          }
+        } else {
+          // A dense, evenly distributed ellipse probes interior holes before the perimeter.
+          const band = Math.floor(angleIndex / configuredAngles.length);
+          const radialProbe =
+            (probe + band * angleBudget) * configuredAngles.length;
+          const radius = glyphGrid
+            ? Math.sqrt(radialProbe) * 9
+            : 3 + Math.sqrt(probe) * 10;
+          const theta =
+            probe * (glyphGrid ? 2.399963229728653 : 0.37) +
+            (word.rank % 3) * 0.11 +
+            seedPhase;
+          centerX = style.canvas.width / 2 + Math.cos(theta) * radius;
+          centerY = style.canvas.height / 2 + Math.sin(theta) * radius * 0.72;
+        }
         tryPlacement(centerX, centerY);
         yield;
       }
@@ -737,6 +801,7 @@ function* layoutWordCloudSteps(
     fontMetricsFingerprint: metricsFingerprint(metrics),
     seed: style.seed,
     layoutStatus,
+    ...(style.shape ? { shape: { ...style.shape } } : {}),
     words,
   };
 }

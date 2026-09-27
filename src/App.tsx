@@ -8,8 +8,11 @@ import {
 } from "./core/metrics";
 import {
   createInitialEditorState,
+  DEFAULT_PRESENTATION,
   fromSnapshot,
+  hasShapeFontDefaults,
   isGeometryChanging,
+  withShapeFontDefaults,
   type EditorState,
 } from "./app/editor-state";
 import {
@@ -730,12 +733,28 @@ export function App() {
   const handlePresentationChange = useCallback(
     (presentation: LayoutStyle) => {
       invalidatePendingWork();
-      const nextPresentation = {
+      const previous = state.presentation;
+      const requestedPresentation = {
         ...presentation,
         version: presentation.shape ? "layout-v2" : "layout-v1",
       };
-      writeCachedStylePreferences(nextPresentation);
-      const previous = state.presentation;
+      const nextPresentation = withShapeFontDefaults(
+        previous,
+        requestedPresentation,
+        state.wordSet?.words.length ?? 36,
+      );
+      writeCachedStylePreferences(
+        hasShapeFontDefaults(
+          nextPresentation,
+          state.wordSet?.words.length ?? 36,
+        )
+          ? {
+              ...nextPresentation,
+              minFontSize: DEFAULT_PRESENTATION.minFontSize,
+              maxFontSize: DEFAULT_PRESENTATION.maxFontSize,
+            }
+          : nextPresentation,
+      );
       setState((current) => ({
         ...current,
         presentation: nextPresentation,

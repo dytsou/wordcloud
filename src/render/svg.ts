@@ -1,4 +1,9 @@
 import type { SceneModel, SceneWord } from "../core/scene";
+import {
+  buildShapeFillDots,
+  DOT_RADIUS,
+  shapeFillDotColor,
+} from "../core/shape-fill";
 import { assertRenderableScene } from "./safe-scene";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -79,6 +84,22 @@ function appendSceneSvgChildren(
   background.setAttribute("aria-hidden", "true");
   svg.append(background);
 
+  const fillDots = buildShapeFillDots(scene);
+  if (fillDots.length > 0) {
+    const fillGroup = document.createElementNS(SVG_NAMESPACE, "g");
+    fillGroup.setAttribute("id", "wordcloud-fill");
+    fillGroup.setAttribute("aria-hidden", "true");
+    fillGroup.setAttribute("fill", shapeFillDotColor(scene));
+    for (const dot of fillDots) {
+      const circle = document.createElementNS(SVG_NAMESPACE, "circle");
+      circle.setAttribute("cx", numberAttribute(dot.x));
+      circle.setAttribute("cy", numberAttribute(dot.y));
+      circle.setAttribute("r", numberAttribute(DOT_RADIUS));
+      fillGroup.append(circle);
+    }
+    svg.append(fillGroup);
+  }
+
   const wordsGroup = document.createElementNS(SVG_NAMESPACE, "g");
   wordsGroup.setAttribute("id", "wordcloud-words");
   for (const word of placedWords) {
@@ -154,6 +175,15 @@ function serializeSceneSvg(
     ),
   );
   const placedWords = scene.words.filter((word) => word.status === "placed");
+  const fillDots = buildShapeFillDots(scene);
+  const fill = fillDots.length
+    ? `<g id="wordcloud-fill" aria-hidden="true" fill="${escapeXml(shapeFillDotColor(scene))}">${fillDots
+        .map(
+          (dot) =>
+            `<circle cx="${numberAttribute(dot.x)}" cy="${numberAttribute(dot.y)}" r="${numberAttribute(DOT_RADIUS)}"/>`,
+        )
+        .join("")}</g>`
+    : "";
   const words = placedWords
     .map((word) => {
       const centerX = word.x + word.width / 2;
@@ -161,7 +191,7 @@ function serializeSceneSvg(
       return `<text x="${numberAttribute(centerX)}" y="${numberAttribute(centerY)}" text-anchor="middle" dominant-baseline="central" fill="${escapeXml(word.color)}" font-size="${numberAttribute(word.fontSize)}" font-weight="500" font-family="${escapeXml(scene.fontFamily)}" transform="rotate(${numberAttribute(word.angle)} ${numberAttribute(centerX)} ${numberAttribute(centerY)})" data-rank="${word.rank}" data-count="${word.count}">${escapeXml(word.term)}</text>`;
     })
     .join("");
-  return `<svg xmlns="${SVG_NAMESPACE}" width="${numberAttribute(scene.canvas.width)}" height="${numberAttribute(scene.canvas.height)}" viewBox="0 0 ${numberAttribute(scene.canvas.width)} ${numberAttribute(scene.canvas.height)}" role="img" aria-labelledby="wordcloud-title wordcloud-description"><title id="wordcloud-title">${title}</title><desc id="wordcloud-description">${description}</desc><rect x="0" y="0" width="${numberAttribute(scene.canvas.width)}" height="${numberAttribute(scene.canvas.height)}" fill="${escapeXml(scene.background)}" aria-hidden="true"/><g id="wordcloud-words">${words}</g><metadata id="wordcloud-records">${escapeXml(metadataText(scene.words))}</metadata></svg>`;
+  return `<svg xmlns="${SVG_NAMESPACE}" width="${numberAttribute(scene.canvas.width)}" height="${numberAttribute(scene.canvas.height)}" viewBox="0 0 ${numberAttribute(scene.canvas.width)} ${numberAttribute(scene.canvas.height)}" role="img" aria-labelledby="wordcloud-title wordcloud-description"><title id="wordcloud-title">${title}</title><desc id="wordcloud-description">${description}</desc><rect x="0" y="0" width="${numberAttribute(scene.canvas.width)}" height="${numberAttribute(scene.canvas.height)}" fill="${escapeXml(scene.background)}" aria-hidden="true"/>${fill}<g id="wordcloud-words">${words}</g><metadata id="wordcloud-records">${escapeXml(metadataText(scene.words))}</metadata></svg>`;
 }
 
 export function renderSceneSvg(

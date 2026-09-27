@@ -1,4 +1,5 @@
 import type { LayoutStyle } from "../core/layout";
+import { recommendShapeFontRange } from "../core/shapes";
 import {
   DEFAULT_TOKENIZER_SETTINGS,
   detectBrowserTokenizerLocale,
@@ -99,5 +100,52 @@ export function isGeometryChanging(
     previous.shape?.widthScale !== next.shape?.widthScale ||
     previous.shape?.heightScale !== next.shape?.heightScale ||
     JSON.stringify(previous.rotations) !== JSON.stringify(next.rotations)
+  );
+}
+
+export function withShapeFontDefaults(
+  previous: LayoutStyle,
+  next: LayoutStyle,
+  wordCount: number,
+): LayoutStyle {
+  const shapeChanged =
+    previous.shape?.id !== next.shape?.id ||
+    previous.shape?.widthScale !== next.shape?.widthScale ||
+    previous.shape?.heightScale !== next.shape?.heightScale ||
+    previous.canvas.width !== next.canvas.width ||
+    previous.canvas.height !== next.canvas.height;
+  if (!shapeChanged) return next;
+
+  if (previous.shape) {
+    if (!hasShapeFontDefaults(previous, wordCount)) return next;
+  } else if (
+    previous.minFontSize !== DEFAULT_PRESENTATION.minFontSize ||
+    previous.maxFontSize !== DEFAULT_PRESENTATION.maxFontSize
+  )
+    return next;
+
+  const nextDefault = next.shape
+    ? recommendShapeFontRange(next.shape, next.canvas, wordCount)
+    : DEFAULT_PRESENTATION;
+  return {
+    ...next,
+    minFontSize: nextDefault.minFontSize,
+    maxFontSize: nextDefault.maxFontSize,
+  };
+}
+
+export function hasShapeFontDefaults(
+  presentation: LayoutStyle,
+  wordCount: number,
+): boolean {
+  if (!presentation.shape) return false;
+  const defaults = recommendShapeFontRange(
+    presentation.shape,
+    presentation.canvas,
+    wordCount,
+  );
+  return (
+    presentation.minFontSize === defaults.minFontSize &&
+    presentation.maxFontSize === defaults.maxFontSize
   );
 }

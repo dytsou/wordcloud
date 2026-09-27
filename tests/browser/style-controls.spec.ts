@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { advanceWizard, createCloudAtStyle } from "./wizard-helpers";
+import {
+  advanceWizard,
+  createCloudAtStyle,
+  openWizard,
+} from "./wizard-helpers";
 
 test("font slider keeps the cloud visible while dragging and commits on release", async ({
   page,
@@ -260,6 +264,64 @@ test("built-in silhouette gallery preserves and resets shape proportions", async
   await expect(noShape).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("slider", { name: "Shape size" })).toHaveCount(0);
   await expect(page.locator(".cloud-svg text").first()).toBeVisible();
+});
+
+test("house words cover roof and both walls with shape-sized default fonts", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const source = Array.from({ length: 30 }, (_, index) =>
+    `term${index + 1} `.repeat(31 - index),
+  ).join(" ");
+  await openWizard(page);
+  await page.locator("#source-text").fill(source);
+  await advanceWizard(page, "words");
+  await advanceWizard(page, "style");
+  await expect
+    .poll(() => page.locator(".cloud-svg text").count(), { timeout: 90_000 })
+    .toBeGreaterThan(0);
+  await page.locator("#ui-locale").selectOption("en");
+  const maxSize = page.getByRole("slider", { name: "Maximum size" });
+  await expect(maxSize).toHaveValue("128");
+
+  await page
+    .getByRole("group", { name: "Shape categories" })
+    .getByRole("button", { name: "Everyday and activities" })
+    .click();
+  await page
+    .getByRole("group", { name: "Built-in shapes" })
+    .getByRole("button", { name: "House", exact: true })
+    .click();
+  await expect
+    .poll(async () => Number(await maxSize.inputValue()))
+    .toBeLessThan(128);
+  await expect(page.locator(".cloud-svg text")).toHaveCount(30);
+  await expect
+    .poll(async () =>
+      page.locator(".cloud-svg text").evaluateAll((elements) => {
+        const centers = elements.map((element) => ({
+          x: Number(element.getAttribute("x")),
+          y: Number(element.getAttribute("y")),
+        }));
+        return {
+          roof: centers.some(({ y }) => y < 650 * 0.35),
+          leftWall: centers.some(
+            ({ x, y }) => y > 650 * 0.73 && x < 1000 * 0.45,
+          ),
+          rightWall: centers.some(
+            ({ x, y }) => y > 650 * 0.73 && x > 1000 * 0.55,
+          ),
+        };
+      }),
+    )
+    .toEqual({ roof: true, leftWall: true, rightWall: true });
+  await expect
+    .poll(() => page.locator(".shape-fill circle").count())
+    .toBeGreaterThan(100);
+
+  await page.getByRole("button", { name: "No shape", exact: true }).click();
+  await expect(maxSize).toHaveValue("128");
+  await expect(page.locator(".shape-fill circle")).toHaveCount(0);
 });
 
 test("zero-fit silhouette offers focused size adjustment and mask removal", async ({

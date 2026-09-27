@@ -31,7 +31,13 @@ export interface SceneModel {
   fontMetricsFingerprint: string;
   seed: string;
   layoutStatus: "complete" | "budget-limited" | "cancelled";
+  shape?: LayoutStyle["shape"];
   words: SceneWord[];
+}
+
+export interface SceneFillDot {
+  x: number;
+  y: number;
 }
 
 export function recolorScene(

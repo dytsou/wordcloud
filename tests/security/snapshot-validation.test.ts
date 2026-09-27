@@ -6,6 +6,8 @@ import {
   encodeSnapshot,
   validateSnapshot,
 } from "../../src/core/snapshot";
+import { buildShapeFillDots } from "../../src/core/shape-fill";
+import { renderSceneSvg } from "../../src/render/svg";
 import {
   snapshotScene,
   snapshotStyle,
@@ -84,7 +86,22 @@ describe("snapshot validation", () => {
     if (snapshot.schemaVersion !== "wc-snapshot-v2")
       throw new Error("Expected a v2 shaped snapshot.");
     expect(snapshot.presentation.shape).toEqual(presentation.shape);
-    expect(snapshot.scene).toEqual(scene);
+    expect(snapshot.scene).toEqual({ ...scene, shape: presentation.shape });
+    const originalScene = { ...scene, shape: presentation.shape };
+    expect(buildShapeFillDots(snapshot.scene)).toEqual(
+      buildShapeFillDots(originalScene),
+    );
+    expect(renderSceneSvg(snapshot.scene)).toContain('id="wordcloud-fill"');
+  });
+
+  it("rejects scene shape settings that disagree with the presentation", () => {
+    const mismatch = shapedSnapshot();
+    mismatch.scene = {
+      ...snapshotScene,
+      layoutVersion: "layout-v2",
+      shape: { id: "circle", widthScale: 0.72, heightScale: 0.84 },
+    };
+    expect(() => validateSnapshot(mismatch)).toThrow(/scene shape/iu);
   });
 
   it.each([

@@ -59,6 +59,7 @@ test("exports the saved scene from a shaped v2 share", async ({ page }) => {
     page.getByRole("heading", { name: "設計文字雲風格" }),
   ).toBeVisible();
   await expect(page.locator(".cloud-svg")).toContainText("hello");
+  await expect(page.locator(".shape-fill circle")).not.toHaveCount(0);
 
   const svgDownloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "下載 SVG" }).click();
@@ -66,6 +67,7 @@ test("exports the saved scene from a shaped v2 share", async ({ page }) => {
   const svgPath = await svgDownload.path();
   const svgText = (await readFile(svgPath!)).toString("utf8");
   expect(svgText).toContain("hello");
+  expect(svgText).toContain('id="wordcloud-fill"');
   expect(svgText).not.toMatch(/foreignObject|url\(|<script|on[a-z]+=/iu);
 
   const pngDownloadPromise = page.waitForEvent("download");

@@ -6,6 +6,8 @@ import {
   type LayoutStyle,
 } from "../../src/core/layout";
 import type { FontMetricsTable } from "../../src/core/metrics";
+import { compileShapeMask } from "../../src/core/shapes";
+import { buildShapeFillDots } from "../../src/core/shape-fill";
 import type { WordSet } from "../../src/core/types";
 
 const wordSet: WordSet = {
@@ -133,6 +135,159 @@ describe("layoutWordCloud", () => {
       }),
     );
   });
+
+  it("spreads a moderate word set across the roof and both house walls", () => {
+    const words = Array.from({ length: 24 }, (_, index) => ({
+      term: `term${index + 1}`,
+      count: 24 - index,
+      firstSeen: index,
+      rank: index + 1,
+      locale: "en",
+    }));
+    const sparseWords: WordSet = {
+      locale: "en",
+      tokenizerVersion: "test",
+      totalTokens: 300,
+      words,
+    };
+    const sparseMetrics: FontMetricsTable = {
+      baseFontSize: 16,
+      fingerprint: "house-silhouette",
+      words: Object.fromEntries(
+        words.map((word) => [word.term, { width: 18, height: 14 }]),
+      ),
+    };
+    const houseStyle: LayoutStyle = {
+      ...style,
+      canvas: { width: 640, height: 480 },
+      minFontSize: 14,
+      maxFontSize: 40,
+      padding: 1,
+      rotations: [0],
+      version: "layout-v2",
+      shape: { id: "house", widthScale: 1, heightScale: 1 },
+    };
+    const housed = layoutWordCloud(sparseWords, houseStyle, sparseMetrics);
+    const mask = compileShapeMask(houseStyle.shape!, houseStyle.canvas);
+    expect(mask.containsPoint(180, 400)).toBe(true);
+    expect(mask.containsPoint(500, 400)).toBe(true);
+    expect(mask.containsPoint(320, 400)).toBe(false);
+
+    const placed = housed.words.filter((word) => word.status === "placed");
+    const lowerLeft = placed.filter(
+      (word) =>
+        word.y + word.height / 2 > houseStyle.canvas.height * 0.73 &&
+        word.x + word.width / 2 < houseStyle.canvas.width * 0.45,
+    );
+    const lowerRight = placed.filter(
+      (word) =>
+        word.y + word.height / 2 > houseStyle.canvas.height * 0.73 &&
+        word.x + word.width / 2 > houseStyle.canvas.width * 0.55,
+    );
+    expect(placed.length).toBeGreaterThanOrEqual(20);
+    expect(
+      placed.some(
+        (word) => word.y + word.height / 2 < houseStyle.canvas.height * 0.35,
+      ),
+    ).toBe(true);
+    expect(lowerLeft.length).toBeGreaterThan(0);
+    expect(lowerRight.length).toBeGreaterThan(0);
+    const tracingBoundary = placed.filter((word) => {
+      const centerY = Math.floor(word.y + word.height / 2);
+      const centerX = word.x + word.width / 2;
+      const span = mask.rows[centerY]?.find(
+        (candidate) => candidate.start <= centerX && centerX < candidate.end,
+      );
+      if (!span) return false;
+      return (
+        Math.min(word.x - span.start, span.end - word.x - word.width) <=
+        Math.max(12, word.height / 2)
+      );
+    });
+    expect(tracingBoundary.length).toBeGreaterThanOrEqual(
+      Math.ceil(placed.length * 0.5),
+    );
+    const dots = buildShapeFillDots(housed);
+    expect(dots.length).toBeGreaterThan(50);
+    const shapeArea = mask.rows.reduce(
+      (area, spans) =>
+        area +
+        spans.reduce((rowArea, span) => rowArea + span.end - span.start, 0),
+      0,
+    );
+    expect(dots.length * 25).toBeLessThanOrEqual(shapeArea * 0.02);
+    expect(buildShapeFillDots({ ...housed, words: [] })).toHaveLength(0);
+    expect(
+      buildShapeFillDots({
+        ...housed,
+        words: [
+          { ...housed.words[0]!, status: "unplaceable", reason: "no-fit" },
+          ...housed.words.slice(1),
+        ],
+      }),
+    ).toHaveLength(0);
+    expect(dots.some((dot) => dot.y < 480 * 0.35)).toBe(true);
+    expect(dots.some((dot) => dot.y > 480 * 0.73 && dot.x < 640 * 0.45)).toBe(
+      true,
+    );
+    expect(dots.some((dot) => dot.y > 480 * 0.73 && dot.x > 640 * 0.55)).toBe(
+      true,
+    );
+    for (const dot of dots) {
+      expect(mask.containsPoint(dot.x, dot.y)).toBe(true);
+      expect(
+        placed.some(
+          (word) =>
+            dot.x >= word.x - 4 &&
+            dot.x <= word.x + word.width + 4 &&
+            dot.y >= word.y - 4 &&
+            dot.y <= word.y + word.height + 4,
+        ),
+      ).toBe(false);
+    }
+  });
+
+  it("uses small source words to fill a large house before adding dots", () => {
+    const words = Array.from({ length: 451 }, (_, index) => ({
+      term: `詞${index + 1}`,
+      count: index < 24 ? 25 - index : 1,
+      firstSeen: index,
+      rank: index + 1,
+      locale: "zh-Hant",
+    }));
+    const manyWords: WordSet = {
+      locale: "zh-Hant",
+      tokenizerVersion: "test",
+      totalTokens: 751,
+      words,
+    };
+    const manyMetrics: FontMetricsTable = {
+      baseFontSize: 16,
+      fingerprint: "many-words-house",
+      words: Object.fromEntries(
+        words.map((word) => [word.term, { width: 24, height: 16 }]),
+      ),
+    };
+    const scene = layoutWordCloud(
+      manyWords,
+      {
+        ...style,
+        canvas: { width: 1000, height: 650 },
+        minFontSize: 8,
+        maxFontSize: 55,
+        padding: 0,
+        rotations: [0],
+        version: "layout-v2",
+        shape: { id: "house", widthScale: 1, heightScale: 1 },
+      },
+      manyMetrics,
+      { maxLayoutMs: 60_000 },
+    );
+    expect(
+      scene.words.filter((word) => word.status === "placed").length,
+    ).toBeGreaterThanOrEqual(350);
+    expect(buildShapeFillDots(scene)).toHaveLength(0);
+  }, 60_000);
 
   it("fits visible ink inside a shape without using padded collision pixels", () => {
     const oneWord: WordSet = {

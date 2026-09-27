@@ -108,6 +108,45 @@ describe("scene renderers", () => {
     );
   });
 
+  it("draws shape filler dots behind the original words in SVG and PNG", async () => {
+    const scene: SceneModel = {
+      ...snapshotScene,
+      shape: { id: "circle", widthScale: 1, heightScale: 1 },
+    };
+    const svg = renderSceneSvg(scene);
+    expect(svg).toContain('id="wordcloud-fill"');
+    expect(svg).toContain("<circle");
+    expect(svg.indexOf('id="wordcloud-fill"')).toBeLessThan(
+      svg.indexOf('id="wordcloud-words"'),
+    );
+    const fake = createFakeCanvas();
+    await renderScenePng(scene, { createCanvas: () => fake.canvas });
+    expect(
+      fake.operations.some((operation) => operation.startsWith("text:.")),
+    ).toBe(true);
+    expect(fake.operations).toContain("text:hello:0:0:middle");
+    expect(createPngRenderPlan(scene).words).toHaveLength(1);
+  });
+
+  it("reserves every available position for source words before adding dots", () => {
+    const scene: SceneModel = {
+      ...snapshotScene,
+      shape: { id: "circle", widthScale: 1, heightScale: 1 },
+      words: [
+        snapshotScene.words[0],
+        {
+          ...snapshotScene.words[0],
+          term: "leftover",
+          rank: 2,
+          status: "unplaceable",
+          reason: "no-fit",
+        },
+      ],
+    };
+    expect(createPngRenderPlan(scene).fillerDots).toHaveLength(0);
+    expect(renderSceneSvg(scene)).not.toContain('id="wordcloud-fill"');
+  });
+
   it("rejects external style values before export", () => {
     expect(() =>
       renderSceneSvg({

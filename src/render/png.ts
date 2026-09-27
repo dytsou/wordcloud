@@ -1,4 +1,5 @@
-import type { SceneModel, SceneWord } from "../core/scene";
+import type { SceneFillDot, SceneModel, SceneWord } from "../core/scene";
+import { buildShapeFillDots, shapeFillDotColor } from "../core/shape-fill";
 import { assertRenderableScene } from "./safe-scene";
 
 export interface PngRenderPlan {
@@ -9,6 +10,8 @@ export interface PngRenderPlan {
   words: SceneWord[];
   placedWords: SceneWord[];
   omittedWords: SceneWord[];
+  fillerDots: SceneFillDot[];
+  fillerColor: string;
 }
 
 export interface CanvasContextLike {
@@ -48,6 +51,8 @@ export function createPngRenderPlan(scene: SceneModel): PngRenderPlan {
     omittedWords: scene.words
       .filter((word) => word.status !== "placed")
       .map((word) => ({ ...word })),
+    fillerDots: buildShapeFillDots(scene),
+    fillerColor: shapeFillDotColor(scene),
   };
 }
 
@@ -60,6 +65,11 @@ function drawPlanToCanvas(
   canvas.height = plan.height;
   context.fillStyle = plan.background;
   context.fillRect(0, 0, plan.width, plan.height);
+  context.fillStyle = plan.fillerColor;
+  context.font = `500 16px ${plan.fontFamily}`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  for (const dot of plan.fillerDots) context.fillText(".", dot.x, dot.y - 4);
   for (const word of plan.placedWords) {
     context.save();
     context.translate(word.x + word.width / 2, word.y + word.height / 2);

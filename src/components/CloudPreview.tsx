@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { SceneModel } from "../core/scene";
+import {
+  buildShapeFillDots,
+  DOT_RADIUS,
+  shapeFillDotColor,
+} from "../core/shape-fill";
 import { useI18n } from "../i18n";
 import { renderAccessibleSummary } from "../render/accessibility";
 import { placedSceneWords } from "../render/safe-scene";
@@ -25,6 +30,10 @@ export function CloudPreview({
   const [zoom, setZoom] = useState(1);
   const { t } = useI18n();
   const placedWords = scene ? placedSceneWords(scene) : [];
+  const fillDots = useMemo(
+    () => (scene && hasSelectedShape ? buildShapeFillDots(scene) : []),
+    [scene, hasSelectedShape],
+  );
   const accessibleSummary = scene ? renderAccessibleSummary(scene) : undefined;
   const omittedCount = scene ? scene.words.length - placedWords.length : 0;
   const noWordsFit =
@@ -82,6 +91,22 @@ export function CloudPreview({
               }}
             >
               <title>{t("cloudPreview")}</title>
+              {fillDots.length > 0 && (
+                <g
+                  className="shape-fill"
+                  aria-hidden="true"
+                  fill={shapeFillDotColor(scene)}
+                >
+                  {fillDots.map((dot) => (
+                    <circle
+                      key={`${dot.x}-${dot.y}`}
+                      cx={dot.x}
+                      cy={dot.y}
+                      r={DOT_RADIUS}
+                    />
+                  ))}
+                </g>
+              )}
               {placedWords.map((word) => (
                 <text
                   key={`${word.term}-${word.rank}`}
