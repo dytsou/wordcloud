@@ -5,7 +5,6 @@ import {
   getBuiltInShape,
   MAX_SHAPE_SCALE,
   MIN_SHAPE_SCALE,
-  type BuiltInShapeId,
   type ShapeSettings,
 } from "./shapes";
 import { SCENE_VERSION, type SceneModel, type SceneWord } from "./scene";
@@ -192,10 +191,11 @@ function validateShape(value: unknown): ShapeSettings {
     "presentation.shape",
   );
   const id = stringValue(object.id, "presentation.shape.id", 64);
-  if (!getBuiltInShape(id))
+  const shape = getBuiltInShape(id);
+  if (!shape)
     throw new SnapshotValidationError("presentation.shape.id 不受支援。");
   return {
-    id: id as BuiltInShapeId,
+    id: shape.id,
     widthScale: numberValue(
       object.widthScale,
       "presentation.shape.widthScale",

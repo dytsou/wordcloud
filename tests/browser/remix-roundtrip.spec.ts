@@ -118,6 +118,15 @@ test("preserves shape geometry through v2 share and .wc round trips", async ({
   await open(page, `/${originalFragment}`);
   await expectStyleOnlyRemix(page);
   await expect(page.locator(".cloud-svg")).toContainText("hello");
+  await expect(page.locator(".shape-ratio-lock input")).not.toBeChecked();
+  await expect(page.locator("#shape-size")).toBeVisible();
+  await expect(page.locator("#shape-height")).toBeVisible();
+  await expect(page.locator(".shape-size-grid output").nth(0)).toHaveText(
+    "72%",
+  );
+  await expect(page.locator(".shape-size-grid output").nth(1)).toHaveText(
+    "86%",
+  );
 
   await page.getByRole("button", { name: "產生 V 連結" }).click();
   const sharedUrl = await page.getByLabel("V URL").inputValue();
@@ -135,4 +144,35 @@ test("preserves shape geometry through v2 share and .wc round trips", async ({
   await page.getByRole("button", { name: "產生 V 連結" }).click();
   const restoredUrl = await page.getByLabel("V URL").inputValue();
   expect(new URL(restoredUrl).hash).toBe(originalFragment);
+
+  await open(page, `/${originalFragment}`);
+  await expectStyleOnlyRemix(page);
+  const widthSlider = page.locator("#shape-size");
+  await expect(widthSlider).toBeEnabled();
+  const sliderBounds = await widthSlider.boundingBox();
+  expect(sliderBounds).not.toBeNull();
+  if (!sliderBounds) return;
+  const initialScale = Number(await widthSlider.inputValue());
+  const scaleToX = (scale: number) =>
+    sliderBounds.x +
+    8 +
+    ((scale - 0.2) / (1.8 - 0.2)) * (sliderBounds.width - 16);
+  const sliderY = sliderBounds.y + sliderBounds.height / 2;
+  await page.mouse.move(scaleToX(initialScale), sliderY);
+  await page.mouse.down();
+  await page.mouse.move(scaleToX(1.1), sliderY, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.locator(".shape-size-grid output").nth(0)).not.toHaveText(
+    "72%",
+  );
+  await expect(page.locator(".shape-size-grid output").nth(1)).toHaveText(
+    "86%",
+  );
+
+  await page.getByRole("button", { name: "產生 V 連結" }).click();
+  const resizedUrl = await page.getByLabel("V URL").inputValue();
+  const resizedSnapshot = decodeSnapshotFragment(new URL(resizedUrl).hash);
+  const resizedShape = (resizedSnapshot.presentation as LayoutStyle).shape;
+  expect(resizedShape?.widthScale).not.toBe(0.72);
+  expect(resizedShape?.heightScale).toBe(0.86);
 });

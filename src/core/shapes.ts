@@ -511,11 +511,13 @@ export const BUILT_IN_SHAPES = [
   },
 ] as const satisfies readonly BuiltInShape[];
 
-const SHAPE_BY_ID = new Map<string, BuiltInShape>(
+type CatalogShape = BuiltInShape & { id: BuiltInShapeId };
+
+const SHAPE_BY_ID = new Map<string, CatalogShape>(
   BUILT_IN_SHAPES.map((shape) => [shape.id, shape]),
 );
 
-export function getBuiltInShape(id: string): BuiltInShape | undefined {
+export function getBuiltInShape(id: string): CatalogShape | undefined {
   return SHAPE_BY_ID.get(id);
 }
 

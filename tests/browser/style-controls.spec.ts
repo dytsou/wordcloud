@@ -147,6 +147,12 @@ test("built-in silhouette gallery preserves and resets shape proportions", async
   await expect(gallery).toBeVisible();
   await expect(noShape).toHaveAttribute("aria-pressed", "true");
 
+  await expect(
+    gallery
+      .getByRole("button", { name: "Ellipse", exact: true })
+      .locator(".shape-thumbnail"),
+  ).toHaveAttribute("viewBox", "0 0 1.45 1");
+
   for (const [name, shapeNames] of [
     [
       "Basic forms",
@@ -191,6 +197,13 @@ test("built-in silhouette gallery preserves and resets shape proportions", async
     }
   }
 
+  await categories.getByRole("button", { name: "Symbols" }).click();
+  await expect(
+    gallery
+      .getByRole("button", { name: "Lightning bolt", exact: true })
+      .locator(".shape-thumbnail"),
+  ).toHaveAttribute("viewBox", "0 0 0.78 1");
+
   await categories.getByRole("button", { name: "Basic forms" }).click();
   await gallery.getByRole("button", { name: "Ellipse", exact: true }).click();
   await expect(
@@ -201,8 +214,11 @@ test("built-in silhouette gallery preserves and resets shape proportions", async
   await expect(lockedSize).toHaveValue("1");
   await expect(lockedSize).toBeEnabled();
   await lockedSize.focus();
-  await lockedSize.press("Home");
+  await page.keyboard.down("Home");
   await expect(lockedSize).toHaveValue("0.2");
+  await expect(lockedSize).toBeEnabled();
+  await expect(page.locator(".cloud-svg text").first()).toBeVisible();
+  await page.keyboard.up("Home");
 
   await page.getByRole("checkbox", { name: "Lock aspect ratio" }).uncheck();
   const width = page.getByRole("slider", { name: "Shape width" });

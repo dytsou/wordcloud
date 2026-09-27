@@ -3,6 +3,7 @@ import type { LayoutStyle } from "../core/layout";
 import { LIMITS } from "../core/limits";
 import {
   BUILT_IN_SHAPES,
+  getBuiltInShape,
   MAX_SHAPE_SCALE,
   MIN_SHAPE_SCALE,
   SHAPE_CATEGORIES,
@@ -112,7 +113,7 @@ function ShapeThumbnail({ shape }: { shape: BuiltInShape }) {
   return (
     <svg
       className="shape-thumbnail"
-      viewBox="0 0 1 1"
+      viewBox={`0 0 ${shape.aspectRatio} 1`}
       aria-hidden="true"
       focusable="false"
     >
@@ -121,18 +122,25 @@ function ShapeThumbnail({ shape }: { shape: BuiltInShape }) {
         maskUnits="userSpaceOnUse"
         x="0"
         y="0"
-        width="1"
+        width={shape.aspectRatio}
         height="1"
       >
-        <rect width="1" height="1" fill="black" />
-        {shape.regions.map((region, index) =>
-          renderShapeRegion(region, "white", `region-${index}`),
-        )}
-        {shape.holes?.map((region, index) =>
-          renderShapeRegion(region, "black", `hole-${index}`),
-        )}
+        <rect width={shape.aspectRatio} height="1" fill="black" />
+        <g transform={`scale(${shape.aspectRatio} 1)`}>
+          {shape.regions.map((region, index) =>
+            renderShapeRegion(region, "white", `region-${index}`),
+          )}
+          {shape.holes?.map((region, index) =>
+            renderShapeRegion(region, "black", `hole-${index}`),
+          )}
+        </g>
       </mask>
-      <rect width="1" height="1" fill="currentColor" mask={`url(#${maskId})`} />
+      <rect
+        width={shape.aspectRatio}
+        height="1"
+        fill="currentColor"
+        mask={`url(#${maskId})`}
+      />
     </svg>
   );
 }
@@ -184,10 +192,20 @@ export function StylePanel({
   const angleRef = useRef(angleDraft);
   const [activeShapeCategory, setActiveShapeCategory] =
     useState<ShapeCategory>("basic");
-  const [ratioLocked, setRatioLocked] = useState(true);
+  const [ratioLocked, setRatioLocked] = useState(
+    () =>
+      !presentation.shape ||
+      presentation.shape.widthScale === presentation.shape.heightScale,
+  );
+  const [shapeDraft, setShapeDraft] = useState<ShapeSettings | undefined>(
+    presentation.shape,
+  );
+  const shapeDraftRef = useRef(shapeDraft);
   const selectedShape = presentation.shape
-    ? BUILT_IN_SHAPES.find((shape) => shape.id === presentation.shape?.id)
+    ? getBuiltInShape(presentation.shape.id)
     : undefined;
+  const shapeSize =
+    shapeDraft?.id === presentation.shape?.id ? shapeDraft : presentation.shape;
   useEffect(() => {
     const next = rangeFrom(presentation);
     draftRef.current = next;
@@ -202,6 +220,19 @@ export function StylePanel({
     angleRef.current = next;
     setAngleDraft(next);
   }, [presentation.rotations]);
+  useEffect(() => {
+    const current = shapeDraftRef.current;
+    const next = presentation.shape;
+    const unchanged =
+      current?.id === next?.id &&
+      current?.widthScale === next?.widthScale &&
+      current?.heightScale === next?.heightScale;
+    shapeDraftRef.current = next;
+    setShapeDraft(next);
+    if (!unchanged) {
+      setRatioLocked(!next || next.widthScale === next.heightScale);
+    }
+  }, [presentation.shape]);
 
   const editRange = (patch: Partial<RangeDraft>) => {
     const next = { ...draftRef.current, ...patch };
@@ -226,25 +257,56 @@ export function StylePanel({
   };
   const selectShape = (id?: BuiltInShapeId) => {
     setRatioLocked(true);
-    update({
-      shape: id ? { id, widthScale: 1, heightScale: 1 } : undefined,
-    });
+    const next = id ? { id, widthScale: 1, heightScale: 1 } : undefined;
+    shapeDraftRef.current = next;
+    setShapeDraft(next);
+    update({ shape: next });
   };
   const setShapeSize = (axis: "width" | "height", value: string) => {
+    const current = shapeDraftRef.current;
     const scale = Number(value);
-    if (!Number.isFinite(scale)) return;
+    if (
+      !current ||
+      current.id !== presentation.shape?.id ||
+      !Number.isFinite(scale)
+    )
+      return;
+    let next: ShapeSettings;
     if (ratioLocked) {
-      updateShape({ widthScale: scale, heightScale: scale });
+      next = { ...current, widthScale: scale, heightScale: scale };
     } else if (axis === "width") {
-      updateShape({ widthScale: scale });
+      next = { ...current, widthScale: scale };
     } else {
-      updateShape({ heightScale: scale });
+      next = { ...current, heightScale: scale };
     }
+    shapeDraftRef.current = next;
+    setShapeDraft(next);
+  };
+  const commitShapeSize = () => {
+    const next = shapeDraftRef.current;
+    if (
+      !next ||
+      next.id !== presentation.shape?.id ||
+      (next.widthScale === presentation.shape.widthScale &&
+        next.heightScale === presentation.shape.heightScale)
+    )
+      return;
+    updateShape({
+      widthScale: next.widthScale,
+      heightScale: next.heightScale,
+    });
   };
   const resetShapeSize = () => {
     if (!presentation.shape) return;
+    const next = {
+      ...presentation.shape,
+      widthScale: MAX_SHAPE_SCALE,
+      heightScale: MAX_SHAPE_SCALE,
+    };
+    shapeDraftRef.current = next;
+    setShapeDraft(next);
     setRatioLocked(true);
-    updateShape({ widthScale: MAX_SHAPE_SCALE, heightScale: MAX_SHAPE_SCALE });
+    update({ shape: next });
   };
   const updateCanvas = (key: "width" | "height", value: string) => {
     const parsed = Number(value);
@@ -351,7 +413,7 @@ export function StylePanel({
             </button>
           ))}
         </div>
-        {selectedShape && presentation.shape && (
+        {selectedShape && shapeSize && (
           <div className="shape-size-controls">
             <label className="shape-ratio-lock">
               <input
@@ -367,9 +429,7 @@ export function StylePanel({
                 <label className="range-field">
                   <span>
                     {t("shapeSize")}{" "}
-                    <output>
-                      {Math.round(presentation.shape.widthScale * 100)}%
-                    </output>
+                    <output>{Math.round(shapeSize.widthScale * 100)}%</output>
                   </span>
                   <input
                     id="shape-size"
@@ -378,8 +438,12 @@ export function StylePanel({
                     min={MIN_SHAPE_SCALE}
                     max={MAX_SHAPE_SCALE}
                     step="0.05"
-                    value={presentation.shape.widthScale}
+                    value={shapeSize.widthScale}
                     disabled={disabled}
+                    onPointerUp={commitShapeSize}
+                    onPointerCancel={commitShapeSize}
+                    onKeyUp={commitShapeSize}
+                    onBlur={commitShapeSize}
                     onChange={(event) =>
                       setShapeSize("width", event.target.value)
                     }
@@ -390,9 +454,7 @@ export function StylePanel({
                   <label className="range-field">
                     <span>
                       {t("shapeWidth")}{" "}
-                      <output>
-                        {Math.round(presentation.shape.widthScale * 100)}%
-                      </output>
+                      <output>{Math.round(shapeSize.widthScale * 100)}%</output>
                     </span>
                     <input
                       id="shape-size"
@@ -401,8 +463,12 @@ export function StylePanel({
                       min={MIN_SHAPE_SCALE}
                       max={MAX_SHAPE_SCALE}
                       step="0.05"
-                      value={presentation.shape.widthScale}
+                      value={shapeSize.widthScale}
                       disabled={disabled}
+                      onPointerUp={commitShapeSize}
+                      onPointerCancel={commitShapeSize}
+                      onKeyUp={commitShapeSize}
+                      onBlur={commitShapeSize}
                       onChange={(event) =>
                         setShapeSize("width", event.target.value)
                       }
@@ -412,7 +478,7 @@ export function StylePanel({
                     <span>
                       {t("shapeHeight")}{" "}
                       <output>
-                        {Math.round(presentation.shape.heightScale * 100)}%
+                        {Math.round(shapeSize.heightScale * 100)}%
                       </output>
                     </span>
                     <input
@@ -422,8 +488,12 @@ export function StylePanel({
                       min={MIN_SHAPE_SCALE}
                       max={MAX_SHAPE_SCALE}
                       step="0.05"
-                      value={presentation.shape.heightScale}
+                      value={shapeSize.heightScale}
                       disabled={disabled}
+                      onPointerUp={commitShapeSize}
+                      onPointerCancel={commitShapeSize}
+                      onKeyUp={commitShapeSize}
+                      onBlur={commitShapeSize}
                       onChange={(event) =>
                         setShapeSize("height", event.target.value)
                       }
@@ -438,8 +508,8 @@ export function StylePanel({
               disabled={
                 disabled ||
                 (ratioLocked &&
-                  presentation.shape.widthScale === 1 &&
-                  presentation.shape.heightScale === 1)
+                  shapeSize.widthScale === 1 &&
+                  shapeSize.heightScale === 1)
               }
               onClick={resetShapeSize}
             >
