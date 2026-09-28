@@ -71,7 +71,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: dist
-          path: dist
+          path: |
+            dist
+            .wrangler/deploy/config.json
           include-hidden-files: true
           retention-days: 1
           if-no-files-found: error
@@ -109,7 +111,7 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: dist
-          path: dist
+          path: .
           github-token: ${{ github.token }}
           run-id: ${{ github.run_id }}
 
@@ -117,6 +119,7 @@ jobs:
         run: |
           test -f dist/client/index.html
           test -f dist/wordcloud/wrangler.json
+          test -f .wrangler/deploy/config.json
           test -f dist/client/api/index.html
           test -f dist/client/api/openapi.yaml
 
