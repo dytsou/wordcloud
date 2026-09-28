@@ -70,6 +70,7 @@ function renderGlyphSprite(
   style: LayoutStyle,
   padding: number,
   totalPixels: number,
+  canvas: HTMLCanvasElement,
   context: CanvasRenderingContext2D,
 ): RenderedGlyphSprite | undefined {
   const radians = (angle * Math.PI) / 180;
@@ -94,8 +95,8 @@ function renderGlyphSprite(
   if (totalPixels + rasterPixels > LIMITS.maxGlyphSpritePixels)
     return undefined;
 
-  context.canvas.width = width;
-  context.canvas.height = height;
+  canvas.width = width;
+  canvas.height = height;
   context.translate(width / 2, height / 2);
   context.rotate(radians);
   context.font = measurement.font;
@@ -177,6 +178,7 @@ export async function createGlyphSprites(
         style,
         padding,
         totalPixels,
+        canvas,
         context,
       );
       if (!rendered) return undefined;
