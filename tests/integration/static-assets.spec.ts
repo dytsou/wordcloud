@@ -16,7 +16,9 @@ describe("Static Assets shell", () => {
     );
     expect(wrangler).toContain('directory = "./dist"');
     expect(wrangler).toContain('binding = "ASSETS"');
-    expect(wrangler).toContain('run_worker_first = ["/mcp", "/mcp/*"]');
+    expect(wrangler).toContain(
+      'run_worker_first = ["/mcp", "/mcp/*", "/view", "/view/*", "/create", "/create/*"]',
+    );
     expect(wrangler).not.toMatch(
       /durable_objects|kv_namespaces|d1_databases|r2_buckets/,
     );
