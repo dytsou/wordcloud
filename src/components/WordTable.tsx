@@ -9,9 +9,9 @@ import { useI18n } from "../i18n";
 import { getAccessibleWords, placementLabel } from "../render/accessibility";
 
 interface WordTableProps {
-  wordSet?: WordSet;
-  scene?: SceneModel;
-  onFocusWord?: (term: string | undefined) => void;
+  readonly wordSet?: WordSet;
+  readonly scene?: SceneModel;
+  readonly onFocusWord?: (term: string | undefined) => void;
 }
 
 interface PanelPosition {
@@ -146,7 +146,7 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const controlRef = useRef<HTMLDivElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDialogElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const moveGestureRef = useRef<PointerGesture | null>(null);
@@ -202,13 +202,10 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
     triggerRef.current?.focus();
   };
 
-  const handleMovePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (
-      event.button !== 0 ||
-      (event.target instanceof Element && event.target.closest("button"))
-    ) {
-      return;
-    }
+  const handleMovePointerDown = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) => {
+    if (event.button !== 0) return;
     const popover = popoverRef.current;
     if (!popover) return;
     const rect = popover.getBoundingClientRect();
@@ -226,7 +223,9 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
     event.preventDefault();
   };
 
-  const handleMovePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handleMovePointerMove = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) => {
     const start = moveGestureRef.current;
     if (!start || start.pointerId !== event.pointerId) return;
     event.preventDefault();
@@ -241,16 +240,15 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
     );
   };
 
-  const handleMovePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handleMovePointerEnd = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) => {
     if (moveGestureRef.current?.pointerId === event.pointerId) {
       moveGestureRef.current = null;
     }
   };
 
-  const handleMoveKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.target instanceof Element && event.target.closest("button")) {
-      return;
-    }
+  const handleMoveKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
     const directions: Record<string, PanelPosition> = {
       ArrowDown: { left: 0, top: 1 },
       ArrowLeft: { left: -1, top: 0 },
@@ -275,7 +273,7 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
   };
 
   const handleResizePointerDown = (
-    event: ReactPointerEvent<HTMLDivElement>,
+    event: ReactPointerEvent<HTMLButtonElement>,
   ) => {
     if (event.button !== 0) return;
     const popover = popoverRef.current;
@@ -300,7 +298,7 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
   };
 
   const handleResizePointerMove = (
-    event: ReactPointerEvent<HTMLDivElement>,
+    event: ReactPointerEvent<HTMLButtonElement>,
   ) => {
     const start = resizeGestureRef.current;
     if (!start || start.pointerId !== event.pointerId) return;
@@ -315,14 +313,16 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
     setSize(resized.size);
   };
 
-  const handleResizePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handleResizePointerEnd = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) => {
     if (resizeGestureRef.current?.pointerId === event.pointerId) {
       resizeGestureRef.current = null;
     }
   };
 
   const handleResizeKeyDown =
-    (edge: ResizeEdge) => (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    (edge: ResizeEdge) => (event: ReactKeyboardEvent<HTMLButtonElement>) => {
       const popover = popoverRef.current;
       if (!popover) return;
       const horizontalEdge = edge.includes("left") || edge.includes("right");
@@ -401,12 +401,11 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
       >
         <span aria-hidden="true">i</span>
       </button>
-      <div
+      <dialog
         ref={popoverRef}
         id="word-index-popout"
         className={`word-index-popout${size ? " is-resizable" : ""}`}
         popover="manual"
-        role="dialog"
         aria-labelledby="word-index-heading"
         style={{
           opacity,
@@ -418,18 +417,21 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
           ...(size && { width: size.width, height: size.height }),
         }}
       >
-        <div
-          className="word-index-popout-heading"
-          tabIndex={0}
-          title={t("moveIndexHint")}
-          aria-description={t("moveIndexHint")}
-          onPointerDown={handleMovePointerDown}
-          onPointerMove={handleMovePointerMove}
-          onPointerUp={handleMovePointerEnd}
-          onPointerCancel={handleMovePointerEnd}
-          onLostPointerCapture={handleMovePointerEnd}
-          onKeyDown={handleMoveKeyDown}
-        >
+        <div className="word-index-popout-heading">
+          <button
+            className="word-index-move"
+            type="button"
+            aria-label={t("moveIndexHint")}
+            title={t("moveIndexHint")}
+            onPointerDown={handleMovePointerDown}
+            onPointerMove={handleMovePointerMove}
+            onPointerUp={handleMovePointerEnd}
+            onPointerCancel={handleMovePointerEnd}
+            onLostPointerCapture={handleMovePointerEnd}
+            onKeyDown={handleMoveKeyDown}
+          >
+            <span aria-hidden="true">⠿</span>
+          </button>
           <h2 id="word-index-heading">{t("indexHeading")}</h2>
           <button
             ref={closeRef}
@@ -457,6 +459,16 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
                 <tbody>
                   {wordSet.words.map((word) => {
                     const placed = placement.get(word.term);
+                    let statusLabel = t("pending");
+                    if (placed?.status === "placed") {
+                      statusLabel = t("placed");
+                    } else if (placed?.status === "unplaceable") {
+                      statusLabel = t("unplaceable");
+                    } else if (placed?.status === "budget-limited") {
+                      statusLabel = t("budgetLimited");
+                    } else if (placed) {
+                      statusLabel = placementLabel(placed);
+                    }
                     return (
                       <tr
                         key={word.term}
@@ -484,15 +496,7 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
                               "placement-state " + (placed?.status ?? "pending")
                             }
                           >
-                            {placed
-                              ? placed.status === "placed"
-                                ? t("placed")
-                                : placed.status === "unplaceable"
-                                  ? t("unplaceable")
-                                  : placed.status === "budget-limited"
-                                    ? t("budgetLimited")
-                                    : placementLabel(placed)
-                              : t("pending")}
+                            {statusLabel}
                           </span>
                         </td>
                       </tr>
@@ -514,13 +518,13 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
             ? window.innerWidth - (position?.left ?? 12) - VIEWPORT_GAP
             : window.innerHeight - (position?.top ?? 12) - VIEWPORT_GAP;
           return (
-            <div
+            <button
               key={edge}
               className={`word-index-resize-edge word-index-resize-edge--${edge}`}
+              type="button"
               data-resize-edge={edge}
-              role={isCorner ? "group" : "separator"}
+              role={isCorner ? undefined : "separator"}
               aria-label={t("resizeIndexHint")}
-              aria-description={t("resizeIndexHint")}
               aria-orientation={
                 isCorner ? undefined : isHorizontal ? "vertical" : "horizontal"
               }
@@ -532,7 +536,6 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
               }
               aria-valuemax={!isCorner ? Math.max(1, maximumValue) : undefined}
               title={t("resizeIndexHint")}
-              tabIndex={0}
               onPointerDown={handleResizePointerDown}
               onPointerMove={handleResizePointerMove}
               onPointerUp={handleResizePointerEnd}
@@ -558,7 +561,7 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
             }
           />
         </label>
-      </div>
+      </dialog>
     </div>
   );
 }

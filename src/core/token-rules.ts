@@ -37,11 +37,14 @@ function ruleSource(rule: TokenRule): string {
 }
 
 function ruleOutput(rule: TokenRule): string[] {
-  return rule.kind === "protected"
-    ? [rule.phrase]
-    : rule.kind === "split"
-      ? rule.terms
-      : [rule.term];
+  switch (rule.kind) {
+    case "protected":
+      return [rule.phrase];
+    case "split":
+      return rule.terms;
+    case "merge":
+      return [rule.term];
+  }
 }
 
 function findCycle(edges: Map<string, Set<string>>): boolean {
@@ -246,12 +249,13 @@ export function applyTokenRules(
         pattern.input,
       );
     });
-    const pattern = candidates.sort(
+    candidates.sort(
       (a, b) =>
         b.priority - a.priority ||
         b.input.length - a.input.length ||
         a.order - b.order,
-    )[0];
+    );
+    const pattern = candidates[0];
 
     if (!pattern) {
       output.push(token);

@@ -4,17 +4,17 @@ import { SNAPSHOT_FILE_EXTENSION } from "../core/file-snapshot";
 import { useI18n } from "../i18n";
 
 interface SharePanelProps {
-  shareUrl?: string;
-  shareError?: string;
-  disabled?: boolean;
-  onCreateLink: () => void;
-  onCopy: () => void;
-  onDownload: () => void;
-  onExportSvg: () => void;
-  onExportPng: () => void;
-  exporting?: boolean;
-  onImport: (event: ChangeEvent<HTMLInputElement>) => void;
-  onNewSource: () => void;
+  readonly shareUrl?: string;
+  readonly shareError?: string;
+  readonly disabled?: boolean;
+  readonly onCreateLink: () => void;
+  readonly onCopy: () => void;
+  readonly onDownload: () => void;
+  readonly onExportSvg: () => void;
+  readonly onExportPng: () => void;
+  readonly exporting?: boolean;
+  readonly onImport: (event: ChangeEvent<HTMLInputElement>) => void;
+  readonly onNewSource: () => void;
 }
 
 export function SharePanel({

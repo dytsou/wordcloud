@@ -85,7 +85,7 @@ function run(
 
   if (result.error) {
     if (result.error.code === "ETIMEDOUT") {
-      throw new Error(label + " 超過時間限制。");
+      throw new Error(label + " timed out.");
     }
     throw new Error(label + ": " + result.error.message);
   }
@@ -115,7 +115,7 @@ function capture(
 
   if (result.error) {
     if (result.error.code === "ETIMEDOUT") {
-      throw new Error(label + " 超過時間限制。");
+      throw new Error(label + " timed out.");
     }
     throw new Error(label + ": " + result.error.message);
   }
@@ -143,13 +143,15 @@ function hasCommand(command) {
 
 function requireCommand(command, installHint) {
   if (!hasCommand(command)) {
-    throw new Error("找不到 " + command + "，請先安裝：" + installHint);
+    throw new Error(
+      "Could not find " + command + ". Install it first: " + installHint,
+    );
   }
 }
 
 function requireFile(path, description) {
   if (!existsSync(resolve(root, path))) {
-    throw new Error("找不到 " + description + "：" + path);
+    throw new Error("Could not find " + description + ": " + path);
   }
 }
 
@@ -160,7 +162,7 @@ function requireCloudflareAuth() {
     });
   } catch {
     throw new Error(
-      "Cloudflare credentials 無效，請確認輸入的 Account ID 與 API Token。",
+      "Cloudflare credentials are invalid. Check the Account ID and API token.",
     );
   }
 }
@@ -169,7 +171,9 @@ function requireGithubAuth() {
   try {
     run("gh", ["auth", "status"]);
   } catch {
-    throw new Error("GitHub CLI 尚未登入，請先執行 gh auth login。");
+    throw new Error(
+      "GitHub CLI is not authenticated. Run gh auth login first.",
+    );
   }
 }
 
@@ -189,7 +193,7 @@ function askHidden(prompt) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     return Promise.reject(
       new Error(
-        "目前不是互動式終端，請設定 CLOUDFLARE_ACCOUNT_ID 與 CLOUDFLARE_API_TOKEN 後再執行。",
+        "An interactive terminal is required. Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN, then try again.",
       ),
     );
   }
@@ -210,7 +214,7 @@ function askHidden(prompt) {
         if (character === "\u0003") {
           cleanup();
           process.stdout.write("\n");
-          rejectPrompt(new Error("輸入已取消。"));
+          rejectPrompt(new Error("Input was cancelled."));
           return;
         }
         if (character === "\r" || character === "\n") {
@@ -251,7 +255,7 @@ async function ensureCloudflareCredentials() {
   }
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     throw new Error(
-      "缺少 Cloudflare credentials；非互動式執行請設定 CLOUDFLARE_ACCOUNT_ID 與 CLOUDFLARE_API_TOKEN。",
+      "Cloudflare credentials are missing. Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN for non-interactive use.",
     );
   }
 
@@ -261,14 +265,14 @@ async function ensureCloudflareCredentials() {
   if (!accountId) {
     const enteredAccountId = await askVisible("Cloudflare Account ID: ");
     if (!enteredAccountId) {
-      throw new Error("CLOUDFLARE_ACCOUNT_ID 不可為空白。");
+      throw new Error("CLOUDFLARE_ACCOUNT_ID must not be blank.");
     }
     process.env.CLOUDFLARE_ACCOUNT_ID = enteredAccountId;
   }
   if (!apiToken) {
     const enteredApiToken = await askHidden("Cloudflare API Token: ");
     if (!enteredApiToken) {
-      throw new Error("CLOUDFLARE_API_TOKEN 不可為空白。");
+      throw new Error("CLOUDFLARE_API_TOKEN must not be blank.");
     }
     process.env.CLOUDFLARE_API_TOKEN = enteredApiToken;
   }
@@ -286,7 +290,7 @@ function githubRepository() {
     ]);
   } catch {
     throw new Error(
-      "無法辨識 GitHub repository，請確認目前目錄有 origin remote 且 gh 已登入。",
+      "Could not determine the GitHub repository. Check that the current directory has an origin remote and that gh is authenticated.",
     );
   }
 }
@@ -295,7 +299,7 @@ function configureGithubSecrets(repository) {
   for (const secretName of CLOUDFLARE_SECRET_NAMES) {
     const value = process.env[secretName];
     if (!value) {
-      throw new Error("要設定 GitHub secret，缺少 " + secretName + "。");
+      throw new Error("Missing required GitHub secret: " + secretName + ".");
     }
     run("gh", ["secret", "set", secretName, "--repo", repository], {
       input: value + "\n",
@@ -304,26 +308,28 @@ function configureGithubSecrets(repository) {
 }
 
 function requireGithubSecrets(repository) {
-  const configured = capture("gh", [
-    "secret",
-    "list",
-    "--repo",
-    repository,
-    "--json",
-    "name",
-    "--jq",
-    ".[].name",
-  ])
-    .split("\n")
-    .filter(Boolean);
+  const configured = new Set(
+    capture("gh", [
+      "secret",
+      "list",
+      "--repo",
+      repository,
+      "--json",
+      "name",
+      "--jq",
+      ".[].name",
+    ])
+      .split("\n")
+      .filter(Boolean),
+  );
   const missing = CLOUDFLARE_SECRET_NAMES.filter(
-    (secretName) => !configured.includes(secretName),
+    (secretName) => !configured.has(secretName),
   );
   if (missing.length > 0) {
     throw new Error(
-      "GitHub Actions 缺少 secret：" +
+      "GitHub Actions is missing required secrets: " +
         missing.join(", ") +
-        "。請使用 --configure-github 設定。",
+        ". Run --configure-github to set them.",
     );
   }
 }
@@ -332,13 +338,15 @@ function requireCleanMainBranch(repository) {
   const branch = capture("git", ["branch", "--show-current"]);
   if (branch !== "main") {
     throw new Error(
-      "--github 只會部署 main；目前 branch 是 " +
+      "--github deploys only from main; the current branch is " +
         branch +
-        "。請先切換到 main。",
+        ". Switch to main first.",
     );
   }
   if (capture("git", ["status", "--porcelain"])) {
-    throw new Error("--github 模式要求 working tree clean，請先 commit 變更。");
+    throw new Error(
+      "--github requires a clean working tree. Commit your changes first.",
+    );
   }
   const localHead = capture("git", ["rev-parse", "HEAD"]);
   const remoteHead = capture("gh", [
@@ -349,7 +357,7 @@ function requireCleanMainBranch(repository) {
   ]);
   if (localHead !== remoteHead) {
     throw new Error(
-      "本機 HEAD 與 GitHub main 不一致；請先同步 main，再執行 --github。",
+      "Local HEAD does not match GitHub main. Sync main before running --github.",
     );
   }
   return localHead;
@@ -413,7 +421,7 @@ async function waitForGithubDeployment(
     await sleep(3_000);
   }
   throw new Error(
-    "等待 GitHub deploy workflow 超時，請用 gh run list 檢查狀態。",
+    "Timed out waiting for the GitHub deploy workflow. Check its status with gh run list.",
   );
 }
 
@@ -424,7 +432,7 @@ async function main() {
   }
   if (unknownArgs.length > 0) {
     throw new Error(
-      "未知參數：" + unknownArgs.join(", ") + "。請使用 --help。",
+      "Unknown arguments: " + unknownArgs.join(", ") + ". Use --help.",
     );
   }
 
@@ -492,7 +500,9 @@ async function main() {
   );
 }
 
-main().catch((error) => {
+try {
+  await main();
+} catch (error) {
   console.error("\nDeployment stopped: " + error.message);
   process.exitCode = 1;
-});
+}

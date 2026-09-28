@@ -90,7 +90,18 @@ function errorText(error: unknown): string {
 }
 
 function isSharedViewPath(pathname: string): boolean {
-  return pathname.replace(/\/+$/, "") === SHARE_VIEW_PATH;
+  let end = pathname.length;
+  while (end > 0 && pathname[end - 1] === "/") end -= 1;
+  return pathname.slice(0, end) === SHARE_VIEW_PATH;
+}
+
+function modeAfterInputChange(
+  shouldRefresh: boolean,
+  sourceText: string,
+): EditorState["mode"] {
+  if (shouldRefresh && sourceIsReady(sourceText)) return "generating";
+  if (sourceText) return "source";
+  return "empty";
 }
 
 function isSnapshotLocation(): boolean {
@@ -123,14 +134,14 @@ function initialEditorState(): EditorState {
     sourceText,
     settings: {
       ...initial.settings,
-      ...(cached.tokenizerSettings ?? {}),
+      ...cached.tokenizerSettings,
       stopWords: [...(cached.stopWords ?? initial.settings.stopWords)],
       dictionary: [...(cached.dictionary ?? initial.settings.dictionary)],
       rules: [...(cached.tokenizerSettings?.rules ?? initial.settings.rules)],
     },
     presentation: {
       ...initial.presentation,
-      ...(cachedPresentation ?? {}),
+      ...cachedPresentation,
       canvas: { ...initial.presentation.canvas },
       rotations: [
         ...(cachedPresentation?.rotations ?? initial.presentation.rotations),
@@ -654,12 +665,7 @@ export function App() {
       setStepError(undefined);
       setState((current) => ({
         ...current,
-        mode:
-          shouldRefresh && sourceIsReady(sourceText)
-            ? "generating"
-            : sourceText
-              ? "source"
-              : "empty",
+        mode: modeAfterInputChange(shouldRefresh, sourceText),
         sourceText,
         wordSet: undefined,
         scene: undefined,
@@ -701,12 +707,7 @@ export function App() {
       setState((current) => ({
         ...current,
         settings,
-        mode:
-          shouldRefresh && sourceIsReady(sourceText)
-            ? "generating"
-            : current.sourceText
-              ? "source"
-              : "empty",
+        mode: modeAfterInputChange(shouldRefresh, current.sourceText),
         wordSet: undefined,
         scene: undefined,
         tokenization: undefined,
@@ -826,21 +827,14 @@ export function App() {
   const handleCopy = useCallback(async () => {
     if (!state.shareUrl) return;
     try {
-      if (navigator.clipboard)
-        await navigator.clipboard.writeText(state.shareUrl);
-      else throw new Error("clipboard unavailable");
+      if (!navigator.clipboard?.writeText) {
+        setStatus(t("copyUnavailable"));
+        return;
+      }
+      await navigator.clipboard.writeText(state.shareUrl);
       setStatus(t("linkCopied"));
     } catch {
-      const input = document.createElement("textarea");
-      input.value = state.shareUrl;
-      input.setAttribute("readonly", "true");
-      input.style.position = "fixed";
-      input.style.opacity = "0";
-      document.body.append(input);
-      input.select();
-      document.execCommand("copy");
-      input.remove();
-      setStatus(t("linkCopied"));
+      setStatus(t("copyUnavailable"));
     }
   }, [state.shareUrl, t]);
 
@@ -1138,9 +1132,9 @@ export function App() {
             )}
 
             {state.mode === "generating" && (
-              <p className="wizard-updating" role="status">
+              <output className="wizard-updating" aria-live="polite">
                 {t("wizardUpdating")}
-              </p>
+              </output>
             )}
 
             {activeStep === "source" && (
@@ -1308,7 +1302,7 @@ export function App() {
               </h1>
               <p>{t("wizardPageStyleDescription")}</p>
             </header>
-            {state.scene && state.mode !== "error" ? (
+            {state.scene && state.mode !== "error" && (
               <div className="wizard-form">
                 <div className="wizard-style-layout">
                   <StylePanel
@@ -1338,11 +1332,13 @@ export function App() {
                   onNewSource={handleNewSource}
                 />
               </div>
-            ) : hasSharedFragment && state.mode !== "error" ? (
-              <p className="wizard-updating" role="status">
+            )}
+            {!state.scene && hasSharedFragment && state.mode !== "error" && (
+              <output className="wizard-updating" aria-live="polite">
                 {t("wizardUpdating")}
-              </p>
-            ) : (
+              </output>
+            )}
+            {(state.mode === "error" || !hasSharedFragment) && (
               <div className="wizard-error" role="alert">
                 <strong>{t("attention")}</strong>
                 <p>{state.error ?? t("snapshotInvalid")}</p>

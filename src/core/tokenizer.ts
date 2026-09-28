@@ -153,8 +153,7 @@ export function detectBrowserTokenizerLocale(): string {
     const match = FIXED_LOCALES.find((locale) => {
       if (!available.includes(locale)) return false;
       const optionProfile = localeProfile(locale);
-      if (!optionProfile || optionProfile.language !== profile.language)
-        return false;
+      if (optionProfile?.language !== profile.language) return false;
       return !optionProfile.script || !profile.script
         ? true
         : optionProfile.script === profile.script;
@@ -241,6 +240,37 @@ interface SourceRun {
   lane: Lane;
 }
 
+function characterLane(character: string, runLane: Lane | undefined): Lane {
+  const lane = classifyCharacter(character);
+  if (
+    /\p{Mark}/u.test(character) &&
+    runLane !== undefined &&
+    runLane !== "other"
+  ) {
+    return runLane;
+  }
+  return lane;
+}
+
+function splitsAtNeutralGap(
+  lane: Lane,
+  runLane: Lane,
+  neutralGap: boolean,
+): boolean {
+  return (
+    lane !== "other" && neutralGap && (runLane !== lane || runLane === "han")
+  );
+}
+
+function appendSourceRun(
+  runs: SourceRun[],
+  start: number,
+  end: number,
+  lane: Lane | undefined,
+): void {
+  if (lane !== undefined) runs.push({ start, end, lane });
+}
+
 function sourceRuns(source: string): SourceRun[] {
   const runs: SourceRun[] = [];
   let runStart = 0;
@@ -251,14 +281,7 @@ function sourceRuns(source: string): SourceRun[] {
   for (const character of source) {
     const characterStart = offset;
     offset += character.length;
-    let lane = classifyCharacter(character);
-    if (
-      /\p{Mark}/u.test(character) &&
-      runLane !== undefined &&
-      runLane !== "other"
-    ) {
-      lane = runLane;
-    }
+    const lane = characterLane(character, runLane);
 
     if (runLane === undefined) {
       runStart = characterStart;
@@ -266,12 +289,8 @@ function sourceRuns(source: string): SourceRun[] {
       continue;
     }
 
-    if (
-      lane !== "other" &&
-      neutralGap &&
-      (runLane !== lane || runLane === "han")
-    ) {
-      runs.push({ start: runStart, end: characterStart, lane: runLane });
+    if (splitsAtNeutralGap(lane, runLane, neutralGap)) {
+      appendSourceRun(runs, runStart, characterStart, runLane);
       runStart = characterStart;
       runLane = lane;
       neutralGap = false;
@@ -280,7 +299,7 @@ function sourceRuns(source: string): SourceRun[] {
 
     const merged = mergeLanes(runLane, lane);
     if (merged === undefined) {
-      runs.push({ start: runStart, end: characterStart, lane: runLane });
+      appendSourceRun(runs, runStart, characterStart, runLane);
       runStart = characterStart;
       runLane = lane;
       neutralGap = false;
@@ -290,8 +309,7 @@ function sourceRuns(source: string): SourceRun[] {
     }
   }
 
-  if (runLane !== undefined)
-    runs.push({ start: runStart, end: offset, lane: runLane });
+  appendSourceRun(runs, runStart, offset, runLane);
   return runs;
 }
 
@@ -388,17 +406,20 @@ function normalizeTerm(
   return normalized;
 }
 
-function comparisonTerm(term: string, caseInsensitive: boolean): string {
-  return caseInsensitive ? term.toLocaleLowerCase() : term;
+type ComparisonNormalizer = (term: string) => string;
+
+function comparisonNormalizer(
+  settings: Pick<TokenizerSettings, "caseInsensitive">,
+): ComparisonNormalizer {
+  if (settings.caseInsensitive) return (term) => term.toLocaleLowerCase();
+  return (term) => term;
 }
 
 function normalizedStopWords(settings: TokenizerSettings): Set<string> {
+  const normalizeComparison = comparisonNormalizer(settings);
   return new Set(
     settings.stopWords.map((word) =>
-      comparisonTerm(
-        normalizeTerm(word, settings.caseMode),
-        settings.caseInsensitive,
-      ),
+      normalizeComparison(normalizeTerm(word, settings.caseMode)),
     ),
   );
 }
@@ -415,29 +436,34 @@ function withDictionary(settings: TokenizerSettings): TokenRule[] {
   return [...settings.rules, ...dictionaryRules];
 }
 
-export function tokenize(
-  source: string,
-  inputSettings: TokenizerSettings = DEFAULT_TOKENIZER_SETTINGS,
+interface TokenizationContext {
+  settings: TokenizerSettings;
+  tokenizerVersion: string;
+  capabilities: TokenizationResult["capabilities"];
+}
+
+function emptyTokenizationResult(
+  context: TokenizationContext,
+  status: TokenizationResult["status"],
+  diagnostics: TokenizerDiagnostic[],
 ): TokenizationResult {
-  const settings = { ...DEFAULT_TOKENIZER_SETTINGS, ...inputSettings };
-  const tokenizerVersion = settings.tokenizerVersion ?? TOKENIZER_VERSION;
-  const supported = supportsLocale(settings.locale);
-  const capabilities = capability(settings.locale, supported);
-  const emptyResult = (
-    status: TokenizationResult["status"],
-    diagnostics: TokenizerDiagnostic[],
-  ): TokenizationResult => ({
+  return {
     status,
-    tokenizerVersion,
+    tokenizerVersion: context.tokenizerVersion,
     tokens: [],
     filtered: [],
     traces: [],
     diagnostics,
-    capabilities,
-  });
+    capabilities: context.capabilities,
+  };
+}
 
+function validateTokenizerInput(
+  source: string,
+  context: TokenizationContext,
+): TokenizationResult | undefined {
   if (utf8ByteLength(source) > LIMITS.maxSourceBytes) {
-    return emptyResult("error", [
+    return emptyTokenizationResult(context, "error", [
       diagnostic(
         "SOURCE_LIMIT",
         `原文超過 ${LIMITS.maxSourceBytes} bytes 上限。`,
@@ -445,33 +471,92 @@ export function tokenize(
     ]);
   }
   if (!source.trim()) {
-    return emptyResult("empty", [diagnostic("EMPTY_INPUT", "請先輸入文字。")]);
+    return emptyTokenizationResult(context, "empty", [
+      diagnostic("EMPTY_INPUT", "請先輸入文字。"),
+    ]);
   }
   if (typeof Intl.Segmenter !== "function") {
-    return emptyResult("error", [
+    return emptyTokenizationResult(context, "error", [
       diagnostic("SEGMENTER_UNAVAILABLE", "此瀏覽器不支援 Intl.Segmenter。"),
     ]);
   }
-  if (!supported) {
-    return emptyResult("error", [
+  if (!context.capabilities.supported) {
+    return emptyTokenizationResult(context, "error", [
       diagnostic(
         "UNSUPPORTED_LOCALE",
-        `瀏覽器不支援 ${settings.locale} 的分詞能力，請改選其他 locale。`,
+        `瀏覽器不支援 ${context.settings.locale} 的分詞能力，請改選其他 locale。`,
       ),
     ]);
   }
+  return undefined;
+}
+
+function filteredReason(
+  term: string,
+  comparison: string,
+  stopWords: Set<string>,
+  settings: TokenizerSettings,
+): TokenizationResult["filtered"][number]["reason"] | undefined {
+  if (!term) return "empty";
+  if (scalarLength(term) > LIMITS.maxLiteralScalars) return "term-too-long";
+  if (stopWords.has(comparison)) return "stop-word";
+  if (settings.numberPolicy === "exclude" && isNumberOnly(term))
+    return "number";
+  if (settings.symbolPolicy === "exclude" && !hasLetterOrNumber(term))
+    return "symbol";
+  return undefined;
+}
+
+function filterTokens(
+  sourceTokens: Token[],
+  settings: TokenizerSettings,
+  stopWords: Set<string>,
+  normalizeComparison: ComparisonNormalizer,
+): Pick<TokenizationResult, "tokens" | "filtered"> {
+  const tokens: Token[] = [];
+  const filtered: TokenizationResult["filtered"] = [];
+  for (const token of sourceTokens) {
+    const term = normalizeTerm(token.term, settings.caseMode);
+    const reason = filteredReason(
+      term,
+      normalizeComparison(term),
+      stopWords,
+      settings,
+    );
+    if (reason) {
+      filtered.push({ term, sourceIndex: token.sourceIndex, reason });
+      continue;
+    }
+    tokens.push({ ...token, term, sourceIndex: token.sourceIndex });
+  }
+  return { tokens, filtered };
+}
+
+export function tokenize(
+  source: string,
+  inputSettings: TokenizerSettings = DEFAULT_TOKENIZER_SETTINGS,
+): TokenizationResult {
+  const settings = { ...DEFAULT_TOKENIZER_SETTINGS, ...inputSettings };
+  const supported = supportsLocale(settings.locale);
+  const context: TokenizationContext = {
+    settings,
+    tokenizerVersion: settings.tokenizerVersion ?? TOKENIZER_VERSION,
+    capabilities: capability(settings.locale, supported),
+  };
+  const inputError = validateTokenizerInput(source, context);
+  if (inputError) return inputError;
 
   const rules = withDictionary(settings);
   const compiled = compileTokenRules(rules, (value) =>
     segmentLiteral(value, settings.locale),
   );
   if (compiled.diagnostics.length > 0) {
-    return emptyResult("error", compiled.diagnostics);
+    return emptyTokenizationResult(context, "error", compiled.diagnostics);
   }
 
   const protectedResult = findProtectedSpans(source, compiled.protectedRules);
   if (protectedResult.exceededLimit) {
-    return emptyResult("error", [
+    return emptyTokenizationResult(context, "error", [
       diagnostic(
         "TOKEN_LIMIT",
         `候選詞超過 ${LIMITS.maxCandidateTokens} 個上限。`,
@@ -485,7 +570,7 @@ export function tokenize(
     protectedResult.spans,
   );
   if (rawTokens.length > LIMITS.maxCandidateTokens) {
-    return emptyResult("error", [
+    return emptyTokenizationResult(context, "error", [
       diagnostic(
         "TOKEN_LIMIT",
         `候選詞超過 ${LIMITS.maxCandidateTokens} 個上限。`,
@@ -495,7 +580,7 @@ export function tokenize(
 
   const applied = applyTokenRules(rawTokens, compiled);
   if (applied.tokens.length > LIMITS.maxCandidateTokens) {
-    return emptyResult("error", [
+    return emptyTokenizationResult(context, "error", [
       diagnostic(
         "TOKEN_LIMIT",
         `套用規則後候選詞超過 ${LIMITS.maxCandidateTokens} 個上限。`,
@@ -503,54 +588,37 @@ export function tokenize(
     ]);
   }
 
+  const normalizeComparison = comparisonNormalizer(settings);
   const stopWords = normalizedStopWords(settings);
-  const tokens: Token[] = [];
-  const filtered: TokenizationResult["filtered"] = [];
-  for (const token of applied.tokens) {
-    const term = normalizeTerm(token.term, settings.caseMode);
-    const comparison = comparisonTerm(term, settings.caseInsensitive);
-    let reason: TokenizationResult["filtered"][number]["reason"] | undefined;
-    if (!term) reason = "empty";
-    else if (scalarLength(term) > LIMITS.maxLiteralScalars)
-      reason = "term-too-long";
-    else if (stopWords.has(comparison)) reason = "stop-word";
-    else if (settings.numberPolicy === "exclude" && isNumberOnly(term))
-      reason = "number";
-    else if (settings.symbolPolicy === "exclude" && !hasLetterOrNumber(term))
-      reason = "symbol";
-
-    if (reason) {
-      filtered.push({ term, sourceIndex: token.sourceIndex, reason });
-      continue;
-    }
-    tokens.push({ ...token, term, sourceIndex: token.sourceIndex });
-  }
-
+  const { tokens, filtered } = filterTokens(
+    applied.tokens,
+    settings,
+    stopWords,
+    normalizeComparison,
+  );
+  const traces = [...protectedResult.traces, ...applied.traces];
   if (tokens.length === 0) {
     return {
       status: "empty",
-      tokenizerVersion,
+      tokenizerVersion: context.tokenizerVersion,
       tokens,
       filtered,
-      traces: [...protectedResult.traces, ...applied.traces],
+      traces,
       diagnostics: [
         diagnostic(
           "NO_WORDS",
           "目前設定沒有可繪製的詞語，請調整原文或篩選規則。",
         ),
       ],
-      capabilities,
+      capabilities: context.capabilities,
     };
   }
 
-  if (
-    new Set(
-      tokens.map((token) =>
-        comparisonTerm(token.term, settings.caseInsensitive),
-      ),
-    ).size > LIMITS.maxUniqueTerms
-  ) {
-    return emptyResult("error", [
+  const uniqueTermCount = new Set(
+    tokens.map((token) => normalizeComparison(token.term)),
+  ).size;
+  if (uniqueTermCount > LIMITS.maxUniqueTerms) {
+    return emptyTokenizationResult(context, "error", [
       diagnostic(
         "UNIQUE_TERM_LIMIT",
         `唯一詞語超過 ${LIMITS.maxUniqueTerms} 個上限。`,
@@ -560,11 +628,11 @@ export function tokenize(
 
   return {
     status: "ok",
-    tokenizerVersion,
+    tokenizerVersion: context.tokenizerVersion,
     tokens,
     filtered,
-    traces: [...protectedResult.traces, ...applied.traces],
+    traces,
     diagnostics: [],
-    capabilities,
+    capabilities: context.capabilities,
   };
 }

@@ -1,5 +1,5 @@
 interface StatusAnnouncerProps {
-  message: string;
+  readonly message: string;
 }
 
 export function StatusAnnouncer({ message }: StatusAnnouncerProps) {

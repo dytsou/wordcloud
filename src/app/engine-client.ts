@@ -94,7 +94,7 @@ export class EngineClient {
       const listener = (event: MessageEvent<EngineResponse>) => {
         if (event.data.jobId !== jobId) return;
         const active = this.active;
-        if (!active || active.jobId !== jobId) return;
+        if (active?.jobId !== jobId) return;
         this.active = undefined;
         this.worker.removeEventListener("message", listener);
         clearTimeout(active.timeoutId);

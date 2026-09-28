@@ -3,11 +3,11 @@ import type { KeyboardEvent } from "react";
 import { useI18n } from "../i18n";
 
 interface TagInputProps {
-  id: string;
-  value: readonly string[];
-  disabled?: boolean;
-  placeholder?: string;
-  onChange: (value: string[]) => void;
+  readonly id: string;
+  readonly value: readonly string[];
+  readonly disabled?: boolean;
+  readonly placeholder?: string;
+  readonly onChange: (value: string[]) => void;
 }
 
 export function TagInput({
@@ -40,9 +40,9 @@ export function TagInput({
 
   return (
     <div className="tag-input" aria-disabled={disabled}>
-      <div className="tag-list" role="list" aria-label={t("tagList")}>
+      <ul className="tag-list" aria-label={t("tagList")}>
         {value.map((tag, index) => (
-          <span className="tag-chip" key={`${tag}-${index}`} role="listitem">
+          <li className="tag-chip" key={`${tag}-${index}`}>
             <span className="tag-chip-value">{tag}</span>
             <button
               className="tag-remove"
@@ -55,21 +55,23 @@ export function TagInput({
             >
               ×
             </button>
-          </span>
+          </li>
         ))}
-        <input
-          id={id}
-          className="tag-entry"
-          type="text"
-          value={draft}
-          disabled={disabled}
-          placeholder={placeholder}
-          autoComplete="off"
-          aria-keyshortcuts="Enter"
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={handleKeyDown}
-        />
-      </div>
+        <li className="tag-entry-item">
+          <input
+            id={id}
+            className="tag-entry"
+            type="text"
+            value={draft}
+            disabled={disabled}
+            placeholder={placeholder}
+            autoComplete="off"
+            aria-keyshortcuts="Enter"
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+        </li>
+      </ul>
     </div>
   );
 }

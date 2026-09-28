@@ -95,7 +95,7 @@ export function drawSceneToCanvas(
 
 function defaultCanvas(width: number, height: number): CanvasLike {
   if (typeof document === "undefined") {
-    throw new Error("PNG export requires a browser canvas.");
+    throw new TypeError("PNG export requires a browser canvas.");
   }
   const canvas = document.createElement("canvas") as unknown as CanvasLike;
   canvas.width = width;

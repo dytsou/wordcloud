@@ -77,9 +77,7 @@ export function encodeHostileSnapshot(payload: unknown): string {
 export function withMutation(
   mutate: (snapshot: SnapshotPayload & { unexpected?: boolean }) => void,
 ): SnapshotPayload {
-  const snapshot = JSON.parse(
-    JSON.stringify(validSnapshot),
-  ) as SnapshotPayload & {
+  const snapshot = structuredClone(validSnapshot) as SnapshotPayload & {
     unexpected?: boolean;
   };
   mutate(snapshot);

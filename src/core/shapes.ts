@@ -557,7 +557,7 @@ function mergeSpans(spans: readonly MaskSpan[]): MaskSpan[] {
   const sorted = [...spans].sort((left, right) => left.start - right.start);
   const merged: MaskSpan[] = [];
   for (const span of sorted) {
-    const previous = merged[merged.length - 1];
+    const previous = merged.at(-1);
     if (!previous || span.start > previous.end) {
       merged.push({ ...span });
     } else {

@@ -72,7 +72,7 @@ test("creator moves through the wizard and can return to update the cloud", asyn
   await advance(page, /\/create\/style$/);
   await expect(page.locator(".cloud-svg")).toBeVisible();
   await advance(page, /\/create\/result$/);
-  expect(await page.getByRole("button", { name: "beta" }).count()).toBe(0);
+  await expect(page.getByRole("button", { name: "beta" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "gamma" })).toBeVisible();
 
   const shareUrl = page.getByLabel("V URL");

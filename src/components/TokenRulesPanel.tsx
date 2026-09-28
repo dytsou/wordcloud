@@ -5,9 +5,9 @@ import { useI18n } from "../i18n";
 import { TagInput } from "./TagInput";
 
 interface TokenRulesPanelProps {
-  settings: TokenizerSettings;
-  disabled?: boolean;
-  onSettingsChange: (settings: TokenizerSettings) => void;
+  readonly settings: TokenizerSettings;
+  readonly disabled?: boolean;
+  readonly onSettingsChange: (settings: TokenizerSettings) => void;
 }
 
 const RULE_GROUPS = [
@@ -41,6 +41,17 @@ function nextRuleId(rules: TokenRule[]): string {
 function ruleDomId(rule: TokenRule, field: string): string {
   const safeId = rule.id.replace(/[^a-zA-Z0-9_-]/gu, "-");
   return `precision-${safeId}-${field}`;
+}
+
+function isIncompleteRule(rule: TokenRule): boolean {
+  switch (rule.kind) {
+    case "protected":
+      return !rule.phrase;
+    case "split":
+      return !rule.source || rule.terms.length === 0;
+    case "merge":
+      return !rule.source || !rule.term;
+  }
 }
 
 export function TokenRulesPanel({
@@ -307,13 +318,9 @@ export function TokenRulesPanel({
         })}
       </div>
 
-      {rules.some((rule) =>
-        rule.kind === "protected"
-          ? !rule.phrase
-          : rule.kind === "split"
-            ? !rule.source || rule.terms.length === 0
-            : !rule.source || !rule.term,
-      ) && <p className="warning-note">{t("unfinishedRules")}</p>}
+      {rules.some(isIncompleteRule) && (
+        <p className="warning-note">{t("unfinishedRules")}</p>
+      )}
     </section>
   );
 }

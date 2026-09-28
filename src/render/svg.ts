@@ -118,8 +118,8 @@ function appendSceneSvgChildren(
       "transform",
       `rotate(${numberAttribute(word.angle)} ${numberAttribute(centerX)} ${numberAttribute(centerY)})`,
     );
-    element.setAttribute("data-rank", String(word.rank));
-    element.setAttribute("data-count", String(word.count));
+    element.dataset.rank = String(word.rank);
+    element.dataset.count = String(word.count);
     element.textContent = word.term;
     wordsGroup.append(element);
   }
@@ -140,7 +140,7 @@ export function createSceneSvgElement(
 ): SVGSVGElement {
   assertRenderableScene(scene);
   if (typeof document === "undefined") {
-    throw new Error("SVG DOM export requires a browser document.");
+    throw new TypeError("SVG DOM export requires a browser document.");
   }
   const title = safeOption(options.title, DEFAULT_TITLE);
   const description = safeOption(

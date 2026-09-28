@@ -7,7 +7,7 @@ export interface AccessibleWord {
   rank: number;
   locale: string;
   status: SceneWord["status"];
-  reason?: SceneWord["reason"];
+  reason?: NonNullable<SceneWord["reason"]>;
 }
 
 export function getAccessibleWords(scene: SceneModel): AccessibleWord[] {

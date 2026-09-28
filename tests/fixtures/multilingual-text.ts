@@ -15,7 +15,7 @@ function letters(value: number): string {
   let remainder = value;
   let result = "";
   do {
-    result = String.fromCharCode(97 + (remainder % 26)) + result;
+    result = String.fromCodePoint(97 + (remainder % 26)) + result;
     remainder = Math.floor(remainder / 26) - 1;
   } while (remainder >= 0);
   return result;

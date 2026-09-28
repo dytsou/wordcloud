@@ -226,9 +226,9 @@ const I18nContext = createContext<I18nContextValue>({
 });
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<UiLocale>(detectUiLocale);
-  const setLocale = useCallback((next: UiLocale) => {
-    setLocaleState(next);
+  const [locale, setLocale] = useState<UiLocale>(detectUiLocale);
+  const updateLocale = useCallback((next: UiLocale) => {
+    setLocale(next);
     try {
       browserStorage()?.setItem(UI_LOCALE_STORAGE_KEY, next);
     } catch {
@@ -250,8 +250,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [locale, t]);
 
   const value = useMemo(
-    () => ({ locale, setLocale, t }),
-    [locale, setLocale, t],
+    () => ({ locale, setLocale: updateLocale, t }),
+    [locale, updateLocale, t],
   );
   return createElement(I18nContext.Provider, { value }, children);
 }

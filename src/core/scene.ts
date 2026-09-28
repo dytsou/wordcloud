@@ -31,7 +31,7 @@ export interface SceneModel {
   fontMetricsFingerprint: string;
   seed: string;
   layoutStatus: "complete" | "budget-limited" | "cancelled";
-  shape?: LayoutStyle["shape"];
+  shape?: NonNullable<LayoutStyle["shape"]>;
   words: SceneWord[];
 }
 
