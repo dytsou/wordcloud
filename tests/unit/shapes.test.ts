@@ -78,7 +78,7 @@ describe("built-in shape catalog", () => {
       );
 
       expect(first.rows).toEqual(second.rows);
-      expect(first.rows.length).toBe(220);
+      expect(first.rows).toHaveLength(220);
       expect(first.rows.some((spans) => spans.length > 0)).toBe(true);
       for (const spans of first.rows) {
         let previousEnd = 0;

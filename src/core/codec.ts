@@ -37,10 +37,11 @@ function bytesToBase64Url(bytes: Uint8Array): string {
   for (let index = 0; index < bytes.length; index += chunkSize) {
     binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
   }
-  return btoa(binary)
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/u, "");
+  const encoded = btoa(binary);
+  const paddingIndex = encoded.indexOf("=");
+  const unpadded =
+    paddingIndex === -1 ? encoded : encoded.slice(0, paddingIndex);
+  return unpadded.replaceAll("+", "-").replaceAll("/", "_");
 }
 
 function base64UrlToBytes(payload: string): Uint8Array {
@@ -52,7 +53,10 @@ function base64UrlToBytes(payload: string): Uint8Array {
     "=".repeat((4 - (payload.length % 4)) % 4);
   try {
     const binary = atob(padded);
-    return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    return Uint8Array.from(
+      binary,
+      (character) => character.codePointAt(0) ?? 0,
+    );
   } catch {
     throw new CodecError("BASE64", "V payload 的 Base64 編碼無法解析。");
   }

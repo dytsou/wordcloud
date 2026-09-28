@@ -28,7 +28,7 @@ function stringifyValue(value: unknown, stack: Set<object>): string {
   } else {
     const object = value as Record<string, unknown>;
     const entries = Object.keys(object)
-      .sort()
+      .sort((left, right) => left.localeCompare(right, "en-US"))
       .map(
         (key) => `${JSON.stringify(key)}:${stringifyValue(object[key], stack)}`,
       );
@@ -102,9 +102,9 @@ class StrictJsonParser {
   }
 
   private parseNumber(): number {
-    const match = this.input
-      .slice(this.index)
-      .match(/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/);
+    const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/u.exec(
+      this.input.slice(this.index),
+    );
     if (!match) this.fail("invalid value");
     this.index += match[0].length;
     const value = Number(match[0]);

@@ -33,5 +33,5 @@ export function hasLetterOrNumber(value: string): boolean {
 }
 
 export function isNumberOnly(value: string): boolean {
-  return /^[\p{N}]+$/u.test(value);
+  return /^\p{N}+$/u.test(value);
 }
