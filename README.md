@@ -45,7 +45,7 @@ The language menu in the header changes the editor labels. Choose the text's ana
 
 Text entered in the editor is analyzed and laid out in your browser. The app keeps the latest source draft in this browser's local storage to restore it after a refresh. Starting a new cloud clears that cached draft.
 
-A V link contains the processed words, their counts and ranks, and the cloud's appearance and layout. It does not contain your original text or editable token rules. Anyone with the link can see the resulting words and counts, so share it only when that word list is okay to disclose. A `.wc` snapshot contains the same processed cloud data; use it when a link is too long or when you want a file to reopen later.
+V links contain the processed words, their counts and ranks, and the cloud's appearance and layout. It does not contain your original text or editable token rules. Anyone with the link can see the resulting words and counts, so share it only when that word list is okay to disclose. A `.wc` snapshot contains the same processed cloud data; use it when a link is too long or when you want a file to reopen later.
 
 ## Limits
 
