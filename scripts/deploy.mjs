@@ -304,20 +304,22 @@ function configureGithubSecrets(repository) {
 }
 
 function requireGithubSecrets(repository) {
-  const configured = capture("gh", [
-    "secret",
-    "list",
-    "--repo",
-    repository,
-    "--json",
-    "name",
-    "--jq",
-    ".[].name",
-  ])
-    .split("\n")
-    .filter(Boolean);
+  const configured = new Set(
+    capture("gh", [
+      "secret",
+      "list",
+      "--repo",
+      repository,
+      "--json",
+      "name",
+      "--jq",
+      ".[].name",
+    ])
+      .split("\n")
+      .filter(Boolean),
+  );
   const missing = CLOUDFLARE_SECRET_NAMES.filter(
-    (secretName) => !configured.includes(secretName),
+    (secretName) => !configured.has(secretName),
   );
   if (missing.length > 0) {
     throw new Error(
@@ -492,7 +494,9 @@ async function main() {
   );
 }
 
-main().catch((error) => {
+try {
+  await main();
+} catch (error) {
   console.error("\nDeployment stopped: " + error.message);
   process.exitCode = 1;
-});
+}
