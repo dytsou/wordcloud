@@ -1,99 +1,59 @@
-# Wordcloud Studio
+<p align="center">
+  <img src="public/favicon.svg" alt="wordcloud.download icon" width="88" />
+</p>
 
-Wordcloud Studio is a local-first word-cloud generator for individual creators. Paste multilingual text, preview the tokenizer output, tune the visual treatment, and share a reproducible V link without uploading the source text.
+<h1 align="center">wordcloud.download</h1>
 
-## Privacy and data flow
+<p align="center">
+  <a href="https://github.com/dytsou/wordcloud/actions/workflows/ci.yml">
+    <img alt="CI status" src="https://github.com/dytsou/wordcloud/actions/workflows/ci.yml/badge.svg?branch=main" />
+  </a>
+  <a href="https://pnpm.io/">
+    <img alt="pnpm 11.25.0" src="https://img.shields.io/badge/pnpm-11.25.0-F69220?logo=pnpm&amp;logoColor=fff" />
+  </a>
+  <a href="https://www.typescriptlang.org/">
+    <img alt="TypeScript 6.0.3" src="https://img.shields.io/badge/TypeScript-6.0.3-3178C6?logo=typescript&amp;logoColor=white" />
+  </a>
+  <a href="https://developers.cloudflare.com/workers/">
+    <img alt="Cloudflare Workers" src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&amp;logoColor=white" />
+  </a>
+</p>
 
-For the editor workflow, source analysis, counting, font measurement, layout, rendering, and export happen in the browser. The Cloudflare Worker serves the static application and exposes a stateless MCP endpoint. Its V-only tools handle already-derived data, while the opt-in source generator analyzes a bounded `sourceText` request in memory and returns an SVG plus a V fragment. The Worker does not persist or log source text and has no database, KV, R2, analytics, or application telemetry path. The browser layout engine uses a Web Worker when available and falls back to the same bounded core algorithm if it cannot start.
+wordcloud.download is a local-first word-cloud generator for individual creators. Paste multilingual text, preview the tokenizer output, tune the visual treatment, and share a reproducible V link without uploading the source text.
 
-The V link uses the fixed fragment format `#wc-pako:v1:<payload>`:
+Turn text into a multilingual word cloud. Paste your text, choose which words to include, shape the design, then download it or share a link. The editor analyzes your text in your browser.
 
-1. Snapshot data is canonical JSON with sorted object keys.
-2. Pako DEFLATE level 9 compresses the JSON with a zlib wrapper.
-3. The bytes become unpadded URL-safe Base64 (`+` → `-`, `/` → `_`).
+## Quick Start
 
-A V contains normalized terms, counts, ranks, style, and derived placements. It never contains the raw source or editable tokenizer rule bodies, and it is not a secret-bearing link. A loaded V remains style-remixable and can produce another V. The `.wc` download is the larger local fallback when a URL would exceed the safe share limit.
-
-The latest source draft is kept in this browser's versioned `localStorage` cache so a refresh does not erase pasted text. It never leaves the device; clearing the source or starting a new cloud removes the cached draft. Browser storage can be cleared separately through the browser's site-data controls.
-
-## MCP interface
-
-The Worker exposes an authless, stateless Streamable HTTP MCP endpoint at `/mcp`:
-
-- `wordcloud-inspect` returns metadata, ranked counts, and layout status from an existing V URL or `#wc-pako:v1:` fragment.
-- `wordcloud-render-svg` returns SVG text for the validated scene in an existing V URL or fragment.
-- `wordcloud-generate-from-text` accepts bounded `sourceText`, locale and tokenizer options (including stop words, dictionary, custom rules, and case handling), then returns SVG text, a reproducible V fragment, and derived summary data.
-
-The inspect and render tools accept only the V representation; they do not fetch remote URLs. The generator is the explicit exception: `sourceText` is sent to the Worker for this request, is not written into the V fragment, and is not returned as a separate field. The SVG, summary, and V-derived records necessarily contain the resulting terms. Because the endpoint is public, do not use it for sensitive word lists until an authentication layer is added.
-
-The machine-readable HTTP and JSON-RPC contract is available in [`openapi.yaml`](openapi.yaml), including request examples, tool input schemas, response schemas, limits, and error behavior.
-
-## Tokenization and ranking
-
-The interface includes English, Traditional and Simplified Chinese, Japanese, Korean, Spanish, French, German, Portuguese, Thai, Vietnamese, Indonesian, Italian, Russian, Arabic, Hindi, and more. The UI language follows the browser on first visit and can be changed from the top-right selector. The initial tokenizer locale is independently selected from the browser's preferred languages; changing the interface language does not silently change the tokenizer locale. A manually selected tokenizer locale remains in the current editor state, while a loaded V keeps the locale encoded in its derived word set.
-
-The selected locale is the default lane for `Intl.Segmenter`; mixed scripts are routed to fixed English, Traditional/Simplified Han, Japanese, or Thai lanes where script detection is unambiguous. The editor exposes a broad runtime-filtered locale catalog, including `en`, `zh-Hant`, `zh-Hans`, `ja`, `ko`, `th`, `vi`, `id`, `ms`, `fr`, `de`, `es`, `it`, `pt`, `ru`, `uk`, `pl`, `nl`, `tr`, `ar`, `he`, `hi`, `bn`, `fa`, `ur`, `sv`, `da`, `nb`, `fi`, `no`, `cs`, `sk`, `ro`, `bg`, `el`, `hu`, `ca`, `hr`, `sl`, `sr`, `et`, `lv`, `lt`, and `sw` when the browser's ICU data supports them. Users can normalize case, keep numbers/symbols, add stop words, protect a dictionary phrase, split a literal into terms, or merge a literal sequence into one term. Rules are validated for length, conflicts, cycles, and count before analysis.
-
-The word size is a visual mapping of frequency, not a second count. By default it uses a linear scale between the configured minimum and maximum font sizes; square-root and logarithmic mappings are also available. Ranking is deterministic: count descending, first occurrence ascending, then normalized Unicode scalar order. Ranks are one-based and preserved in the table, SceneModel, SVG metadata, PNG render plan, and V snapshot.
-
-Placement processes words from highest to lowest frequency. Prominent words stay horizontal; smaller words try horizontal positions first, then the configured tilt angles inside the current search ring before moving outward. Browser-rasterized glyph masks let small words occupy empty spaces inside and between large glyphs, rather than reserving their entire rectangles. The spacing control ranges from `-12px` to `24px`: non-negative values protect painted strokes; negative values erode collision masks and deliberately permit overlap (thin strokes can lose their exclusion area entirely).
-
-## Safety limits
-
-The application rejects or bounds work at the following product limits:
-
-- 1 MiB UTF-8 source; 200,000 candidate tokens; 500 unique terms.
-- MCP source generation is capped at 32 KiB UTF-8 and 100 unique terms; the Worker rejects MCP request bodies above 64 KiB.
-- 100 custom rules; 128 Unicode scalars per literal term.
-- 8 KiB encoded URL fragment; 12 KiB complete share URL; 512 KiB `.wc` file.
-- 256 KiB inflated JSON; 64× inflate ratio; 4,096 px canvas dimension; 16 MP export.
-- 100,000 layout probes and an 8-second layout safety budget.
-
-Unplaceable terms are retained in the ranked table with a reason. SVG and PNG use the same validated SceneModel as the live preview; SVG writes terms as text nodes/escaped text and permits no scripts, event attributes, external URLs, `foreignObject`, or arbitrary CSS.
-
-## Local development and deployment
-
-The intended package/script entry point is the [pnpm package manager](https://pnpm.io/) (pinned to pnpm 11), with the committed `pnpm-lock.yaml`:
+With Node.js and pnpm 11 installed, start the editor locally:
 
 ```sh
 pnpm install
 pnpm run dev
-pnpm run test
-pnpm run test:browser
-pnpm run build
-pnpm run api:lint
-pnpm run api:build
-pnpm run wrangler:dry-run
-pnpm run deploy
 ```
 
-`pnpm run api:lint` validates the OpenAPI 3.1 contract, and `pnpm run api:build` bundles it into one `dist/client/api/openapi.yaml` file and generates a self-hosted Swagger UI at `dist/client/api/index.html`. CI runs both steps after the application checks pass; the post-CI deployment then publishes them with the existing Worker Static Assets deployment. After deployment, open `https://<worker-origin>/api/` for the online API reference or `https://<worker-origin>/api/openapi.yaml` for the compiled contract.
+Open the local address printed by Vite, then follow the four editor steps:
 
-Cloudflare Static Assets serves `dist` through the `ASSETS` binding and uses SPA fallback for direct application paths; `/mcp` is handled by the custom Worker. Configure Wrangler authentication before `pnpm run deploy`; the app does not require storage bindings or secrets. The runtime capability gates are `Intl.Segmenter`, Canvas 2D, Web Worker, font readiness, SVG, Blob, and clipboard. Unsupported analysis capabilities produce an actionable local error; a valid V can still be opened when source analysis is unavailable.
+1. **Add your text.** Paste or type text on the Source step. Your latest draft stays in this browser so you can refresh without losing it.
+2. **Review the words.** On the Words step, choose the language used to split text and check the preview. You can ignore letter case, include numbers or symbols, remove common words, keep a phrase together, or split and merge terms.
+3. **Style the cloud.** Choose a built-in shape or no shape, then adjust the font, colors, word sizes, rotation, spacing, and canvas. Larger words represent terms that occur more often.
+4. **Download or share.** Download a PNG for an image or an SVG for a scalable graphic. Create a V link to share or remix the design. You can also save or open a `.wc` snapshot file.
 
-### One-command deployment helper
+The language menu in the header changes the editor labels. Choose the text's analysis language separately on the Words step.
 
-For a complete local release check and deployment, authenticate GitHub once and run:
+## Text, links, and privacy
 
-```sh
-gh auth login
-pnpm run deploy:release
-```
+Text entered in the editor is analyzed and laid out in your browser. The app keeps the latest source draft in this browser's local storage to restore it after a refresh. Starting a new cloud clears that cached draft.
 
-The helper asks for `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` when they are not already set, hides the API token while typing, installs the frozen lockfile, builds the application and API docs, runs Wrangler's dry run, and then deploys the current checkout with `wrangler deploy`. It also checks that the GitHub repository and both CLIs are available.
+A V link contains the processed words, their counts and ranks, and the cloud's appearance and layout. It does not contain your original text or editable token rules. Anyone with the link can see the resulting words and counts, so share it only when that word list is okay to disclose. A `.wc` snapshot contains the same processed cloud data; use it when a link is too long or when you want a file to reopen later.
 
-To deploy through the committed GitHub Actions workflow instead, the working tree must be clean on `main`:
+## Limits
 
-```sh
-pnpm run deploy:github
-```
+The editor accepts up to 1 MiB of text and 500 unique terms. Some terms may not fit the selected layout; they remain in the ranked word list with a reason.
 
-The GitHub workflow requires repository secrets named `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. The helper asks for missing values in a local interactive terminal; the API token is hidden while typing and is passed to `gh secret set` through stdin:
+## For developers
 
-```sh
-pnpm run deploy:release -- --github --configure-github
-```
-
-For non-interactive runs, set both environment variables before invoking the helper. The local deployment mode uses the same prompt when either variable is missing.
-
-The `--github` mode dispatches `.github/workflows/deploy.yml` on `main` and waits for its result. The local mode is useful for deploying uncommitted work; the GitHub mode is the audited path for a committed revision.
+- [Contributing guide](CONTRIBUTING.md)
+- [MCP and automation](docs/mcp.md)
+- [Local development and deployment](docs/development.md)
+- [OpenAPI contract](openapi.yaml)
