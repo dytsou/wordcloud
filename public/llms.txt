@@ -1,0 +1,42 @@
+# Wordcloud
+
+> A browser-based wordcloud editor and an unauthenticated MCP service for generating, inspecting, and rendering wordclouds.
+
+## Product
+
+Use the editor to turn text into a wordcloud, adjust its appearance, and share a reproducible V link. See the [English product guide](https://wordcloud.download/about/) or [Traditional Chinese product guide](https://wordcloud.download/zh-Hant/about/).
+
+The editor processes source text in the browser and keeps its draft in browser storage. MCP generation sends `sourceText` to the Worker for in-memory processing. The application does not intentionally persist or log raw source text, but Cloudflare or other platform telemetry or retention may still apply. Returned SVG and V data contain derived terms. The MCP endpoint has no authentication; do not send sensitive source text or word lists.
+
+## MCP service
+
+- Endpoint: `https://wordcloud.download/mcp`
+- Transport: stateless Streamable HTTP; no authentication.
+- Full setup, schemas, examples, and errors: [MCP documentation](https://github.com/dytsou/wordcloud/blob/main/docs/mcp.md), [API reference](https://wordcloud.download/api/), and [OpenAPI contract](https://wordcloud.download/api/openapi.yaml).
+
+### `wordcloud-generate-from-text`
+
+- Input: required `sourceText` (up to 32 KiB UTF-8); optional locale, case handling, stop words, dictionary, token rules, number and symbol policies, style, title, and description.
+- Output: SVG, reproducible V fragment, and summary data.
+- Limits: at most 100 unique terms; the Worker rejects request bodies larger than 64 KiB.
+- Data: source text is sent to the Worker and processed in memory. The application does not intentionally persist or log it; platform telemetry or retention may still apply.
+
+### `wordcloud-inspect`
+
+- Input: required existing V URL or `#wc-pako:v1` fragment; optional `limit` from 1 to 100.
+- Output: snapshot metadata, ranked word counts, layout status, and top words.
+- Source text is not accepted; the tool does not fetch remote URLs.
+
+### `wordcloud-render-svg`
+
+- Input: required existing V URL or `#wc-pako:v1` fragment; optional SVG title and description.
+- Output: SVG text for the validated saved scene.
+- Source text is not accepted; the tool does not fetch remote URLs.
+
+## References
+
+- [Product guide](https://wordcloud.download/about/)
+- [Traditional Chinese product guide](https://wordcloud.download/zh-Hant/about/)
+- [MCP documentation](https://github.com/dytsou/wordcloud/blob/main/docs/mcp.md)
+- [API reference](https://wordcloud.download/api/)
+- [OpenAPI contract](https://wordcloud.download/api/openapi.yaml)
