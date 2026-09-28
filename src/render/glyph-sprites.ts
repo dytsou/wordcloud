@@ -146,7 +146,7 @@ export async function createGlyphSprites(
   );
   let totalPixels = 0;
   for (const [index, word] of wordSet.words.entries()) {
-    if (shouldCancel()) throw new Error("排版已取消");
+    if (shouldCancel()) throw new Error("Layout was cancelled.");
     const fontSize = mapFrequency(
       word.count,
       minimum,
