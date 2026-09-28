@@ -423,7 +423,6 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
             type="button"
             aria-label={t("moveIndexHint")}
             title={t("moveIndexHint")}
-            aria-description={t("moveIndexHint")}
             onPointerDown={handleMovePointerDown}
             onPointerMove={handleMovePointerMove}
             onPointerUp={handleMovePointerEnd}
@@ -526,7 +525,6 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
               data-resize-edge={edge}
               role={isCorner ? undefined : "separator"}
               aria-label={t("resizeIndexHint")}
-              aria-description={t("resizeIndexHint")}
               aria-orientation={
                 isCorner ? undefined : isHorizontal ? "vertical" : "horizontal"
               }
