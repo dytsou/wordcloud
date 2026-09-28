@@ -19,7 +19,7 @@
     "format": "prettier --write 'src/**/*.{ts,tsx,css}' 'tests/**/*.{ts,tsx}' 'scripts/**/*.mjs' '*.json' 'openapi.yaml' 'redocly.yaml' '*.ts' '.github/workflows/*.yml' 'eslint.config.js' 'index.html'",
     "format:check": "prettier --check 'src/**/*.{ts,tsx,css}' 'tests/**/*.{ts,tsx}' 'scripts/**/*.mjs' '*.json' 'openapi.yaml' 'redocly.yaml' '*.ts' '.github/workflows/*.yml' 'eslint.config.js' 'index.html'",
     "test": "vitest run",
-    "test:ci": "vitest run --maxWorkers=1 --minWorkers=1",
+    "test:ci": "vitest run --maxWorkers=1",
     "test:watch": "vitest",
     "test:browser": "playwright test",
     "test:integration": "vitest run tests/integration",
@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.1.0",
+    "fflate": "0.8.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "zod": "4.6.5"

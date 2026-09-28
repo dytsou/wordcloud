@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { deflate } from "pako";
+import { deflateSync } from "node:zlib";
+import { zlibSync } from "fflate";
 import {
   decodeJsonFragment,
   encodeJsonFragment,
@@ -7,7 +8,7 @@ import {
 } from "../../src/core/codec";
 import { LIMITS } from "../../src/core/limits";
 
-describe("wc-pako codec", () => {
+describe("snapshot codec", () => {
   it("round-trips canonical JSON using the fixed prefix and URL-safe Base64", () => {
     const encoded = encodeJsonFragment({ z: "最後", a: [1, true] });
 
@@ -17,6 +18,24 @@ describe("wc-pako codec", () => {
       a: [1, true],
       z: "最後",
     });
+  });
+
+  it("reads existing zlib fragments and rejects a damaged checksum", () => {
+    const json = new TextEncoder().encode('{"a":[1,true],"z":"最後"}');
+    const legacyCompressed = deflateSync(json);
+    const legacyFragment = `${SNAPSHOT_PREFIX}${legacyCompressed.toString("base64url")}`;
+    expect(decodeJsonFragment(legacyFragment)).toEqual({
+      a: [1, true],
+      z: "最後",
+    });
+
+    const damagedCompressed = zlibSync(json).slice();
+    damagedCompressed[damagedCompressed.byteLength - 1] =
+      damagedCompressed[damagedCompressed.byteLength - 1]! ^ 1;
+    const damagedFragment = `${SNAPSHOT_PREFIX}${Buffer.from(damagedCompressed).toString("base64url")}`;
+    expect(() => decodeJsonFragment(damagedFragment)).toThrow(
+      /checksum|inflate/i,
+    );
   });
 
   it("rejects malformed, noncanonical, and oversized payloads", () => {
@@ -36,7 +55,7 @@ describe("wc-pako codec", () => {
 
   it("terminates decompression when the inflated bytes or ratio exceed the cap", () => {
     const json = JSON.stringify("x".repeat(LIMITS.maxInflatedJsonBytes + 1));
-    const compressed = deflate(new TextEncoder().encode(json), { level: 9 });
+    const compressed = zlibSync(new TextEncoder().encode(json), { level: 9 });
     const bytes = Buffer.from(compressed).toString("base64url");
     expect(() => decodeJsonFragment(`${SNAPSHOT_PREFIX}${bytes}`)).toThrow(
       /inflate|decompress|大小|ratio/i,

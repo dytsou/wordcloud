@@ -1,4 +1,4 @@
-import { deflate, Inflate } from "pako";
+import { Unzlib, zlibSync } from "fflate";
 import { canonicalStringify, parseStrictJson } from "./canonical-json";
 import { LIMITS, utf8ByteLength } from "./limits";
 
@@ -58,6 +58,22 @@ function base64UrlToBytes(payload: string): Uint8Array {
   }
 }
 
+function adler32(bytes: Uint8Array): number {
+  const modulus = 65_521;
+  let a = 1;
+  let b = 0;
+  for (let offset = 0; offset < bytes.byteLength; offset += 5_552) {
+    const end = Math.min(offset + 5_552, bytes.byteLength);
+    for (let index = offset; index < end; index += 1) {
+      a += bytes[index]!;
+      b += a;
+    }
+    a %= modulus;
+    b %= modulus;
+  }
+  return ((b << 16) | a) >>> 0;
+}
+
 function inflateBounded(compressed: Uint8Array): Uint8Array {
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -65,11 +81,8 @@ function inflateBounded(compressed: Uint8Array): Uint8Array {
     compressed.byteLength * LIMITS.maxInflateRatio,
     1,
   );
-  const inflater = new Inflate({ chunkSize: 16 * 1024 });
-  inflater.onData = (chunk) => {
-    if (typeof chunk === "string") {
-      throw new CodecError("INFLATE_LIMIT", "解壓縮結果不是二進位資料。");
-    }
+  const inflater = new Unzlib();
+  inflater.ondata = (chunk) => {
     total += chunk.byteLength;
     if (total > LIMITS.maxInflatedJsonBytes || total > ratioLimit) {
       throw new CodecError(
@@ -80,10 +93,19 @@ function inflateBounded(compressed: Uint8Array): Uint8Array {
     chunks.push(chunk);
   };
   try {
-    const ok = inflater.push(compressed, true);
-    if (!ok || inflater.err !== 0) {
-      throw new CodecError("INFLATE_LIMIT", "V payload inflate/解壓縮失敗。");
+    const compressedChunkSize = 256;
+    for (
+      let offset = 0;
+      offset < compressed.byteLength;
+      offset += compressedChunkSize
+    ) {
+      const end = Math.min(offset + compressedChunkSize, compressed.byteLength);
+      inflater.push(
+        compressed.subarray(offset, end),
+        end === compressed.byteLength,
+      );
     }
+    if (compressed.byteLength === 0) inflater.push(compressed, true);
   } catch (error) {
     if (error instanceof CodecError) throw error;
     throw new CodecError("INFLATE_LIMIT", "V payload inflate/解壓縮失敗。");
@@ -94,6 +116,19 @@ function inflateBounded(compressed: Uint8Array): Uint8Array {
     result.set(chunk, offset);
     offset += chunk.byteLength;
   }
+  const trailerOffset = compressed.byteLength - 4;
+  const expectedChecksum =
+    ((compressed[trailerOffset]! << 24) |
+      (compressed[trailerOffset + 1]! << 16) |
+      (compressed[trailerOffset + 2]! << 8) |
+      compressed[trailerOffset + 3]!) >>>
+    0;
+  if (adler32(result) !== expectedChecksum) {
+    throw new CodecError(
+      "INFLATE_LIMIT",
+      "V payload inflate/解壓縮 checksum 不符。",
+    );
+  }
   return result;
 }
 
@@ -103,7 +138,7 @@ function encodeJson(
 ): EncodedJsonFragment {
   const json = canonicalStringify(value);
   const jsonBytes = new TextEncoder().encode(json);
-  const compressed = deflate(jsonBytes, { level: 9 });
+  const compressed = zlibSync(jsonBytes, { level: 9 });
   const fragment = `${SNAPSHOT_PREFIX}${bytesToBase64Url(compressed)}`;
   if (utf8ByteLength(fragment) > maxEncodedBytes) {
     throw new CodecError(

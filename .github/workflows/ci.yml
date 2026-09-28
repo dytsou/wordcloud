@@ -37,6 +37,9 @@ jobs:
       - name: Run linter
         run: pnpm run lint
 
+      - name: Prepare Cloudflare type output directory
+        run: mkdir -p .wrangler
+
       - name: Generate Cloudflare types
         run: pnpm run cf-typegen
 

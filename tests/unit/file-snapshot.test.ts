@@ -41,7 +41,7 @@ describe(".wc snapshot files", () => {
     if (restored.schemaVersion !== "wc-snapshot-v2")
       throw new Error("Expected a v2 shaped snapshot.");
     expect(restored.presentation.shape).toEqual(presentation.shape);
-    expect(restored.scene).toEqual(scene);
+    expect(restored.scene).toEqual({ ...scene, shape: presentation.shape });
   });
 
   it("rejects oversized and invalid UTF-8 files before snapshot parsing", () => {

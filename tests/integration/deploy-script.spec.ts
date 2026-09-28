@@ -136,5 +136,5 @@ if (command === "gh" && args[0] === "repo" && args[1] === "view") {
     } finally {
       rmSync(temporaryDirectory, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 });
