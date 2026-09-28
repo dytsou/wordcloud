@@ -8,7 +8,7 @@ export const MAX_MCP_REQUEST_BYTES = 64 * 1024;
 const mcpHandler = createMcpHandler(() => createWordcloudMcpServer(), {
   legacy: "stateless",
   onerror: () => {
-    // Observability is enabled in Wrangler, but request data must not be logged.
+    // Application error logs must exclude request data; platform telemetry may apply.
     console.error("Wordcloud MCP request failed.");
   },
 });
@@ -27,6 +27,20 @@ function withCors(response: Response): Response {
     statusText: response.statusText,
     headers,
   });
+}
+
+function withNoIndex(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set("X-Robots-Tag", "noindex");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+function isAtOrBelowPath(pathname: string, path: string): boolean {
+  return pathname === path || pathname.startsWith(`${path}/`);
 }
 
 function tooLargeResponse(): Response {
@@ -110,8 +124,15 @@ async function handleMcpRequest(request: Request): Promise<Response> {
 const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname !== MCP_PATH) return env.ASSETS.fetch(request);
-    return handleMcpRequest(request);
+    if (url.pathname === MCP_PATH) {
+      return withNoIndex(await handleMcpRequest(request));
+    }
+
+    const response = await env.ASSETS.fetch(request);
+    const isNoIndexRoute = [MCP_PATH, "/view", "/create"].some((path) =>
+      isAtOrBelowPath(url.pathname, path),
+    );
+    return isNoIndexRoute ? withNoIndex(response) : response;
   },
 };
 
