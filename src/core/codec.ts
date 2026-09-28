@@ -19,8 +19,9 @@ export class CodecError extends Error {
   public constructor(
     public readonly code: CodecErrorCode,
     message: string,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
     this.name = "CodecError";
   }
 }
@@ -112,7 +113,10 @@ function inflateBounded(compressed: Uint8Array): Uint8Array {
     if (compressed.byteLength === 0) inflater.push(compressed, true);
   } catch (error) {
     if (error instanceof CodecError) throw error;
-    throw new CodecError("INFLATE_LIMIT", "V payload inflate/解壓縮失敗。");
+    // biome-ignore lint/style/useErrorCause: CodecError forwards ErrorOptions to Error.
+    throw new CodecError("INFLATE_LIMIT", "V payload inflate/解壓縮失敗。", {
+      cause: error,
+    });
   }
   const result = new Uint8Array(total);
   let offset = 0;
@@ -191,9 +195,11 @@ export function decodeJsonFragment(
   try {
     value = parseStrictJson(json);
   } catch (error) {
+    // biome-ignore lint/style/useErrorCause: CodecError forwards ErrorOptions to Error.
     throw new CodecError(
       "JSON",
       error instanceof Error ? error.message : "V payload JSON 無效。",
+      { cause: error },
     );
   }
   if (canonicalStringify(value) !== json) {

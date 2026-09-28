@@ -33,7 +33,7 @@ function safeOption(value: string | undefined, fallback: string): string {
   // The control-character range is intentional for serialized SVG metadata.
   if (
     chosen.length === 0 ||
-    // eslint-disable-next-line no-control-regex
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: The regex intentionally rejects control characters.
     /[\u0000-\u001F\u007F]/u.test(chosen)
   ) {
     throw new Error("SVG title and description must be safe text.");

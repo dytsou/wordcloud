@@ -41,8 +41,10 @@ class ErrorWorker {
   onerror: ((event: ErrorEvent) => void) | null = null;
   onmessageerror: ((event: MessageEvent) => void) | null = null;
 
+  // biome-ignore lint/suspicious/noEmptyBlockStatements: This worker stub has no event listeners.
   addEventListener() {}
 
+  // biome-ignore lint/suspicious/noEmptyBlockStatements: This worker stub has no event listeners.
   removeEventListener() {}
 
   postMessage(request: EngineRequest) {
