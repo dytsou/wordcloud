@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="在瀏覽器中製作文字雲：分析文字、編輯最多 500 個詞語、調整版面，並分享不含原文的快照。"
+    />
+    <meta name="application-name" content="wordcloud.download" />
+    <meta property="og:site_name" content="wordcloud.download" />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:title"
+      content="在瀏覽器中製作文字雲 | wordcloud.download"
+    />
+    <meta
+      property="og:description"
+      content="在瀏覽器中製作文字雲：分析文字、編輯最多 500 個詞語、調整版面，並分享不含原文的快照。"
+    />
+    <meta
+      property="og:url"
+      content="https://wordcloud.download/zh-Hant/about/"
+    />
+    <meta property="og:locale" content="zh_TW" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta name="twitter:card" content="summary" />
+    <meta
+      name="twitter:title"
+      content="在瀏覽器中製作文字雲 | wordcloud.download"
+    />
+    <meta
+      name="twitter:description"
+      content="在瀏覽器中製作文字雲：分析文字、編輯最多 500 個詞語、調整版面，並分享不含原文的快照。"
+    />
+    <link rel="canonical" href="https://wordcloud.download/zh-Hant/about/" />
+    <link
+      rel="alternate"
+      hreflang="en"
+      href="https://wordcloud.download/about/"
+    />
+    <link
+      rel="alternate"
+      hreflang="zh-Hant"
+      href="https://wordcloud.download/zh-Hant/about/"
+    />
+    <link
+      rel="alternate"
+      hreflang="x-default"
+      href="https://wordcloud.download/about/"
+    />
+    <link rel="stylesheet" href="/discovery.css" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>在瀏覽器中製作文字雲 | wordcloud.download</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">跳至主要內容</a>
+    <header class="site-header">
+      <div class="site-header__inner page-width">
+        <a class="brand" href="/" aria-label="wordcloud.download 首頁"
+          >wordcloud<span>.download</span></a
+        >
+        <nav class="primary-nav" aria-label="主要導覽">
+          <a href="/">開啟編輯器</a>
+          <a href="/llms.txt">代理程式索引</a>
+          <a href="https://github.com/dytsou/wordcloud/blob/main/docs/mcp.md"
+            >MCP 文件</a
+          >
+          <a class="language-link" href="/about/" lang="en" hreflang="en"
+            >English</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="hero page-width" aria-labelledby="page-title">
+        <div class="hero__copy">
+          <p class="eyebrow">為你的文字製作文字雲</p>
+          <h1 id="page-title">把文字轉成文字雲</h1>
+          <p class="hero__lead">
+            在瀏覽器中分析文字、調整詞語，再設計可以分享的文字雲。
+          </p>
+          <div class="hero__actions">
+            <a class="button button--primary" href="/">開啟編輯器</a>
+            <a class="button button--quiet" href="#how-it-works"
+              >了解製作方式</a
+            >
+          </div>
+        </div>
+        <div class="word-art" aria-hidden="true">
+          <span class="word-art__one">靈感</span>
+          <span class="word-art__two">文字</span>
+          <span class="word-art__three">故事</span>
+          <span class="word-art__four">分享</span>
+          <span class="word-art__five">創作</span>
+          <span class="word-art__six">想法</span>
+        </div>
+      </section>
+
+      <section
+        id="how-it-works"
+        class="content-section page-width"
+        aria-labelledby="how-title"
+      >
+        <div class="section-heading">
+          <p class="eyebrow">從文字到完成作品</p>
+          <h2 id="how-title">三個步驟製作文字雲</h2>
+        </div>
+        <ol class="steps-grid">
+          <li class="info-card">
+            <span class="step-number" aria-hidden="true">01</span>
+            <h3>加入文字</h3>
+            <p>
+              選擇語言並輸入最多 1 MiB
+              的文字。分析會在瀏覽器中進行，最新草稿會儲存在瀏覽器的
+              localStorage。
+            </p>
+          </li>
+          <li class="info-card">
+            <span class="step-number" aria-hidden="true">02</span>
+            <h3>檢視詞語</h3>
+            <p>
+              檢查分析出的詞語、調整詞頻，並選擇要放進設計的內容。編輯器最多支援
+              500 個不重複詞語。
+            </p>
+          </li>
+          <li class="info-card">
+            <span class="step-number" aria-hidden="true">03</span>
+            <h3>設計並分享</h3>
+            <p>
+              調整文字雲的版面與樣式，完成後可以匯出結果，或分享 V 快照連結。
+            </p>
+          </li>
+        </ol>
+      </section>
+
+      <section
+        class="content-section content-section--tinted"
+        aria-labelledby="data-title"
+      >
+        <div class="page-width">
+          <div class="section-heading section-heading--narrow">
+            <p class="eyebrow">了解不同功能如何處理資料</p>
+            <h2 id="data-title">你的文字與分享結果</h2>
+            <p>
+              瀏覽器編輯器與代理程式使用的 MCP
+              服務會以不同方式處理文字。請依照你處理的文字選擇合適的功能。
+            </p>
+          </div>
+          <div class="data-grid">
+            <article class="data-card">
+              <h3>瀏覽器編輯器</h3>
+              <p>
+                編輯器會在瀏覽器中分析原始文字，並將最新草稿儲存在瀏覽器的
+                localStorage。
+              </p>
+            </article>
+            <article class="data-card">
+              <h3>V 快照連結</h3>
+              <p>
+                V
+                連結包含衍生詞語、詞頻、排名與版面，不包含原始文字。任何取得連結的人都能
+                查看這些衍生資料。
+              </p>
+            </article>
+            <article class="data-card data-card--accent">
+              <h3>MCP 文字生成</h3>
+              <p>
+                另外提供不需驗證的 MCP 服務。其
+                <code>wordcloud-generate-from-text</code> 工具會接收
+                <code>sourceText</code>，並將原文傳送到 Worker。服務最多接受 32
+                KiB 原文，並回傳最多 100 個衍生詞語、SVG 與 V
+                資料。使用前，請先確認這段文字適合傳送至此服務。
+              </p>
+            </article>
+          </div>
+          <div class="agent-links">
+            <p>正在整合代理程式？請參閱任務索引與 MCP 工具文件。</p>
+            <a href="/llms.txt"
+              >閱讀代理程式索引 <span aria-hidden="true">→</span></a
+            >
+            <a href="https://github.com/dytsou/wordcloud/blob/main/docs/mcp.md"
+              >閱讀 MCP 文件 <span aria-hidden="true">→</span></a
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="site-footer__inner page-width">
+        <a class="brand" href="/">wordcloud<span>.download</span></a>
+        <p>用你的文字製作並分享文字雲。</p>
+      </div>
+    </footer>
+  </body>
+</html>

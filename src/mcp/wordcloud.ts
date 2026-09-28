@@ -508,7 +508,7 @@ export function createWordcloudMcpServer(): McpServer {
     {
       title: "Generate a wordcloud from source text",
       description:
-        "Analyze sourceText in memory and return SVG plus a reproducible V fragment. The source text is not persisted, logged, or included in the V fragment, but the rendered SVG necessarily contains the derived terms.",
+        "Send sourceText to the Worker for in-memory processing and return SVG, a reproducible V fragment, and summary data. The application does not intentionally persist or log the source text; Cloudflare or other platform telemetry or retention may still apply. The returned SVG and V fragment contain derived terms.",
       inputSchema: generateInputSchema,
     },
     async (input: ParsedGenerateInput) => {

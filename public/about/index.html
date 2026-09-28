@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Create a word cloud in your browser: analyze text, edit up to 500 terms, shape the layout, and share a snapshot without the original text."
+    />
+    <meta name="application-name" content="wordcloud.download" />
+    <meta property="og:site_name" content="wordcloud.download" />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:title"
+      content="Create a Word Cloud in Your Browser | wordcloud.download"
+    />
+    <meta
+      property="og:description"
+      content="Create a word cloud in your browser: analyze text, edit up to 500 terms, shape the layout, and share a snapshot without the original text."
+    />
+    <meta property="og:url" content="https://wordcloud.download/about/" />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary" />
+    <meta
+      name="twitter:title"
+      content="Create a Word Cloud in Your Browser | wordcloud.download"
+    />
+    <meta
+      name="twitter:description"
+      content="Create a word cloud in your browser: analyze text, edit up to 500 terms, shape the layout, and share a snapshot without the original text."
+    />
+    <link rel="canonical" href="https://wordcloud.download/about/" />
+    <link
+      rel="alternate"
+      hreflang="en"
+      href="https://wordcloud.download/about/"
+    />
+    <link
+      rel="alternate"
+      hreflang="zh-Hant"
+      href="https://wordcloud.download/zh-Hant/about/"
+    />
+    <link
+      rel="alternate"
+      hreflang="x-default"
+      href="https://wordcloud.download/about/"
+    />
+    <link rel="stylesheet" href="/discovery.css" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Create a Word Cloud in Your Browser | wordcloud.download</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <div class="site-header__inner page-width">
+        <a class="brand" href="/" aria-label="wordcloud.download home"
+          >wordcloud<span>.download</span></a
+        >
+        <nav class="primary-nav" aria-label="Main navigation">
+          <a href="/">Open editor</a>
+          <a href="/llms.txt">Agent index</a>
+          <a href="https://github.com/dytsou/wordcloud/blob/main/docs/mcp.md"
+            >MCP documentation</a
+          >
+          <a
+            class="language-link"
+            href="/zh-Hant/about/"
+            lang="zh-Hant"
+            hreflang="zh-Hant"
+            >繁體中文</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="hero page-width" aria-labelledby="page-title">
+        <div class="hero__copy">
+          <p class="eyebrow">A word cloud maker for your text</p>
+          <h1 id="page-title">Turn text into a word cloud</h1>
+          <p class="hero__lead">
+            Analyze text in your browser, refine the words, and shape a design
+            you can share.
+          </p>
+          <div class="hero__actions">
+            <a class="button button--primary" href="/">Open the editor</a>
+            <a class="button button--quiet" href="#how-it-works"
+              >See how it works</a
+            >
+          </div>
+        </div>
+        <div class="word-art" aria-hidden="true">
+          <span class="word-art__one">ideas</span>
+          <span class="word-art__two">people</span>
+          <span class="word-art__three">stories</span>
+          <span class="word-art__four">words</span>
+          <span class="word-art__five">create</span>
+          <span class="word-art__six">share</span>
+        </div>
+      </section>
+
+      <section
+        id="how-it-works"
+        class="content-section page-width"
+        aria-labelledby="how-title"
+      >
+        <div class="section-heading">
+          <p class="eyebrow">From text to finished artwork</p>
+          <h2 id="how-title">Make a word cloud in three steps</h2>
+        </div>
+        <ol class="steps-grid">
+          <li class="info-card">
+            <span class="step-number" aria-hidden="true">01</span>
+            <h3>Add your text</h3>
+            <p>
+              Choose a language and enter up to 1 MiB of text. Analysis runs in
+              your browser, and the latest draft is saved in your browser's
+              localStorage.
+            </p>
+          </li>
+          <li class="info-card">
+            <span class="step-number" aria-hidden="true">02</span>
+            <h3>Review the words</h3>
+            <p>
+              Inspect the extracted terms, adjust their counts, and decide which
+              words belong in the design. The editor supports up to 500 unique
+              terms.
+            </p>
+          </li>
+          <li class="info-card">
+            <span class="step-number" aria-hidden="true">03</span>
+            <h3>Style and share</h3>
+            <p>
+              Arrange and style the word cloud, then export your result or share
+              a V snapshot link when you are ready.
+            </p>
+          </li>
+        </ol>
+      </section>
+
+      <section
+        class="content-section content-section--tinted"
+        aria-labelledby="data-title"
+      >
+        <div class="page-width">
+          <div class="section-heading section-heading--narrow">
+            <p class="eyebrow">Know what each path handles</p>
+            <h2 id="data-title">Your text and shared results</h2>
+            <p>
+              The browser editor and the agent-facing MCP service process text
+              in different ways. Choose the path that fits the text you are
+              working with.
+            </p>
+          </div>
+          <div class="data-grid">
+            <article class="data-card">
+              <h3>Browser editor</h3>
+              <p>
+                The editor analyzes your source text in the browser and saves
+                the latest draft in browser localStorage.
+              </p>
+            </article>
+            <article class="data-card">
+              <h3>V snapshot links</h3>
+              <p>
+                A V link contains derived words, counts, ranks, and layout—not
+                the original source text. Anyone who has the link can view those
+                derived values.
+              </p>
+            </article>
+            <article class="data-card data-card--accent">
+              <h3>MCP text generation</h3>
+              <p>
+                The separate MCP service is unauthenticated. Its
+                <code>wordcloud-generate-from-text</code> tool accepts a
+                <code>sourceText</code> input and sends it to a Worker. It
+                accepts up to 32 KiB of source text and returns up to 100
+                derived terms, SVG, and V data. Consider whether the text is
+                appropriate to submit to this service before using it.
+              </p>
+            </article>
+          </div>
+          <div class="agent-links">
+            <p>
+              Integrating an agent? Read the task index and the MCP tool
+              documentation.
+            </p>
+            <a href="/llms.txt"
+              >Read the agent index <span aria-hidden="true">→</span></a
+            >
+            <a href="https://github.com/dytsou/wordcloud/blob/main/docs/mcp.md"
+              >Read the MCP docs <span aria-hidden="true">→</span></a
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="site-footer__inner page-width">
+        <a class="brand" href="/">wordcloud<span>.download</span></a>
+        <p>Create and share word clouds from your text.</p>
+      </div>
+    </footer>
+  </body>
+</html>
