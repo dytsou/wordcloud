@@ -9,16 +9,13 @@ export const TH_MESSAGES: MessageMap = {
   wizardStepStyle: "รูปแบบ",
   wizardStepResult: "ผลลัพธ์",
   wizardPageSourceTitle: "เริ่มจากข้อความของคุณ",
-  wizardPageSourceDescription:
-    "วางบทความ บทสนทนา หรือบันทึกที่ต้องการจัดรูปแบบ",
+  wizardPageSourceDescription: "วางบทความ บทสนทนา หรือบันทึกที่ต้องการจัดรูปแบบ",
   wizardPageWordsTitle: "ปรับคำและการแบ่งคำ",
   wizardPageWordsDescription: "เลือกวิธีนับวลี แล้วตรวจคำก่อนจัดวาง",
   wizardPageStyleTitle: "กำหนดบรรยากาศ",
-  wizardPageStyleDescription:
-    "ปรับแบบอักษร สัดส่วน และชุดสี ตัวอย่างจะอัปเดตตามการแก้ไข",
+  wizardPageStyleDescription: "ปรับแบบอักษร สัดส่วน และชุดสี ตัวอย่างจะอัปเดตตามการแก้ไข",
   wizardPageResultTitle: "เวิร์ดคลาวด์พร้อมแล้ว",
-  wizardPageResultDescription:
-    "ตรวจดัชนีคำ แล้วสร้างลิงก์แชร์หรือส่งออกเป็นรูปภาพ",
+  wizardPageResultDescription: "ตรวจดัชนีคำ แล้วสร้างลิงก์แชร์หรือส่งออกเป็นรูปภาพ",
   wizardContinue: "ถัดไป",
   wizardBack: "ย้อนกลับ",
   wizardUpdating: "กำลังอัปเดตเวิร์ดคลาวด์ในเบราว์เซอร์…",

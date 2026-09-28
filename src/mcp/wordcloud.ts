@@ -46,7 +46,7 @@ const BUILT_IN_SHAPE_IDS = BUILT_IN_SHAPES.map((shape) => shape.id) as [
 
 // The control-character range is intentional for untrusted MCP metadata.
 const SAFE_TEXT_PATTERN =
-  // eslint-disable-next-line no-control-regex
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: The regex intentionally rejects control and bidi characters.
   /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u202A-\u202E\u2066-\u2069]/u;
 const WIDE_CHARACTER_PATTERN =
   /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Thai}\u{1F000}-\u{1FAFF}]/u;

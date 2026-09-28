@@ -12,6 +12,8 @@ pnpm run dev
 Useful checks and build commands:
 
 ```sh
+pnpm run format:check
+pnpm run lint
 pnpm run test
 pnpm run test:browser
 pnpm run build
@@ -19,6 +21,8 @@ pnpm run api:lint
 pnpm run api:build
 pnpm run wrangler:dry-run
 ```
+
+Biome 2.5.14 does not format YAML, so YAML files are outside `format:check`.
 
 `api:lint` validates the OpenAPI 3.1 contract. `api:build` bundles it into `dist/client/api/openapi.yaml` and generates a self-hosted Swagger UI at `dist/client/api/index.html`. After deployment, the API reference is available at `/api/` and the compiled contract at `/api/openapi.yaml`.
 

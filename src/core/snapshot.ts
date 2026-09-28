@@ -74,7 +74,7 @@ function stringValue(
   }
   // The control-character range is intentional: snapshots cross an untrusted boundary.
   if (
-    // eslint-disable-next-line no-control-regex
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: The regex intentionally rejects control and bidi characters.
     /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u202A-\u202E\u2066-\u2069]/u.test(
       value,
     )

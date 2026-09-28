@@ -24,11 +24,8 @@ updates:
           - "@playwright/test"
       quality:
         patterns:
-          - "@eslint/*"
-          - "eslint"
-          - "prettier"
+          - "@biomejs/biome"
           - "typescript"
-          - "typescript-eslint"
       types:
         patterns:
           - "@types/*"

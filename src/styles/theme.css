@@ -25,16 +25,8 @@ body {
   min-height: 100vh;
   margin: 0;
   background:
-    radial-gradient(
-      circle at 12% 12%,
-      rgb(239 109 95 / 14%),
-      transparent 25rem
-    ),
-    radial-gradient(
-      circle at 90% 76%,
-      rgb(167 216 91 / 15%),
-      transparent 28rem
-    ),
+    radial-gradient(circle at 12% 12%, rgb(239 109 95 / 14%), transparent 25rem),
+    radial-gradient(circle at 90% 76%, rgb(167 216 91 / 15%), transparent 28rem),
     #e8e0cf;
 }
 
@@ -768,8 +760,8 @@ h2 {
 }
 
 input:not([type="checkbox"]):not([type="color"]):not([type="range"]):not(
-    [type="file"]
-  ):not(.tag-entry),
+  [type="file"]
+):not(.tag-entry),
 select,
 textarea {
   width: 100%;
@@ -780,8 +772,8 @@ textarea {
 }
 
 input:not([type="checkbox"]):not([type="color"]):not([type="range"]):not(
-    [type="file"]
-  ):not(.tag-entry),
+  [type="file"]
+):not(.tag-entry),
 select {
   min-height: 2.55rem;
   padding: 0.55rem 0.7rem;
@@ -1428,7 +1420,7 @@ input[type="checkbox"] {
   box-shadow: 0 2px 8px rgb(35 30 21 / 12%);
   cursor: help;
   font:
-    700 0.95rem/1 Georgia,
+    700 0.95rem / 1 Georgia,
     serif;
 }
 

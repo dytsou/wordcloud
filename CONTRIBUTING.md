@@ -24,7 +24,7 @@ See [README.md](README.md) for how to use the editor. See [docs/development.md](
 ## Making changes
 
 - Keep each pull request focused on one logical change.
-- Follow the existing TypeScript, React, and CSS patterns; use the repository's formatter and linter.
+- Follow the existing TypeScript, React, and CSS patterns; use Biome for formatting and linting.
 - Keep user-visible translations in sync across the supported interface locales.
 - If an MCP tool's inputs, outputs, or behavior change, update [`openapi.yaml`](openapi.yaml) and the relevant MCP documentation.
 - Preserve the editor's local handling of source text. Use synthetic text in examples, screenshots, and fixtures; never include private source text, credentials, or tokens.
