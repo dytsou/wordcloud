@@ -1,10 +1,10 @@
 import { useI18n } from "../i18n";
 
 interface SourcePanelProps {
-  sourceText: string;
-  disabled?: boolean;
-  error?: string;
-  onSourceChange: (value: string) => void;
+  readonly sourceText: string;
+  readonly disabled?: boolean;
+  readonly error?: string;
+  readonly onSourceChange: (value: string) => void;
 }
 
 export function SourcePanel({

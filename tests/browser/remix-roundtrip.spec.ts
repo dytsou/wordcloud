@@ -69,9 +69,9 @@ test("reopens V links as style-only remixes and .wc files as editor remixes", as
 
   await open(page, originalUrl);
   await expectStyleOnlyRemix(page);
-  expect(await page.locator("#source-text").count()).toBe(0);
-  expect(await page.locator("#dictionary").count()).toBe(0);
-  expect(await page.getByRole("button", { name: "原文" }).count()).toBe(0);
+  await expect(page.locator("#source-text")).toHaveCount(0);
+  await expect(page.locator("#dictionary")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "原文" })).toHaveCount(0);
   await page.getByRole("button", { name: "套用色盤：校園霓虹" }).click();
   await page.getByRole("button", { name: "產生 V 連結" }).click();
   const remixedUrl = await page.getByLabel("V URL").inputValue();
@@ -89,8 +89,8 @@ test("reopens V links as style-only remixes and .wc files as editor remixes", as
 
   await page.locator('input[type="file"]').setInputFiles(filePath!);
   await expectSnapshotFileRemix(page);
-  expect(await page.locator("#source-text").count()).toBe(0);
-  expect(await page.locator("#dictionary").count()).toBe(0);
+  await expect(page.locator("#source-text")).toHaveCount(0);
+  await expect(page.locator("#dictionary")).toHaveCount(0);
   await expect(page.locator(".cloud-svg")).toBeVisible();
   await page.getByRole("button", { name: "產生 V 連結" }).click();
   const restoredUrl = await page.getByLabel("V URL").inputValue();

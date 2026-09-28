@@ -108,7 +108,7 @@ function renderShapeRegion(
   );
 }
 
-function ShapeThumbnail({ shape }: { shape: BuiltInShape }) {
+function ShapeThumbnail({ shape }: Readonly<{ shape: BuiltInShape }>) {
   const maskId = `shape-thumb-${shape.id}`;
   return (
     <svg
@@ -173,9 +173,9 @@ function angleFrom(rotations: number[]): number {
 }
 
 interface StylePanelProps {
-  presentation: LayoutStyle;
-  disabled?: boolean;
-  onChange: (presentation: LayoutStyle) => void;
+  readonly presentation: LayoutStyle;
+  readonly disabled?: boolean;
+  readonly onChange: (presentation: LayoutStyle) => void;
 }
 
 export function StylePanel({
@@ -371,9 +371,8 @@ export function StylePanel({
           </span>
           <span>{t("shapeNoShape")}</span>
         </button>
-        <div
+        <fieldset
           className="shape-category-list"
-          role="group"
           aria-label={t("shapeCategoryNavigation")}
         >
           {SHAPE_CATEGORIES.map((category) => (
@@ -388,12 +387,8 @@ export function StylePanel({
               {t(SHAPE_CATEGORY_LABELS[category])}
             </button>
           ))}
-        </div>
-        <div
-          className="shape-gallery"
-          role="group"
-          aria-label={t("shapeGalleryLabel")}
-        >
+        </fieldset>
+        <fieldset className="shape-gallery" aria-label={t("shapeGalleryLabel")}>
           {BUILT_IN_SHAPES.filter(
             (shape) => shape.category === activeShapeCategory,
           ).map((shape) => (
@@ -412,7 +407,7 @@ export function StylePanel({
               <span>{t(SHAPE_NAME_LABELS[shape.id])}</span>
             </button>
           ))}
-        </div>
+        </fieldset>
         {selectedShape && shapeSize && (
           <div className="shape-size-controls">
             <label className="shape-ratio-lock">
@@ -714,9 +709,8 @@ export function StylePanel({
         <p className="field-label palette-presets-heading">
           {t("palettePresets")}
         </p>
-        <div
+        <fieldset
           className="palette-preset-grid"
-          role="group"
           aria-label={t("paletteGroup")}
         >
           {PALETTE_PRESETS.map((preset) => (
@@ -746,7 +740,7 @@ export function StylePanel({
               <span className="palette-preset-name">{t(preset.labelKey)}</span>
             </button>
           ))}
-        </div>
+        </fieldset>
       </div>
       <div className="field-row canvas-fields">
         <div className="field">

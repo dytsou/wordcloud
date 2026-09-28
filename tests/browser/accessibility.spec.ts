@@ -17,8 +17,8 @@ test("wizard exposes labeled controls, progress, and a nonvisual word table", as
   await open(page, "/");
   await expect.poll(() => page.url()).toMatch(/\/create\/source$/);
   await expect(page.getByRole("textbox", { name: "原文" })).toBeVisible();
-  expect(await page.locator("#locale").count()).toBe(0);
-  expect(await page.getByRole("button", { name: "風格" }).count()).toBe(0);
+  await expect(page.locator("#locale")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "風格" })).toHaveCount(0);
 
   await page.locator("#source-text").fill("alpha alpha beta");
   await page
@@ -47,7 +47,7 @@ test("wizard exposes labeled controls, progress, and a nonvisual word table", as
   await expect.poll(() => page.url()).toMatch(/\/create\/style$/);
   await expect(page.getByRole("slider", { name: "最小字級" })).toBeVisible();
   await expect(page.locator(".cloud-svg")).toBeVisible();
-  expect(await page.getByRole("table").count()).toBe(0);
+  await expect(page.getByRole("table")).toHaveCount(0);
 
   await page
     .getByRole("button", { name: "下一步" })

@@ -65,7 +65,7 @@ test("shared snapshots open at results and can return to style", async ({
   await open(page, await shareUrl.inputValue());
   await expect.poll(() => page.url()).toMatch(/\/create\/result#wc-pako:v1:/);
   await expect(page.locator(".remix-banner")).toBeVisible();
-  expect(await page.getByRole("button", { name: "原文" }).count()).toBe(0);
+  await expect(page.getByRole("button", { name: "原文" })).toHaveCount(0);
   await page
     .getByRole("button", { name: "上一步" })
     .evaluate((button) => (button as HTMLButtonElement).click());

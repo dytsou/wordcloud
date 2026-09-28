@@ -188,6 +188,8 @@ export const EN_MESSAGES = {
   generationFailedStatus: "Layout failed. Adjust the settings and try again.",
   linkCreated: "V link created; it contains derived data but not source text.",
   linkCopied: "V link copied.",
+  copyUnavailable:
+    "Clipboard access is unavailable. Select the V URL and copy it manually.",
   linkFailed:
     "V link was not created: {{error}} Download the full .wc snapshot instead.",
   linkTooLong:

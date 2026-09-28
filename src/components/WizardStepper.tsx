@@ -2,9 +2,9 @@ import { useI18n } from "../i18n";
 import { WIZARD_STEPS, type WizardStep } from "../app/wizard-route";
 
 interface WizardStepperProps {
-  currentStep: WizardStep;
-  remix?: boolean;
-  onNavigate: (step: WizardStep) => void;
+  readonly currentStep: WizardStep;
+  readonly remix?: boolean;
+  readonly onNavigate: (step: WizardStep) => void;
 }
 
 const STEP_LABEL_KEYS = {
@@ -53,17 +53,20 @@ export function WizardStepper({
             </>
           );
 
+          let stepContent = <span aria-disabled="true">{content}</span>;
+          if (isCurrent) {
+            stepContent = <span aria-current="step">{content}</span>;
+          } else if (isEarlier && !isRemixLocked) {
+            stepContent = (
+              <button type="button" onClick={() => onNavigate(step)}>
+                {content}
+              </button>
+            );
+          }
+
           return (
             <li className={className} key={step}>
-              {isCurrent ? (
-                <span aria-current="step">{content}</span>
-              ) : isEarlier && !isRemixLocked ? (
-                <button type="button" onClick={() => onNavigate(step)}>
-                  {content}
-                </button>
-              ) : (
-                <span aria-disabled="true">{content}</span>
-              )}
+              {stepContent}
             </li>
           );
         })}

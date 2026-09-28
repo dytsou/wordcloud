@@ -11,12 +11,12 @@ import { renderAccessibleSummary } from "../render/accessibility";
 import { placedSceneWords } from "../render/safe-scene";
 
 interface CloudPreviewProps {
-  scene?: SceneModel;
-  highlightedTerm?: string;
-  captionAside?: ReactNode;
-  hasSelectedShape?: boolean;
-  onAdjustShapeSize?: () => void;
-  onRemoveShape?: () => void;
+  readonly scene?: SceneModel;
+  readonly highlightedTerm?: string;
+  readonly captionAside?: ReactNode;
+  readonly hasSelectedShape?: boolean;
+  readonly onAdjustShapeSize?: () => void;
+  readonly onRemoveShape?: () => void;
 }
 
 export function CloudPreview({
@@ -203,16 +203,13 @@ export function CloudPreview({
             </span>
           </div>
         )}
-        {noWordsFit ? (
-          <div
-            className="canvas-warning canvas-warning--recovery"
-            role="status"
-          >
-            <p>
+        {noWordsFit && (
+          <div className="canvas-warning canvas-warning--recovery">
+            <output aria-live="polite">
               {t(omittedCount === 1 ? "shapeOneWordNoFit" : "shapeNoWordsFit", {
                 count: omittedCount,
               })}
-            </p>
+            </output>
             <div className="canvas-warning-actions">
               <button
                 className="button button-quiet"
@@ -230,11 +227,12 @@ export function CloudPreview({
               </button>
             </div>
           </div>
-        ) : omittedCount > 0 ? (
+        )}
+        {!noWordsFit && omittedCount > 0 && (
           <p className="canvas-warning">
             {t("omittedWords", { count: omittedCount })}
           </p>
-        ) : null}
+        )}
       </div>
     </section>
   );

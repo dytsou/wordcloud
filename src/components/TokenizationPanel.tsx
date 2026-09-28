@@ -4,10 +4,10 @@ import { tokenizerLocaleLabel, useI18n } from "../i18n";
 import { TagInput } from "./TagInput";
 
 interface TokenizationPanelProps {
-  settings: TokenizerSettings;
-  preview?: TokenizationResult;
-  disabled?: boolean;
-  onSettingsChange: (settings: TokenizerSettings) => void;
+  readonly settings: TokenizerSettings;
+  readonly preview?: TokenizationResult;
+  readonly disabled?: boolean;
+  readonly onSettingsChange: (settings: TokenizerSettings) => void;
 }
 
 export function TokenizationPanel({

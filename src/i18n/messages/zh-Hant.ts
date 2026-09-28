@@ -163,6 +163,7 @@ export const ZH_HANT_MESSAGES: MessageMap = {
   someOmitted: "文字雲完成，但有詞語未能放入畫布；請查看排名表。",
   linkCreated: "V 連結已產生；它包含衍生資料，不包含原文。",
   linkCopied: "V 連結已複製。",
+  copyUnavailable: "無法使用剪貼簿，請選取 V 網址並手動複製。",
   linkTooLong: "V 連結超過安全長度，完整視覺仍保留在本機。",
   snapshotDownloaded: "完整 .wc 快照已下載。",
   svgDownloaded: "SVG 已下載；它與目前畫布使用同一份 SceneModel。",
