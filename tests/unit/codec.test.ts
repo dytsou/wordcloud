@@ -44,7 +44,7 @@ describe("snapshot codec", () => {
     );
     expect(() => decodeJsonFragment(`${SNAPSHOT_PREFIX}a`)).toThrow(/Base64/i);
     expect(() => decodeJsonFragment(`${SNAPSHOT_PREFIX}e30`)).toThrow(
-      /canonical|JSON|inflate/i,
+      /canonical|JSON|inflate|decompress/i,
     );
 
     const oversized = "a".repeat(LIMITS.maxEncodedFragmentBytes);
