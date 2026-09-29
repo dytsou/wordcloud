@@ -10,7 +10,7 @@
   --ink-soft: #5d645f;
   --line: rgb(23 32 42 / 16%);
   --coral: #ef6d5f;
-  --coral-dark: #bd4e46;
+  --coral-dark: #a7443d;
   --lime: #a7d85b;
   --blue: #253d59;
   --shadow: 0 24px 70px rgb(35 30 21 / 14%);
@@ -220,7 +220,7 @@ textarea:focus-visible {
 .wizard-step {
   position: relative;
   border-top: 2px solid rgb(23 32 42 / 15%);
-  color: #85877e;
+  color: var(--ink-soft);
 }
 
 .wizard-step > span,
@@ -260,7 +260,7 @@ textarea:focus-visible {
 
 .wizard-step-check {
   margin-left: auto;
-  color: #4c6e22;
+  color: #496221;
   font-size: 0.8rem;
 }
 
@@ -281,7 +281,7 @@ textarea:focus-visible {
 }
 
 .wizard-step.is-unavailable {
-  color: #9a9a91;
+  color: var(--ink-soft);
 }
 
 .wizard-page {
@@ -493,7 +493,7 @@ h2 {
 }
 
 .field-label span {
-  color: #8b8d84;
+  color: var(--ink-soft);
   font-weight: 400;
 }
 
@@ -876,7 +876,7 @@ textarea {
 }
 
 .tag-input input.tag-entry::placeholder {
-  color: #8b8d84;
+  color: var(--ink-soft);
 }
 
 .source-input {
@@ -1224,12 +1224,13 @@ input[type="checkbox"] {
 
 .button-primary {
   border-color: var(--coral);
-  color: #fffaf0;
+  color: var(--ink);
   background: var(--coral);
   box-shadow: 0 7px 0 rgb(189 78 70 / 22%);
 }
 
 .button-primary:hover:not(:disabled) {
+  color: var(--paper);
   background: var(--coral-dark);
 }
 
@@ -1841,7 +1842,7 @@ thead th {
 }
 
 .placement-state.pending {
-  color: var(--ink-soft);
+  color: var(--ink);
   background: rgb(23 32 42 / 8%);
 }
 
