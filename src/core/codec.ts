@@ -59,7 +59,10 @@ function base64UrlToBytes(payload: string): Uint8Array {
       (character) => character.codePointAt(0) ?? 0,
     );
   } catch {
-    throw new CodecError("BASE64", "V payload Base64 encoding could not be decoded.");
+    throw new CodecError(
+      "BASE64",
+      "V payload Base64 encoding could not be decoded.",
+    );
   }
 }
 
