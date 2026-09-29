@@ -75,11 +75,11 @@ function hashSeed(seed: string): number {
     hash ^= character.codePointAt(0) ?? 0;
     hash = Math.imul(hash, 16_777_619);
   }
-  return hash >>> 0;
+  return Math.max(1, hash >>> 0);
 }
 
-function random(seed: number): () => number {
-  let state = seed || 1;
+function random(seed: number = 1): () => number {
+  let state = seed;
   return () => {
     state = Math.imul(1_664_525, state) + 1_013_904_223;
     return (state >>> 0) / 4_294_967_296;

@@ -360,8 +360,8 @@ textarea:focus-visible {
   border: 1px solid rgb(189 78 70 / 35%);
   border-left: 4px solid var(--coral-dark);
   border-radius: 0.75rem;
-  color: #562923;
-  background: rgb(239 109 95 / 9%);
+  color: var(--ink);
+  background: var(--paper);
 }
 
 .wizard-error strong {

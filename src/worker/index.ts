@@ -98,7 +98,10 @@ async function boundMcpRequestBody(
     body.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return { status: "ok", request: new Request(request, { body }) };
+  return {
+    status: "ok",
+    request: new Request(request, { method: "POST", body }),
+  };
 }
 
 function unreadableResponse(): Response {
