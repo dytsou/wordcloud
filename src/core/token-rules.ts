@@ -72,7 +72,7 @@ export function validateTokenRules(rules: TokenRule[]): TokenizerDiagnostic[] {
   if (rules.length > LIMITS.maxCustomRules) {
     diagnostics.push({
       code: "RULE_LIMIT",
-      message: `最多只能設定 ${LIMITS.maxCustomRules} 條自訂規則。`,
+      message: `No more than ${LIMITS.maxCustomRules} custom rules are allowed.`,
     });
   }
 
@@ -80,6 +80,7 @@ export function validateTokenRules(rules: TokenRule[]): TokenizerDiagnostic[] {
   rules.forEach((rule) => {
     const source = ruleSource(rule);
     const outputs = ruleOutput(rule);
+    const ruleName = rule.id || "unnamed";
     if (
       !rule.id.trim() ||
       !source.trim() ||
@@ -87,7 +88,9 @@ export function validateTokenRules(rules: TokenRule[]): TokenizerDiagnostic[] {
     ) {
       diagnostics.push({
         code: "RULE_INVALID",
-        message: `規則 ${rule.id || "未命名"} 的來源必須是非空且不超過 ${LIMITS.maxLiteralScalars} 個 Unicode 字元的 literal。`,
+        message:
+          `Rule ${ruleName} source must be non-empty and no longer than ` +
+          `${LIMITS.maxLiteralScalars} Unicode scalar values.`,
       });
     }
     if (
@@ -98,13 +101,14 @@ export function validateTokenRules(rules: TokenRule[]): TokenizerDiagnostic[] {
     ) {
       diagnostics.push({
         code: "RULE_INVALID",
-        message: `規則 ${rule.id || "未命名"} 的輸出必須是非空且受長度限制的 literal。`,
+        message:
+          `Rule ${ruleName} output must be non-empty and within the length limit.`,
       });
     }
     if (rule.kind === "split" && rule.terms.length === 0) {
       diagnostics.push({
         code: "RULE_INVALID",
-        message: `拆分規則 ${rule.id} 至少需要一個輸出詞。`,
+        message: `Split rule ${ruleName} must have at least one output term.`,
       });
     }
 
@@ -121,7 +125,7 @@ export function validateTokenRules(rules: TokenRule[]): TokenizerDiagnostic[] {
   if (findCycle(edges)) {
     diagnostics.push({
       code: "RULE_CYCLE",
-      message: "拆分與合併規則形成循環，請移除其中一條規則。",
+      message: "Split and merge rules contain a cycle. Remove one of the rules.",
     });
   }
 
@@ -200,7 +204,7 @@ export function findProtectedSpans(
         status: "shadowed",
         sourceStart: candidate.start,
         sourceEnd: candidate.end,
-        message: "此 literal 與優先順序較高的 protected rule 重疊。",
+        message: "This literal overlaps a higher-priority protected rule.",
       });
       continue;
     }

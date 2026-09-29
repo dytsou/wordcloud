@@ -182,6 +182,6 @@ describe("snapshot validation", () => {
     };
     const tampered = encodeJsonFragment(snapshot).fragment;
 
-    expect(() => decodeSnapshotFragment(tampered)).toThrow(/canvas|範圍/iu);
+    expect(() => decodeSnapshotFragment(tampered)).toThrow(/canvas|bounds/iu);
   });
 });

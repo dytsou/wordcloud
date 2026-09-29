@@ -43,7 +43,7 @@ export class SnapshotValidationError extends Error {
 
 function record(value: unknown, label: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new SnapshotValidationError(`${label} 必須是 object。`);
+    throw new SnapshotValidationError(`${label} must be an object.`);
   }
   return value as Record<string, unknown>;
 }
@@ -60,7 +60,7 @@ function exactKeys(
     keys.some((key) => !allowed.has(key)) ||
     required.some((key) => !keys.includes(key))
   ) {
-    throw new SnapshotValidationError(`${label} 含有未知或缺少欄位。`);
+    throw new SnapshotValidationError(`${label} contains unknown or missing fields.`);
   }
 }
 
@@ -70,7 +70,9 @@ function stringValue(
   max: number = LIMITS.maxLiteralScalars,
 ): string {
   if (typeof value !== "string" || !value.trim() || scalarLength(value) > max) {
-    throw new SnapshotValidationError(`${label} 必須是受長度限制的非空文字。`);
+    throw new SnapshotValidationError(
+      `${label} must be non-empty text within the length limit.`,
+    );
   }
   // The control-character range is intentional: snapshots cross an untrusted boundary.
   if (
@@ -80,7 +82,7 @@ function stringValue(
     )
   ) {
     throw new SnapshotValidationError(
-      `${label} 含有不允許的控制或雙向文字字元。`,
+      `${label} contains disallowed control or bidirectional text characters.`,
     );
   }
   return value;
@@ -100,14 +102,14 @@ function numberValue(
     value > max ||
     (integer && !Number.isInteger(value))
   ) {
-    throw new SnapshotValidationError(`${label} 超出允許範圍。`);
+    throw new SnapshotValidationError(`${label} is outside the allowed range.`);
   }
   return value;
 }
 
 function colorValue(value: unknown, label: string): string {
   if (!isSafeHexColor(value)) {
-    throw new SnapshotValidationError(`${label} 必須是安全的 hex 顏色。`);
+    throw new SnapshotValidationError(`${label} must be a safe hexadecimal color.`);
   }
   return value;
 }
@@ -136,7 +138,7 @@ function validateWordSet(value: unknown): WordSet {
     !Array.isArray(object.words) ||
     object.words.length > LIMITS.maxUniqueTerms
   ) {
-    throw new SnapshotValidationError("wordSet.words 超出上限。");
+    throw new SnapshotValidationError("wordSet.words exceeds the limit.");
   }
   const ranks = new Set<number>();
   const terms = new Set<string>();
@@ -163,15 +165,15 @@ function validateWordSet(value: unknown): WordSet {
       locale: stringValue(item.locale, "word.locale", 64),
     };
     if (ranks.has(word.rank))
-      throw new SnapshotValidationError("word ranks 必須唯一。");
+      throw new SnapshotValidationError("word ranks must be unique.");
     if (terms.has(word.term))
-      throw new SnapshotValidationError("word terms 必須唯一。");
+      throw new SnapshotValidationError("word terms must be unique.");
     ranks.add(word.rank);
     terms.add(word.term);
     return word;
   });
   if (words.some((word, index) => word.rank !== index + 1)) {
-    throw new SnapshotValidationError("word ranks 必須從 1 連續排列。");
+    throw new SnapshotValidationError("word ranks must be consecutive starting at 1.");
   }
   return { locale, tokenizerVersion, totalTokens, words };
 }
@@ -182,7 +184,7 @@ function validateShape(value: unknown): ShapeSettings {
   const id = stringValue(object.id, "presentation.shape.id", 64);
   const shape = getBuiltInShape(id);
   if (!shape)
-    throw new SnapshotValidationError("presentation.shape.id 不受支援。");
+    throw new SnapshotValidationError("presentation.shape.id is not supported.");
   return {
     id: shape.id,
     widthScale: numberValue(
@@ -226,7 +228,7 @@ function validatePresentation(value: unknown, shaped: boolean): Presentation {
     shaped ? ["shape"] : [],
   );
   if (shaped && !Object.hasOwn(object, "shape"))
-    throw new SnapshotValidationError("presentation.shape 為必填欄位。");
+    throw new SnapshotValidationError("presentation.shape is required.");
   const canvas = record(object.canvas, "presentation.canvas");
   exactKeys(canvas, ["width", "height"], "presentation.canvas");
   const width = numberValue(
@@ -244,26 +246,26 @@ function validatePresentation(value: unknown, shaped: boolean): Presentation {
     true,
   );
   if (width * height > LIMITS.maxExportPixels)
-    throw new SnapshotValidationError("畫布面積超過上限。");
+    throw new SnapshotValidationError("Canvas area exceeds the limit.");
   const scale = object.scale;
   if (scale !== "sqrt" && scale !== "linear" && scale !== "log") {
-    throw new SnapshotValidationError("presentation.scale 不受支援。");
+    throw new SnapshotValidationError("presentation.scale is not supported.");
   }
   if (!Array.isArray(object.rotations) || object.rotations.length > 16)
-    throw new SnapshotValidationError("rotations 超出上限。");
+    throw new SnapshotValidationError("rotations array exceeds the limit.");
   if (
     !Array.isArray(object.palette) ||
     object.palette.length === 0 ||
     object.palette.length > 16
   )
-    throw new SnapshotValidationError("palette 無效。");
+    throw new SnapshotValidationError("palette is invalid.");
   const fontFamily = stringValue(object.fontFamily, "presentation.fontFamily");
   if (!isSafeFontFamily(fontFamily))
-    throw new SnapshotValidationError("fontFamily 含有不允許的 CSS 值。");
+    throw new SnapshotValidationError("fontFamily contains a disallowed CSS value.");
   const minFontSize = numberValue(object.minFontSize, "minFontSize", 1, 512);
   const maxFontSize = numberValue(object.maxFontSize, "maxFontSize", 1, 512);
   if (minFontSize > maxFontSize)
-    throw new SnapshotValidationError("minFontSize 不可大於 maxFontSize。");
+    throw new SnapshotValidationError("minFontSize must not exceed maxFontSize.");
   const presentation: Presentation = {
     canvas: { width, height },
     minFontSize,
@@ -321,7 +323,7 @@ function validateSceneWord(
     status !== "unplaceable" &&
     status !== "budget-limited"
   )
-    throw new SnapshotValidationError("scene word status 無效。");
+    throw new SnapshotValidationError("scene word status is invalid.");
   const reason = object.reason;
   if (
     reason !== undefined &&
@@ -330,10 +332,10 @@ function validateSceneWord(
     reason !== "cancelled" &&
     reason !== "invalid-canvas"
   ) {
-    throw new SnapshotValidationError("scene word reason 無效。");
+    throw new SnapshotValidationError("scene word reason is invalid.");
   }
   if (status !== "placed" && reason === undefined)
-    throw new SnapshotValidationError("未放置詞語必須有 reason。");
+    throw new SnapshotValidationError("Unplaced words must include a reason.");
   const word: SceneWord = {
     term: stringValue(object.term, "scene.word.term"),
     count: numberValue(
@@ -376,7 +378,7 @@ function validateSceneWord(
     (word.x + word.width > canvas.width || word.y + word.height > canvas.height)
   ) {
     throw new SnapshotValidationError(
-      `scene.words[${index}] 超出 scene 畫布範圍。`,
+      `scene.words[${index}] extends beyond the scene canvas bounds.`,
     );
   }
   return word;
@@ -422,14 +424,14 @@ function validateScene(value: unknown): SceneModel {
     layoutStatus !== "budget-limited" &&
     layoutStatus !== "cancelled"
   )
-    throw new SnapshotValidationError("scene.layoutStatus 無效。");
+    throw new SnapshotValidationError("scene.layoutStatus is invalid.");
   if (
     !Array.isArray(object.words) ||
     object.words.length > LIMITS.maxUniqueTerms
   )
-    throw new SnapshotValidationError("scene.words 超出上限。");
+    throw new SnapshotValidationError("scene.words exceeds the limit.");
   if (object.version !== SCENE_VERSION)
-    throw new SnapshotValidationError("scene.version 不受支援。");
+    throw new SnapshotValidationError("scene.version is not supported.");
   return {
     version: stringValue(object.version, "scene.version", 64),
     layoutVersion: stringValue(object.layoutVersion, "scene.layoutVersion", 64),
@@ -456,7 +458,7 @@ type SnapshotSchemaVersion = "wc-snapshot-v1" | "wc-snapshot-v2";
 function snapshotSchemaVersion(value: unknown): SnapshotSchemaVersion {
   if (value !== "wc-snapshot-v1" && value !== "wc-snapshot-v2") {
     throw new SnapshotValidationError(
-      "snapshot schema 或 codec version 不支援。",
+      "Snapshot schema or codec version is not supported.",
     );
   }
   return value;
@@ -468,7 +470,7 @@ function validateSnapshotCodecVersions(object: Record<string, unknown>): void {
     object.sceneVersion !== SCENE_VERSION
   ) {
     throw new SnapshotValidationError(
-      "snapshot schema 或 codec version 不支援。",
+      "Snapshot schema or codec version is not supported.",
     );
   }
 }
@@ -479,7 +481,7 @@ function validateSnapshotShape(
   scene: SceneModel,
 ): void {
   if (schemaVersion === "wc-snapshot-v1" && scene.shape) {
-    throw new SnapshotValidationError("v1 scene 不可包含 shape。");
+    throw new SnapshotValidationError("A v1 scene cannot contain a shape.");
   }
   if (schemaVersion !== "wc-snapshot-v2") return;
   if (
@@ -488,7 +490,9 @@ function validateSnapshotShape(
       scene.shape.widthScale !== presentation.shape?.widthScale ||
       scene.shape.heightScale !== presentation.shape?.heightScale)
   ) {
-    throw new SnapshotValidationError("scene shape 與 presentation 不一致。");
+    throw new SnapshotValidationError(
+      "scene shape does not match the presentation shape.",
+    );
   }
   scene.shape = presentation.shape;
 }
@@ -505,14 +509,16 @@ function validateSnapshotLayoutVersions(
     wordSet.tokenizerVersion !== object.tokenizerVersion ||
     scene.layoutVersion !== presentation.version
   ) {
-    throw new SnapshotValidationError("snapshot 版本欄位與內容不一致。");
+    throw new SnapshotValidationError(
+      "Snapshot version fields do not match its contents.",
+    );
   }
   if (
     schemaVersion === "wc-snapshot-v2" &&
     (presentation.version !== "layout-v2" ||
       object.layoutVersion !== "layout-v2")
   ) {
-    throw new SnapshotValidationError("shape snapshot 必須使用 layout-v2。");
+    throw new SnapshotValidationError("Shape snapshots must use layout-v2.");
   }
 }
 
@@ -523,7 +529,7 @@ function validateSnapshotSceneWords(
 ): void {
   if (scene.words.length !== wordSet.words.length) {
     throw new SnapshotValidationError(
-      "scene 必須為每個 WordSet 詞語保留 placement 狀態。",
+      "scene must preserve placement status for every WordSet word.",
     );
   }
   if (
@@ -531,7 +537,7 @@ function validateSnapshotSceneWords(
     scene.canvas.height !== presentation.canvas.height
   ) {
     throw new SnapshotValidationError(
-      "scene 與 presentation 的畫布尺寸必須一致。",
+      "scene and presentation canvas dimensions must match.",
     );
   }
   const wordByRank = new Map(wordSet.words.map((word) => [word.rank, word]));
@@ -540,12 +546,12 @@ function validateSnapshotSceneWords(
   for (const word of scene.words) {
     const source = wordByRank.get(word.rank);
     if (source?.term !== word.term || source?.count !== word.count) {
-      throw new SnapshotValidationError("scene 與 wordSet 的詞語資料不一致。");
+      throw new SnapshotValidationError("scene and wordSet word data do not match.");
     }
     if (sceneRanks.has(word.rank))
-      throw new SnapshotValidationError("scene ranks 必須唯一。");
+      throw new SnapshotValidationError("scene ranks must be unique.");
     if (sceneTerms.has(word.term))
-      throw new SnapshotValidationError("scene terms 必須唯一。");
+      throw new SnapshotValidationError("scene terms must be unique.");
     sceneRanks.add(word.rank);
     sceneTerms.add(word.term);
   }

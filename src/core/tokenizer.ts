@@ -466,25 +466,28 @@ function validateTokenizerInput(
     return emptyTokenizationResult(context, "error", [
       diagnostic(
         "SOURCE_LIMIT",
-        `原文超過 ${LIMITS.maxSourceBytes} bytes 上限。`,
+        `Source text exceeds the ${LIMITS.maxSourceBytes}-byte limit.`,
       ),
     ]);
   }
   if (!source.trim()) {
     return emptyTokenizationResult(context, "empty", [
-      diagnostic("EMPTY_INPUT", "請先輸入文字。"),
+      diagnostic("EMPTY_INPUT", "Enter source text first."),
     ]);
   }
   if (typeof Intl.Segmenter !== "function") {
     return emptyTokenizationResult(context, "error", [
-      diagnostic("SEGMENTER_UNAVAILABLE", "此瀏覽器不支援 Intl.Segmenter。"),
+      diagnostic(
+        "SEGMENTER_UNAVAILABLE",
+        "This browser does not support Intl.Segmenter.",
+      ),
     ]);
   }
   if (!context.capabilities.supported) {
     return emptyTokenizationResult(context, "error", [
       diagnostic(
         "UNSUPPORTED_LOCALE",
-        `瀏覽器不支援 ${context.settings.locale} 的分詞能力，請改選其他 locale。`,
+        `Unsupported locale ${context.settings.locale}. Choose another locale.`,
       ),
     ]);
   }
@@ -559,7 +562,7 @@ export function tokenize(
     return emptyTokenizationResult(context, "error", [
       diagnostic(
         "TOKEN_LIMIT",
-        `候選詞超過 ${LIMITS.maxCandidateTokens} 個上限。`,
+        `Candidate tokens exceed the ${LIMITS.maxCandidateTokens}-token limit.`,
       ),
     ]);
   }
@@ -573,7 +576,7 @@ export function tokenize(
     return emptyTokenizationResult(context, "error", [
       diagnostic(
         "TOKEN_LIMIT",
-        `候選詞超過 ${LIMITS.maxCandidateTokens} 個上限。`,
+        `Candidate tokens exceed the ${LIMITS.maxCandidateTokens}-token limit.`,
       ),
     ]);
   }
@@ -583,7 +586,7 @@ export function tokenize(
     return emptyTokenizationResult(context, "error", [
       diagnostic(
         "TOKEN_LIMIT",
-        `套用規則後候選詞超過 ${LIMITS.maxCandidateTokens} 個上限。`,
+        `Token rules produce more than ${LIMITS.maxCandidateTokens} candidate tokens.`,
       ),
     ]);
   }
@@ -607,7 +610,7 @@ export function tokenize(
       diagnostics: [
         diagnostic(
           "NO_WORDS",
-          "目前設定沒有可繪製的詞語，請調整原文或篩選規則。",
+          "No drawable terms remain. Adjust the source text or filters.",
         ),
       ],
       capabilities: context.capabilities,
@@ -621,7 +624,7 @@ export function tokenize(
     return emptyTokenizationResult(context, "error", [
       diagnostic(
         "UNIQUE_TERM_LIMIT",
-        `唯一詞語超過 ${LIMITS.maxUniqueTerms} 個上限。`,
+        `Unique terms exceed the ${LIMITS.maxUniqueTerms}-term limit.`,
       ),
     ]);
   }
