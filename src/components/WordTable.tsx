@@ -517,6 +517,10 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
           const maximumValue = isHorizontal
             ? window.innerWidth - (position?.left ?? 12) - VIEWPORT_GAP
             : window.innerHeight - (position?.top ?? 12) - VIEWPORT_GAP;
+          let ariaOrientation: "vertical" | "horizontal" | undefined;
+          if (!isCorner) {
+            ariaOrientation = isHorizontal ? "vertical" : "horizontal";
+          }
           return (
             <button
               key={edge}
@@ -525,9 +529,7 @@ export function WordTable({ wordSet, scene, onFocusWord }: WordTableProps) {
               data-resize-edge={edge}
               role={isCorner ? undefined : "separator"}
               aria-label={t("resizeIndexHint")}
-              aria-orientation={
-                isCorner ? undefined : isHorizontal ? "vertical" : "horizontal"
-              }
+              aria-orientation={ariaOrientation}
               aria-valuenow={
                 !isCorner && currentValue ? Math.round(currentValue) : undefined
               }

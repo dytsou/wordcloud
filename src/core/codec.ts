@@ -36,7 +36,7 @@ function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = "";
   const chunkSize = 0x8000;
   for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+    binary += String.fromCodePoint(...bytes.subarray(index, index + chunkSize));
   }
   const encoded = btoa(binary);
   const paddingIndex = encoded.indexOf("=");
@@ -47,7 +47,7 @@ function bytesToBase64Url(bytes: Uint8Array): string {
 
 function base64UrlToBytes(payload: string): Uint8Array {
   if (!/^[A-Za-z0-9_-]+$/u.test(payload) || payload.length % 4 === 1) {
-    throw new CodecError("BASE64", "V payload 不是合法的 URL-safe Base64。 ");
+    throw new CodecError("BASE64", "V payload is not valid URL-safe Base64.");
   }
   const padded =
     payload.replaceAll("-", "+").replaceAll("_", "/") +
@@ -59,7 +59,7 @@ function base64UrlToBytes(payload: string): Uint8Array {
       (character) => character.codePointAt(0) ?? 0,
     );
   } catch {
-    throw new CodecError("BASE64", "V payload 的 Base64 編碼無法解析。");
+    throw new CodecError("BASE64", "V payload Base64 encoding could not be decoded.");
   }
 }
 
@@ -92,7 +92,7 @@ function inflateBounded(compressed: Uint8Array): Uint8Array {
     if (total > LIMITS.maxInflatedJsonBytes || total > ratioLimit) {
       throw new CodecError(
         "INFLATE_LIMIT",
-        "V payload inflate/解壓縮後超過安全大小或膨脹比例上限。",
+        "V payload exceeds the safe decompressed size or expansion ratio limit.",
       );
     }
     chunks.push(chunk);
@@ -114,7 +114,7 @@ function inflateBounded(compressed: Uint8Array): Uint8Array {
   } catch (error) {
     if (error instanceof CodecError) throw error;
     // biome-ignore lint/style/useErrorCause: CodecError forwards ErrorOptions to Error.
-    throw new CodecError("INFLATE_LIMIT", "V payload inflate/解壓縮失敗。", {
+    throw new CodecError("INFLATE_LIMIT", "V payload decompression failed.", {
       cause: error,
     });
   }
@@ -134,7 +134,7 @@ function inflateBounded(compressed: Uint8Array): Uint8Array {
   if (adler32(result) !== expectedChecksum) {
     throw new CodecError(
       "INFLATE_LIMIT",
-      "V payload inflate/解壓縮 checksum 不符。",
+      "V payload decompression checksum does not match.",
     );
   }
   return result;
@@ -151,7 +151,7 @@ function encodeJson(
   if (utf8ByteLength(fragment) > maxEncodedBytes) {
     throw new CodecError(
       "PAYLOAD_LIMIT",
-      `V fragment 超過 ${maxEncodedBytes} bytes 上限。`,
+      `V fragment exceeds the ${maxEncodedBytes}-byte limit.`,
     );
   }
   return {
@@ -173,23 +173,23 @@ export function decodeJsonFragment(
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): unknown {
   if (!fragment.startsWith(SNAPSHOT_PREFIX)) {
-    throw new CodecError("PREFIX", "V URL prefix 或版本不支援。");
+    throw new CodecError("PREFIX", "V URL prefix or version is not supported.");
   }
   if (utf8ByteLength(fragment) > maxEncodedBytes) {
     throw new CodecError(
       "PAYLOAD_LIMIT",
-      `V fragment 超過 ${maxEncodedBytes} bytes 上限。`,
+      `V fragment exceeds the ${maxEncodedBytes}-byte limit.`,
     );
   }
   const payload = fragment.slice(SNAPSHOT_PREFIX.length);
-  if (!payload) throw new CodecError("BASE64", "V payload 不可為空。");
+  if (!payload) throw new CodecError("BASE64", "V payload must not be empty.");
   const compressed = base64UrlToBytes(payload);
   const inflated = inflateBounded(compressed);
   let json: string;
   try {
     json = new TextDecoder("utf-8", { fatal: true }).decode(inflated);
   } catch {
-    throw new CodecError("UTF8", "V payload 不是合法的 UTF-8 JSON。");
+    throw new CodecError("UTF8", "V payload is not valid UTF-8 JSON.");
   }
   let value: unknown;
   try {
@@ -198,14 +198,14 @@ export function decodeJsonFragment(
     // biome-ignore lint/style/useErrorCause: CodecError forwards ErrorOptions to Error.
     throw new CodecError(
       "JSON",
-      error instanceof Error ? error.message : "V payload JSON 無效。",
+      error instanceof Error ? error.message : "V payload JSON is invalid.",
       { cause: error },
     );
   }
   if (canonicalStringify(value) !== json) {
     throw new CodecError(
       "NONCANONICAL",
-      "V payload 不是 canonical JSON 表示。",
+      "V payload is not in canonical JSON form.",
     );
   }
   return value;
@@ -213,11 +213,11 @@ export function decodeJsonFragment(
 
 export function buildShareUrl(baseUrl: string, fragment: string): string {
   if (!fragment.startsWith("#"))
-    throw new CodecError("PREFIX", "fragment 必須以 # 開頭。");
+    throw new CodecError("PREFIX", "Fragment must start with #.");
   if (utf8ByteLength(fragment) > LIMITS.maxEncodedFragmentBytes)
     throw new CodecError(
       "PAYLOAD_LIMIT",
-      `V fragment 超過 ${LIMITS.maxEncodedFragmentBytes} bytes 上限。`,
+      `V fragment exceeds the ${LIMITS.maxEncodedFragmentBytes}-byte limit.`,
     );
   const url = new URL(baseUrl);
   url.hash = fragment.slice(1);
@@ -225,7 +225,7 @@ export function buildShareUrl(baseUrl: string, fragment: string): string {
   if (utf8ByteLength(result) > LIMITS.maxShareUrlBytes) {
     throw new CodecError(
       "URL_LIMIT",
-      `完整分享 URL 超過 ${LIMITS.maxShareUrlBytes} bytes 上限。`,
+      `Share URL exceeds the ${LIMITS.maxShareUrlBytes}-byte limit.`,
     );
   }
   return result;

@@ -20,7 +20,7 @@ describe("hostile snapshot corpus", () => {
       payload: "x".repeat(100_000),
     }).fragment;
     expect(() => decodeSnapshotFragment(fragment)).toThrow(
-      /snapshot|schema|inflate|JSON/iu,
+      /snapshot|schema|inflate|decompress|JSON/iu,
     );
   });
 

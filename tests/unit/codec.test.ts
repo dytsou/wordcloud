@@ -44,12 +44,12 @@ describe("snapshot codec", () => {
     );
     expect(() => decodeJsonFragment(`${SNAPSHOT_PREFIX}a`)).toThrow(/Base64/i);
     expect(() => decodeJsonFragment(`${SNAPSHOT_PREFIX}e30`)).toThrow(
-      /canonical|JSON|inflate/i,
+      /canonical|JSON|inflate|decompress/i,
     );
 
     const oversized = "a".repeat(LIMITS.maxEncodedFragmentBytes);
     expect(() => decodeJsonFragment(`${SNAPSHOT_PREFIX}${oversized}`)).toThrow(
-      /size|large|上限/i,
+      /exceeds|size|large/i,
     );
   });
 
@@ -58,7 +58,7 @@ describe("snapshot codec", () => {
     const compressed = zlibSync(new TextEncoder().encode(json), { level: 9 });
     const bytes = Buffer.from(compressed).toString("base64url");
     expect(() => decodeJsonFragment(`${SNAPSHOT_PREFIX}${bytes}`)).toThrow(
-      /inflate|decompress|大小|ratio/i,
+      /inflate|decompress|size|ratio/i,
     );
   });
 });

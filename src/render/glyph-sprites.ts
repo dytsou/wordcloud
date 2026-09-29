@@ -21,6 +21,17 @@ interface RenderedGlyphSprite {
   pixelCost: number;
 }
 
+interface GlyphSpriteRenderOptions {
+  term: string;
+  angle: number;
+  measurement: GlyphMeasurement;
+  style: LayoutStyle;
+  padding: number;
+  totalPixels: number;
+  canvas: HTMLCanvasElement;
+  context: CanvasRenderingContext2D;
+}
+
 function measureGlyph(
   term: string,
   fontSize: number,
@@ -63,16 +74,16 @@ function rotationEligible(
   return fontSize <= style.minFontSize + range * 0.42;
 }
 
-function renderGlyphSprite(
-  term: string,
-  angle: number,
-  measurement: GlyphMeasurement,
-  style: LayoutStyle,
-  padding: number,
-  totalPixels: number,
-  canvas: HTMLCanvasElement,
-  context: CanvasRenderingContext2D,
-): RenderedGlyphSprite | undefined {
+function renderGlyphSprite({
+  term,
+  angle,
+  measurement,
+  style,
+  padding,
+  totalPixels,
+  canvas,
+  context,
+}: GlyphSpriteRenderOptions): RenderedGlyphSprite | undefined {
   const radians = (angle * Math.PI) / 180;
   const cosine = Math.abs(Math.cos(radians));
   const sine = Math.abs(Math.sin(radians));
@@ -171,8 +182,8 @@ export async function createGlyphSprites(
     );
     const variants: NonNullable<FontMetricsTable["sprites"]>[string] = {};
     for (const angle of rotationCandidates(style.rotations, eligible)) {
-      const rendered = renderGlyphSprite(
-        word.term,
+      const rendered = renderGlyphSprite({
+        term: word.term,
         angle,
         measurement,
         style,
@@ -180,7 +191,7 @@ export async function createGlyphSprites(
         totalPixels,
         canvas,
         context,
-      );
+      });
       if (!rendered) return undefined;
       variants[angle] = rendered.sprite;
       totalPixels += rendered.pixelCost;
