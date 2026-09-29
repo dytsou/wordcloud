@@ -1838,7 +1838,7 @@ thead th {
 .placement-state.unplaceable,
 .placement-state.budget-limited {
   color: #6f2d12;
-  background: rgb(239 109 95 / 18%);
+  background: #f6d8c8;
 }
 
 .placement-state.pending {
