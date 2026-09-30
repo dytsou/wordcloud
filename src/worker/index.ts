@@ -39,6 +39,38 @@ function withNoIndex(response: Response): Response {
   });
 }
 
+function withCspNonce(response: Response): Response {
+  const contentType = response.headers.get("content-type");
+  const contentSecurityPolicy = response.headers.get("content-security-policy");
+  if (
+    contentType?.split(";", 1)[0].trim().toLowerCase() !== "text/html" ||
+    !contentSecurityPolicy
+  ) {
+    return response;
+  }
+
+  // Cloudflare JavaScript Detections copies this nonce to its injected inline script.
+  const nonceBytes = crypto.getRandomValues(new Uint8Array(16));
+  let nonceInput = "";
+  for (const byte of nonceBytes) nonceInput += String.fromCharCode(byte);
+  const nonce = btoa(nonceInput);
+  const cspWithNonce = contentSecurityPolicy.replace(
+    /(^|;)\s*script-src\s+([^;]+)/i,
+    (_directive, separator: string, sources: string) =>
+      `${separator} script-src ${sources} 'nonce-${nonce}'`,
+  );
+  if (cspWithNonce === contentSecurityPolicy) return response;
+
+  const headers = new Headers(response.headers);
+  headers.set("Content-Security-Policy", cspWithNonce);
+  headers.set("Cache-Control", "no-store");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 function isAtOrBelowPath(pathname: string, path: string): boolean {
   return pathname === path || pathname.startsWith(`${path}/`);
 }
@@ -131,7 +163,7 @@ const worker = {
       return withNoIndex(await handleMcpRequest(request));
     }
 
-    const response = await env.ASSETS.fetch(request);
+    const response = withCspNonce(await env.ASSETS.fetch(request));
     const isNoIndexRoute = [MCP_PATH, "/view", "/create"].some((path) =>
       isAtOrBelowPath(url.pathname, path),
     );
