@@ -16,9 +16,25 @@ describe("Static Assets shell", () => {
     );
     expect(wrangler).toContain('directory = "./dist"');
     expect(wrangler).toContain('binding = "ASSETS"');
-    expect(wrangler).toContain(
-      'run_worker_first = ["/mcp", "/mcp/*", "/view", "/view/*", "/create", "/create/*"]',
-    );
+    const workerFirstRoutes =
+      wrangler.match(/run_worker_first\s*=\s*\[([\s\S]*?)\]/)?.[1] ?? "";
+    expect(workerFirstRoutes).not.toBe("");
+    for (const route of [
+      "/mcp",
+      "/mcp/*",
+      "/",
+      "/index.html",
+      "/view",
+      "/view/*",
+      "/create",
+      "/create/*",
+      "/about",
+      "/about/*",
+      "/zh-Hant/about",
+      "/zh-Hant/about/*",
+    ]) {
+      expect(workerFirstRoutes).toContain(`"${route}"`);
+    }
     expect(wrangler).not.toMatch(
       /durable_objects|kv_namespaces|d1_databases|r2_buckets/,
     );
