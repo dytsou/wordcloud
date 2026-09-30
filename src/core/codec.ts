@@ -174,8 +174,8 @@ export function encodeScenePackFragment(
 
 function decodeJson(
   fragment: string,
-  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
   prefix: string,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): unknown {
   if (!fragment.startsWith(prefix)) {
     throw new CodecError("PREFIX", "V URL prefix or version is not supported.");
@@ -220,7 +220,7 @@ export function decodeScenePackFragment(
   fragment: string,
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): unknown {
-  return decodeJson(fragment, maxEncodedBytes, SNAPSHOT_PREFIX);
+  return decodeJson(fragment, SNAPSHOT_PREFIX, maxEncodedBytes);
 }
 
 export function buildShareUrl(baseUrl: string, fragment: string): string {
