@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 import { deflateSync } from "node:zlib";
 import { zlibSync } from "fflate";
 import {
-  decodeLegacyJsonFragment,
   decodeScenePackFragment,
-  encodeLegacyJsonFragment,
   encodeScenePackFragment,
   SNAPSHOT_PREFIX,
 } from "../../src/core/codec";
@@ -20,11 +18,11 @@ describe("snapshot codec", () => {
     expect(decodeScenePackFragment(encoded.fragment)).toEqual(value);
   });
 
-  it("reads legacy V1 zlib fragments and rejects a damaged checksum", () => {
+  it("reads V1 zlib fragments and rejects a damaged checksum", () => {
     const json = new TextEncoder().encode('{"a":[1,true],"z":"最後"}');
-    const legacyCompressed = deflateSync(json);
-    const legacyFragment = `${SNAPSHOT_PREFIX}${legacyCompressed.toString("base64url")}`;
-    expect(decodeLegacyJsonFragment(legacyFragment)).toEqual({
+    const compressed = deflateSync(json);
+    const fragment = `${SNAPSHOT_PREFIX}${compressed.toString("base64url")}`;
+    expect(decodeScenePackFragment(fragment)).toEqual({
       a: [1, true],
       z: "最後",
     });
@@ -33,25 +31,25 @@ describe("snapshot codec", () => {
     damagedCompressed[damagedCompressed.byteLength - 1] =
       damagedCompressed[damagedCompressed.byteLength - 1]! ^ 1;
     const damagedFragment = `${SNAPSHOT_PREFIX}${Buffer.from(damagedCompressed).toString("base64url")}`;
-    expect(() => decodeLegacyJsonFragment(damagedFragment)).toThrow(
+    expect(() => decodeScenePackFragment(damagedFragment)).toThrow(
       /checksum|inflate/i,
     );
   });
 
   it("rejects malformed, noncanonical, and oversized payloads", () => {
-    expect(() => decodeLegacyJsonFragment("#wc-pack:abc")).toThrow(
+    expect(() => decodeScenePackFragment("#wc-pack:abc")).toThrow(
       /prefix|version/i,
     );
-    expect(() => decodeLegacyJsonFragment(`${SNAPSHOT_PREFIX}a`)).toThrow(
+    expect(() => decodeScenePackFragment(`${SNAPSHOT_PREFIX}a`)).toThrow(
       /Base64/i,
     );
-    expect(() => decodeLegacyJsonFragment(`${SNAPSHOT_PREFIX}e30`)).toThrow(
+    expect(() => decodeScenePackFragment(`${SNAPSHOT_PREFIX}e30`)).toThrow(
       /canonical|JSON|inflate|decompress/i,
     );
 
     const oversized = "a".repeat(LIMITS.maxEncodedFragmentBytes);
     expect(() =>
-      decodeLegacyJsonFragment(`${SNAPSHOT_PREFIX}${oversized}`),
+      decodeScenePackFragment(`${SNAPSHOT_PREFIX}${oversized}`),
     ).toThrow(/exceeds|size|large/i);
   });
 
@@ -59,8 +57,8 @@ describe("snapshot codec", () => {
     const json = JSON.stringify("x".repeat(LIMITS.maxInflatedJsonBytes + 1));
     const compressed = zlibSync(new TextEncoder().encode(json), { level: 9 });
     const bytes = Buffer.from(compressed).toString("base64url");
-    expect(() =>
-      decodeLegacyJsonFragment(`${SNAPSHOT_PREFIX}${bytes}`),
-    ).toThrow(/inflate|decompress|size|ratio/i);
+    expect(() => decodeScenePackFragment(`${SNAPSHOT_PREFIX}${bytes}`)).toThrow(
+      /inflate|decompress|size|ratio/i,
+    );
   });
 });

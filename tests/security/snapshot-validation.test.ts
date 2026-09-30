@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  CODEC_VERSION,
   decodeScenePackFragment,
-  encodeLegacyJsonFragment,
   encodeScenePackFragment,
 } from "../../src/core/codec";
 import type { LayoutStyle } from "../../src/core/layout";
@@ -19,12 +17,13 @@ import {
   snapshotStyle,
   snapshotWordSet,
 } from "../fixtures/snapshots";
+import { encodeHostileSnapshot } from "../fixtures/hostile-snapshots";
 
 const valid = () =>
   encodeSnapshot(snapshotWordSet, snapshotStyle, snapshotScene).fragment;
 
-function encodeLegacySnapshot(snapshot: SnapshotPayload): string {
-  return encodeLegacyJsonFragment(snapshot).fragment;
+function encodeUnvalidatedSnapshot(snapshot: SnapshotPayload): string {
+  return encodeHostileSnapshot(snapshot);
 }
 
 function shapedSnapshot(
@@ -59,14 +58,12 @@ describe("snapshot validation", () => {
     expect(serialized).not.toContain("protected phrase");
   });
 
-  it("reads original V1 snapshot payloads", () => {
+  it("rejects object-form snapshots with the V1 marker", () => {
     const snapshot = decodeSnapshotFragment(valid());
-    const legacyFragment = encodeLegacySnapshot(snapshot);
-    const restored = decodeSnapshotFragment(legacyFragment);
+    const objectFragment = encodeScenePackFragment(snapshot).fragment;
 
-    expect(legacyFragment).toMatch(/^#wc-pako:v1:/u);
-    expect(restored.codecVersion).toBe(CODEC_VERSION);
-    expect(restored.scene).toEqual(snapshotScene);
+    expect(objectFragment).toMatch(/^#wc-pako:v1:/u);
+    expect(() => decodeSnapshotFragment(objectFragment)).toThrow(/ScenePack/iu);
   });
 
   it("keeps the existing v1 payload shape and saved layout for unshaped clouds", () => {
@@ -179,7 +176,7 @@ describe("snapshot validation", () => {
     const fragment = valid();
     const snapshot = decodeSnapshotFragment(fragment);
     snapshot.presentation.fontFamily = "url(https://evil.example/font)";
-    const tampered = encodeLegacySnapshot(snapshot);
+    const tampered = encodeUnvalidatedSnapshot(snapshot);
 
     expect(() => decodeSnapshotFragment(tampered)).toThrow(/font|style|allow/i);
   });
@@ -187,7 +184,7 @@ describe("snapshot validation", () => {
   it("accepts negative padding for deliberate tight packing", () => {
     const snapshot = decodeSnapshotFragment(valid());
     snapshot.presentation.padding = -6;
-    const tampered = encodeLegacySnapshot(snapshot);
+    const tampered = encodeUnvalidatedSnapshot(snapshot);
 
     expect(decodeSnapshotFragment(tampered).presentation.padding).toBe(-6);
   });
@@ -215,7 +212,7 @@ describe("snapshot validation", () => {
       ...snapshot.scene.words[0],
       x: snapshot.scene.canvas.width,
     };
-    const tampered = encodeLegacySnapshot(snapshot);
+    const tampered = encodeUnvalidatedSnapshot(snapshot);
 
     expect(() => decodeSnapshotFragment(tampered)).toThrow(/canvas|bounds/iu);
   });

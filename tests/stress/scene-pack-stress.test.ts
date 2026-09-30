@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encodeLegacyJsonFragment } from "../../src/core/codec";
+import { encodeScenePackFragment } from "../../src/core/codec";
 import {
   decodeSnapshotFile,
   encodeSnapshotFile,
@@ -68,7 +68,7 @@ function largeSnapshot() {
 describe("ScenePack large snapshot stress", () => {
   it("shrinks a maximum-words high-entropy cloud and keeps it in a .wc file", () => {
     const snapshot = largeSnapshot();
-    const legacy = encodeLegacyJsonFragment(
+    const rawObject = encodeScenePackFragment(
       snapshot,
       LIMITS.maxSnapshotFileBytes,
     );
@@ -81,7 +81,9 @@ describe("ScenePack large snapshot stress", () => {
     expect(utf8ByteLength(encoded.fragment)).toBeGreaterThan(
       LIMITS.maxEncodedFragmentBytes,
     );
-    expect(encoded.fragment.length).toBeLessThan(legacy.fragment.length * 0.7);
+    expect(encoded.fragment.length).toBeLessThan(
+      rawObject.fragment.length * 0.7,
+    );
     expect(encoded.jsonBytes).toBeLessThan(LIMITS.maxInflatedJsonBytes);
     expect(
       decodeSnapshotFragment(encoded.fragment, LIMITS.maxSnapshotFileBytes),

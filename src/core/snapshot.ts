@@ -3,6 +3,7 @@ import {
   decodeJsonFragmentAsync,
   decodeScenePackFragment,
   encodeScenePackFragment,
+  snapshotFormatFromFragment,
 } from "./codec";
 import type { LayoutStyle } from "./layout";
 import { LIMITS, scalarLength } from "./limits";
@@ -786,17 +787,14 @@ export function decodeSnapshotFragment(
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): SnapshotPayload {
   const value = decodeScenePackFragment(fragment, maxEncodedBytes);
-  return validateSnapshot(
-    Array.isArray(value) ? unpackScenePack(value) : value,
-  );
+  return validateSnapshot(unpackScenePack(value));
 }
 
 export async function decodeSnapshotFragmentAsync(
   fragment: string,
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): Promise<SnapshotPayload> {
+  const format = snapshotFormatFromFragment(fragment);
   const value = await decodeJsonFragmentAsync(fragment, maxEncodedBytes);
-  return validateSnapshot(
-    Array.isArray(value) ? unpackScenePack(value) : value,
-  );
+  return validateSnapshot(format === "v2" ? value : unpackScenePack(value));
 }
