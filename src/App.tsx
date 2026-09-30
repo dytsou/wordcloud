@@ -1280,6 +1280,18 @@ export function App() {
       svg: buildShareUrl(`${origin}${SHARE_SVG_PATH}`, fragment),
     };
   }, [state.shareUrl, state.shareUrlV2]);
+  const sharedImageShareProps = {
+    pngShareUrl: sharedImageUrls?.png,
+    svgShareUrl: sharedImageUrls?.svg,
+    onCopyPng: () => {
+      if (sharedImageUrls?.png)
+        void handleCopy({ url: sharedImageUrls.png });
+    },
+    onCopySvg: () => {
+      if (sharedImageUrls?.svg)
+        void handleCopy({ url: sharedImageUrls.svg });
+    },
+  };
   const isSharedView =
     typeof window !== "undefined" &&
     (isSharedViewPath(window.location.pathname) || hasSharedFragment);
@@ -1517,8 +1529,7 @@ export function App() {
                 <SharePanel
                   shareUrl={state.shareUrl}
                   shareUrlV2={state.shareUrlV2}
-                  pngShareUrl={sharedImageUrls?.png}
-                  svgShareUrl={sharedImageUrls?.svg}
+                  {...sharedImageShareProps}
                   shareError={state.shareError}
                   shareErrorV1={state.shareErrorV1}
                   shareErrorV2={state.shareErrorV2}
@@ -1531,14 +1542,6 @@ export function App() {
                   }
                   onCreateLink={handleCreateLink}
                   onCopy={handleCopy}
-                  onCopyPng={() =>
-                    sharedImageUrls?.png &&
-                    handleCopy({ url: sharedImageUrls.png })
-                  }
-                  onCopySvg={() =>
-                    sharedImageUrls?.svg &&
-                    handleCopy({ url: sharedImageUrls.svg })
-                  }
                   onDownload={handleDownload}
                   onExportSvg={handleExportSvg}
                   onExportPng={handleExportPng}
@@ -1597,8 +1600,7 @@ export function App() {
                 <SharePanel
                   shareUrl={state.shareUrl}
                   shareUrlV2={state.shareUrlV2}
-                  pngShareUrl={sharedImageUrls?.png}
-                  svgShareUrl={sharedImageUrls?.svg}
+                  {...sharedImageShareProps}
                   shareError={state.shareError}
                   shareErrorV1={state.shareErrorV1}
                   shareErrorV2={state.shareErrorV2}
@@ -1611,14 +1613,6 @@ export function App() {
                   }
                   onCreateLink={handleCreateLink}
                   onCopy={handleCopy}
-                  onCopyPng={() =>
-                    sharedImageUrls?.png &&
-                    handleCopy({ url: sharedImageUrls.png })
-                  }
-                  onCopySvg={() =>
-                    sharedImageUrls?.svg &&
-                    handleCopy({ url: sharedImageUrls.svg })
-                  }
                   onDownload={handleDownload}
                   onExportSvg={handleExportSvg}
                   onExportPng={handleExportPng}
