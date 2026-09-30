@@ -785,7 +785,5 @@ export function decodeSnapshotFragment(
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): SnapshotPayload {
   const value = decodeScenePackFragment(fragment, maxEncodedBytes);
-  return validateSnapshot(
-    Array.isArray(value) ? unpackScenePack(value) : value,
-  );
+  return validateSnapshot(unpackScenePack(value));
 }

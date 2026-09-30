@@ -172,13 +172,6 @@ export function encodeScenePackFragment(
   return encodeJson(value, maxEncodedBytes, SNAPSHOT_PREFIX);
 }
 
-export function encodeLegacyJsonFragment(
-  value: unknown,
-  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
-): EncodedJsonFragment {
-  return encodeJson(value, maxEncodedBytes, SNAPSHOT_PREFIX);
-}
-
 function decodeJson(
   fragment: string,
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
@@ -224,13 +217,6 @@ function decodeJson(
 }
 
 export function decodeScenePackFragment(
-  fragment: string,
-  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
-): unknown {
-  return decodeJson(fragment, maxEncodedBytes, SNAPSHOT_PREFIX);
-}
-
-export function decodeLegacyJsonFragment(
   fragment: string,
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): unknown {
