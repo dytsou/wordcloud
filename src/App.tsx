@@ -248,12 +248,17 @@ export function App() {
   const hasGeneratedCloudRef = useRef(Boolean(state.scene || state.wordSet));
 
   const navigateToStep = useCallback((step: WizardStep, replace = false) => {
-    const path = sharedImageFormatForPath(window.location.pathname)
-      ? window.location.pathname
-      : isSharedViewPath(window.location.pathname) ||
-          snapshotFormatFromFragment(window.location.hash) !== undefined
-        ? SHARE_VIEW_PATH
-        : pathForStep(step);
+    let path: string;
+    if (sharedImageFormatForPath(window.location.pathname)) {
+      path = window.location.pathname;
+    } else if (
+      isSharedViewPath(window.location.pathname) ||
+      snapshotFormatFromFragment(window.location.hash) !== undefined
+    ) {
+      path = SHARE_VIEW_PATH;
+    } else {
+      path = pathForStep(step);
+    }
     const url = `${path}${window.location.search}${window.location.hash}`;
     if (replace) window.history.replaceState(null, "", url);
     else window.history.pushState(null, "", url);
@@ -1264,12 +1269,14 @@ export function App() {
     typeof window !== "undefined"
       ? sharedImageFormatForPath(window.location.pathname)
       : undefined;
-  const sharedImageError =
-    state.mode === "error"
-      ? (state.error ?? t("snapshotInvalid"))
-      : hasSharedFragment
-        ? undefined
-        : t("snapshotInvalid");
+  let sharedImageError: string | undefined;
+  if (state.mode === "error") {
+    sharedImageError = state.error ?? t("snapshotInvalid");
+  } else if (hasSharedFragment) {
+    sharedImageError = undefined;
+  } else {
+    sharedImageError = t("snapshotInvalid");
+  }
   const sharedImageUrls = useMemo(() => {
     const baseShareUrl = state.shareUrl ?? state.shareUrlV2;
     if (!baseShareUrl) return undefined;

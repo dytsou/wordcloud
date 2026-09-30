@@ -63,27 +63,37 @@ export function SharedImageRoute({
   }, [error, format, scene, t]);
 
   const message = error ?? renderError;
+  const content = (() => {
+    if (message) {
+      return (
+        <p className="shared-image-message" role="alert">
+          {message}
+        </p>
+      );
+    }
+    if (imageUrl) {
+      return (
+        <img
+          className="shared-image"
+          src={imageUrl}
+          alt={t("wizardPageResultTitle")}
+        />
+      );
+    }
+    return (
+      <output className="shared-image-message" aria-live="polite">
+        {t("wizardUpdating")}
+      </output>
+    );
+  })();
+
   return (
     <main
       className="shared-image-page"
       aria-busy={!message && !imageUrl}
       aria-label={t("wizardPageResultTitle")}
     >
-      {message ? (
-        <p className="shared-image-message" role="alert">
-          {message}
-        </p>
-      ) : imageUrl ? (
-        <img
-          className="shared-image"
-          src={imageUrl}
-          alt={t("wizardPageResultTitle")}
-        />
-      ) : (
-        <p className="shared-image-message" role="status">
-          {t("wizardUpdating")}
-        </p>
-      )}
+      {content}
     </main>
   );
 }
