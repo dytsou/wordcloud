@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encodeJsonFragment } from "../../src/core/codec";
+import { encodeScenePackFragment } from "../../src/core/codec";
 import { decodeSnapshotFragment } from "../../src/core/snapshot";
 import { renderSceneSvg } from "../../src/render/svg";
 import {
@@ -16,11 +16,12 @@ describe("hostile snapshot corpus", () => {
   });
 
   it("rejects an inflated payload before an attacker-sized object is returned", () => {
-    const fragment = encodeJsonFragment({
-      payload: "x".repeat(100_000),
-    }).fragment;
+    const fragment = encodeScenePackFragment([
+      "wc-scene-pack",
+      { payload: "x".repeat(100_000) },
+    ]).fragment;
     expect(() => decodeSnapshotFragment(fragment)).toThrow(
-      /snapshot|schema|inflate|decompress|JSON/iu,
+      /ScenePack|snapshot|schema|inflate|decompress|JSON/iu,
     );
   });
 

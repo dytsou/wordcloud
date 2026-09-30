@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { encodeJsonFragment } from "../../src/core/codec";
+import {
+  decodeScenePackFragment,
+  encodeScenePackFragment,
+} from "../../src/core/codec";
 import type { LayoutStyle } from "../../src/core/layout";
 import {
   decodeSnapshotFragment,
   encodeSnapshot,
   validateSnapshot,
+  type SnapshotPayload,
 } from "../../src/core/snapshot";
 import { buildShapeFillDots } from "../../src/core/shape-fill";
 import { renderSceneSvg } from "../../src/render/svg";
@@ -13,9 +17,14 @@ import {
   snapshotStyle,
   snapshotWordSet,
 } from "../fixtures/snapshots";
+import { encodeHostileSnapshot } from "../fixtures/hostile-snapshots";
 
 const valid = () =>
   encodeSnapshot(snapshotWordSet, snapshotStyle, snapshotScene).fragment;
+
+function encodeUnvalidatedSnapshot(snapshot: SnapshotPayload): string {
+  return encodeHostileSnapshot(snapshot);
+}
 
 function shapedSnapshot(
   shape: unknown = {
@@ -49,6 +58,14 @@ describe("snapshot validation", () => {
     expect(serialized).not.toContain("protected phrase");
   });
 
+  it("rejects object-form snapshots with the V1 marker", () => {
+    const snapshot = decodeSnapshotFragment(valid());
+    const objectFragment = encodeScenePackFragment(snapshot).fragment;
+
+    expect(objectFragment).toMatch(/^#wc-pako:v1:/u);
+    expect(() => decodeSnapshotFragment(objectFragment)).toThrow(/ScenePack/iu);
+  });
+
   it("keeps the existing v1 payload shape and saved layout for unshaped clouds", () => {
     const snapshot = decodeSnapshotFragment(valid());
 
@@ -70,7 +87,7 @@ describe("snapshot validation", () => {
     expect(snapshot.scene).toEqual(snapshotScene);
   });
 
-  it("round-trips shape geometry in a v2 snapshot without changing the fragment codec", () => {
+  it("round-trips shape geometry in the V1 ScenePack format", () => {
     const presentation = {
       ...snapshotStyle,
       version: "layout-v2",
@@ -92,6 +109,21 @@ describe("snapshot validation", () => {
       buildShapeFillDots(originalScene),
     );
     expect(renderSceneSvg(snapshot.scene)).toContain('id="wordcloud-fill"');
+  });
+
+  it("rejects ScenePack words that reference an unknown term", () => {
+    const packed = decodeScenePackFragment(valid());
+    if (!Array.isArray(packed)) throw new Error("Expected a ScenePack tuple.");
+    const packedSnapshot = packed[1] as { scene: { words: unknown[] } };
+    const packedWord = packedSnapshot.scene.words[0];
+    if (!Array.isArray(packedWord))
+      throw new Error("Expected a packed word tuple.");
+    packedWord[0] = snapshotWordSet.words.length;
+    const tampered = encodeScenePackFragment(packed).fragment;
+
+    expect(() => decodeSnapshotFragment(tampered)).toThrow(
+      /invalid word index/iu,
+    );
   });
 
   it("rejects scene shape settings that disagree with the presentation", () => {
@@ -144,7 +176,7 @@ describe("snapshot validation", () => {
     const fragment = valid();
     const snapshot = decodeSnapshotFragment(fragment);
     snapshot.presentation.fontFamily = "url(https://evil.example/font)";
-    const tampered = encodeJsonFragment(snapshot).fragment;
+    const tampered = encodeUnvalidatedSnapshot(snapshot);
 
     expect(() => decodeSnapshotFragment(tampered)).toThrow(/font|style|allow/i);
   });
@@ -152,7 +184,7 @@ describe("snapshot validation", () => {
   it("accepts negative padding for deliberate tight packing", () => {
     const snapshot = decodeSnapshotFragment(valid());
     snapshot.presentation.padding = -6;
-    const tampered = encodeJsonFragment(snapshot).fragment;
+    const tampered = encodeUnvalidatedSnapshot(snapshot);
 
     expect(decodeSnapshotFragment(tampered).presentation.padding).toBe(-6);
   });
@@ -180,7 +212,7 @@ describe("snapshot validation", () => {
       ...snapshot.scene.words[0],
       x: snapshot.scene.canvas.width,
     };
-    const tampered = encodeJsonFragment(snapshot).fragment;
+    const tampered = encodeUnvalidatedSnapshot(snapshot);
 
     expect(() => decodeSnapshotFragment(tampered)).toThrow(/canvas|bounds/iu);
   });
