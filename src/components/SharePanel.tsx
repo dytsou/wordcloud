@@ -6,6 +6,8 @@ import { useI18n } from "../i18n";
 interface SharePanelProps {
   readonly shareUrl?: string;
   readonly shareUrlV2?: string;
+  readonly pngShareUrl?: string;
+  readonly svgShareUrl?: string;
   readonly shareError?: string;
   readonly shareErrorV1?: string;
   readonly shareErrorV2?: string;
@@ -14,6 +16,8 @@ interface SharePanelProps {
   readonly disabled?: boolean;
   readonly onCreateLink: () => void;
   readonly onCopy: (version: "v1" | "v2") => void;
+  readonly onCopyPng?: () => void;
+  readonly onCopySvg?: () => void;
   readonly onDownload: () => void;
   readonly onExportSvg: () => void;
   readonly onExportPng: () => void;
@@ -25,6 +29,8 @@ interface SharePanelProps {
 export function SharePanel({
   shareUrl,
   shareUrlV2,
+  pngShareUrl,
+  svgShareUrl,
   shareError,
   shareErrorV1,
   shareErrorV2,
@@ -33,6 +39,8 @@ export function SharePanel({
   disabled = false,
   onCreateLink,
   onCopy,
+  onCopyPng,
+  onCopySvg,
   onDownload,
   onExportSvg,
   onExportPng,
@@ -144,6 +152,50 @@ export function SharePanel({
         <p id="share-v2-error" className="warning-note">
           {shareErrorV2}
         </p>
+      )}
+      {hasShareUrl && pngShareUrl && svgShareUrl && (
+        <div className="share-image-links">
+          <div className="share-image-link-row">
+            <label className="field-label" htmlFor="share-png-url">
+              PNG
+            </label>
+            <input
+              id="share-png-url"
+              className="share-url"
+              readOnly
+              value={pngShareUrl}
+            />
+            <button
+              className="button button-quiet"
+              type="button"
+              disabled={disabled}
+              onClick={onCopyPng}
+              aria-label={`${t("copy")} PNG`}
+            >
+              {t("copy")}
+            </button>
+          </div>
+          <div className="share-image-link-row">
+            <label className="field-label" htmlFor="share-svg-url">
+              SVG
+            </label>
+            <input
+              id="share-svg-url"
+              className="share-url"
+              readOnly
+              value={svgShareUrl}
+            />
+            <button
+              className="button button-quiet"
+              type="button"
+              disabled={disabled}
+              onClick={onCopySvg}
+              aria-label={`${t("copy")} SVG`}
+            >
+              {t("copy")}
+            </button>
+          </div>
+        </div>
       )}
       {shareError && (
         <p id="share-error" className="warning-note">

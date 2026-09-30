@@ -1858,6 +1858,43 @@ thead th {
   white-space: nowrap;
 }
 
+.share-image-links {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.share-image-link-row {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.share-image-link-row .field-label {
+  margin: 0;
+}
+
+.shared-image-page {
+  display: grid;
+  min-height: 100vh;
+  padding: 1rem;
+  place-items: center;
+}
+
+.shared-image {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 2rem);
+  object-fit: contain;
+}
+
+.shared-image-message {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
 .text-button {
   margin-top: 1rem;
   padding: 0.2rem 0;

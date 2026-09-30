@@ -27,12 +27,16 @@ import {
 } from "./app/local-draft";
 import {
   pathForStep,
+  SHARE_PNG_PATH,
+  SHARE_SVG_PATH,
   SHARE_VIEW_PATH,
+  sharedImageFormatForPath,
   stepForPath,
   WIZARD_STEPS,
   type WizardStep,
 } from "./app/wizard-route";
 import { CloudPreview } from "./components/CloudPreview";
+import { SharedImageRoute } from "./components/SharedImageRoute";
 import { SharePanel } from "./components/SharePanel";
 import { SourcePanel } from "./components/SourcePanel";
 import { StatusAnnouncer } from "./components/StatusAnnouncer";
@@ -134,6 +138,7 @@ function isSnapshotLocation(): boolean {
   return (
     typeof window !== "undefined" &&
     (isSharedViewPath(window.location.pathname) ||
+      sharedImageFormatForPath(window.location.pathname) !== undefined ||
       snapshotFormatFromFragment(window.location.hash) !== undefined)
   );
 }
@@ -243,9 +248,10 @@ export function App() {
   const hasGeneratedCloudRef = useRef(Boolean(state.scene || state.wordSet));
 
   const navigateToStep = useCallback((step: WizardStep, replace = false) => {
-    const path =
-      isSharedViewPath(window.location.pathname) ||
-      snapshotFormatFromFragment(window.location.hash) !== undefined
+    const path = sharedImageFormatForPath(window.location.pathname)
+      ? window.location.pathname
+      : isSharedViewPath(window.location.pathname) ||
+          snapshotFormatFromFragment(window.location.hash) !== undefined
         ? SHARE_VIEW_PATH
         : pathForStep(step);
     const url = `${path}${window.location.search}${window.location.hash}`;
@@ -292,7 +298,26 @@ export function App() {
         return;
       }
       const format = snapshotFormatFromFragment(hash);
-      if (!format) return;
+      if (!format) {
+        if (sharedImageFormatForPath(window.location.pathname)) {
+          invalidatePendingWork();
+          setState((current) => ({
+            ...current,
+            mode: "error",
+            scene: undefined,
+            error: t("snapshotInvalid"),
+            shareUrl: undefined,
+            shareUrlV2: undefined,
+            shareError: undefined,
+            shareErrorV1: undefined,
+            shareErrorV2: undefined,
+            shareEncoding: false,
+          }));
+          setStatus(t("snapshotInvalid"));
+          navigateToStep("result", true);
+        }
+        return;
+      }
       invalidatePendingWork();
       const loadId = shareGenerationRef.current;
       try {
@@ -343,6 +368,10 @@ export function App() {
 
   useEffect(() => {
     const syncRoute = () => {
+      if (sharedImageFormatForPath(window.location.pathname)) {
+        setActiveStep("result");
+        return;
+      }
       const hasSnapshot =
         snapshotFormatFromFragment(window.location.hash) !== undefined;
       const sharedView = isSharedViewPath(window.location.pathname);
@@ -991,8 +1020,13 @@ export function App() {
   ]);
 
   const handleCopy = useCallback(
-    async (version: "v1" | "v2") => {
-      const shareUrl = version === "v1" ? state.shareUrl : state.shareUrlV2;
+    async (target: "v1" | "v2" | { url: string } = "v1") => {
+      const shareUrl =
+        typeof target === "string"
+          ? target === "v1"
+            ? state.shareUrl
+            : state.shareUrlV2
+          : target.url;
       if (!shareUrl) return;
       try {
         if (!navigator.clipboard?.writeText) {
@@ -1000,7 +1034,13 @@ export function App() {
           return;
         }
         await navigator.clipboard.writeText(shareUrl);
-        setStatus(t(version === "v1" ? "linkCopiedV1" : "linkCopiedV2"));
+        const statusKey =
+          target === "v1"
+            ? "linkCopiedV1"
+            : target === "v2"
+              ? "linkCopiedV2"
+              : "linkCopied";
+        setStatus(t(statusKey));
       } catch {
         setStatus(t("copyUnavailable"));
       }
@@ -1220,6 +1260,26 @@ export function App() {
       omitted,
     });
   }, [state.settings, state.tokenization, state.wordSet, t]);
+  const sharedImageFormat =
+    typeof window !== "undefined"
+      ? sharedImageFormatForPath(window.location.pathname)
+      : undefined;
+  const sharedImageError =
+    state.mode === "error"
+      ? (state.error ?? t("snapshotInvalid"))
+      : hasSharedFragment
+        ? undefined
+        : t("snapshotInvalid");
+  const sharedImageUrls = useMemo(() => {
+    const baseShareUrl = state.shareUrl ?? state.shareUrlV2;
+    if (!baseShareUrl) return undefined;
+    const fragment = new URL(baseShareUrl).hash;
+    const origin = window.location.origin;
+    return {
+      png: buildShareUrl(`${origin}${SHARE_PNG_PATH}`, fragment),
+      svg: buildShareUrl(`${origin}${SHARE_SVG_PATH}`, fragment),
+    };
+  }, [state.shareUrl, state.shareUrlV2]);
   const isSharedView =
     typeof window !== "undefined" &&
     (isSharedViewPath(window.location.pathname) || hasSharedFragment);
@@ -1230,6 +1290,16 @@ export function App() {
       onFocusWord={focusWord}
     />
   );
+
+  if (sharedImageFormat) {
+    return (
+      <SharedImageRoute
+        format={sharedImageFormat}
+        scene={state.scene}
+        error={sharedImageError}
+      />
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -1447,6 +1517,8 @@ export function App() {
                 <SharePanel
                   shareUrl={state.shareUrl}
                   shareUrlV2={state.shareUrlV2}
+                  pngShareUrl={sharedImageUrls?.png}
+                  svgShareUrl={sharedImageUrls?.svg}
                   shareError={state.shareError}
                   shareErrorV1={state.shareErrorV1}
                   shareErrorV2={state.shareErrorV2}
@@ -1459,6 +1531,14 @@ export function App() {
                   }
                   onCreateLink={handleCreateLink}
                   onCopy={handleCopy}
+                  onCopyPng={() =>
+                    sharedImageUrls?.png &&
+                    handleCopy({ url: sharedImageUrls.png })
+                  }
+                  onCopySvg={() =>
+                    sharedImageUrls?.svg &&
+                    handleCopy({ url: sharedImageUrls.svg })
+                  }
                   onDownload={handleDownload}
                   onExportSvg={handleExportSvg}
                   onExportPng={handleExportPng}
@@ -1517,6 +1597,8 @@ export function App() {
                 <SharePanel
                   shareUrl={state.shareUrl}
                   shareUrlV2={state.shareUrlV2}
+                  pngShareUrl={sharedImageUrls?.png}
+                  svgShareUrl={sharedImageUrls?.svg}
                   shareError={state.shareError}
                   shareErrorV1={state.shareErrorV1}
                   shareErrorV2={state.shareErrorV2}
@@ -1529,6 +1611,14 @@ export function App() {
                   }
                   onCreateLink={handleCreateLink}
                   onCopy={handleCopy}
+                  onCopyPng={() =>
+                    sharedImageUrls?.png &&
+                    handleCopy({ url: sharedImageUrls.png })
+                  }
+                  onCopySvg={() =>
+                    sharedImageUrls?.svg &&
+                    handleCopy({ url: sharedImageUrls.svg })
+                  }
                   onDownload={handleDownload}
                   onExportSvg={handleExportSvg}
                   onExportPng={handleExportPng}
