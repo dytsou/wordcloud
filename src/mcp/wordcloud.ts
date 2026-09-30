@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { DEFAULT_PRESENTATION } from "../app/editor-state";
-import { encodeJsonFragment, SNAPSHOT_PREFIX } from "../core/codec";
+import { SNAPSHOT_PREFIX } from "../core/codec";
 import { layoutWordCloud, type LayoutStyle } from "../core/layout";
 import { LIMITS, utf8ByteLength } from "../core/limits";
 import type { FontMetric, FontMetricsTable } from "../core/metrics";
@@ -15,6 +15,7 @@ import { buildWordSet } from "../core/word-model";
 import {
   decodeSnapshotFragment,
   createSnapshot,
+  encodeSnapshotPayload,
   type SnapshotPayload,
 } from "../core/snapshot";
 import { isSafeFontFamily, isSafeHexColor } from "../core/style-safety";
@@ -113,6 +114,10 @@ function invalidVInput(): Error {
   return new Error("A valid V URL or fragment is required.");
 }
 
+function isSupportedSnapshotFragment(fragment: string): boolean {
+  return fragment.startsWith(SNAPSHOT_PREFIX);
+}
+
 /**
  * Accept only the local app's encoded V representation. This intentionally
  * does not accept source text, JSON snapshots, or URLs that need fetching.
@@ -125,7 +130,7 @@ export function extractSnapshotFragment(value: string): string {
 
   if (input.startsWith("#")) {
     if (
-      !input.startsWith(SNAPSHOT_PREFIX) ||
+      !isSupportedSnapshotFragment(input) ||
       utf8ByteLength(input) > LIMITS.maxEncodedFragmentBytes
     ) {
       throw invalidVInput();
@@ -146,7 +151,7 @@ export function extractSnapshotFragment(value: string): string {
 
   const fragment = url.hash;
   if (
-    !fragment.startsWith(SNAPSHOT_PREFIX) ||
+    !isSupportedSnapshotFragment(fragment) ||
     utf8ByteLength(fragment) > LIMITS.maxEncodedFragmentBytes
   ) {
     throw invalidVInput();
@@ -246,7 +251,7 @@ const snapshotInputSchema = z.strictObject({
     .trim()
     .min(1)
     .max(LIMITS.maxShareUrlBytes)
-    .describe("An existing V URL or #wc-pako:v1 fragment; never source text."),
+    .describe("An existing V URL or #wc-pako:v1: fragment; never source text."),
 });
 
 const summaryInputSchema = z.strictObject({
@@ -480,7 +485,7 @@ function generateWordcloudFromParsedInput(
     },
   );
   const snapshot = createSnapshot(wordSet, presentation, scene);
-  const fragment = encodeJsonFragment(snapshot).fragment;
+  const fragment = encodeSnapshotPayload(snapshot).fragment;
   return {
     vFragment: fragment,
     svg: renderSceneSvg(scene, {
@@ -554,7 +559,7 @@ export function createWordcloudMcpServer(): McpServer {
         };
       } catch {
         return toolError(
-          "Unable to inspect this V. Provide a valid wc-pako:v1 URL or fragment.",
+          "Unable to inspect this V. Provide a valid wc-pako:v1: URL or fragment.",
         );
       }
     },
@@ -574,7 +579,7 @@ export function createWordcloudMcpServer(): McpServer {
         return { content: [{ type: "text" as const, text: svg }] };
       } catch {
         return toolError(
-          "Unable to render this V. Provide a valid wc-pako:v1 URL or fragment.",
+          "Unable to render this V. Provide a valid wc-pako:v1: URL or fragment.",
         );
       }
     },

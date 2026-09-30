@@ -200,6 +200,20 @@ export function encodeJsonFragment(
   return encodeJson(value, maxEncodedBytes);
 }
 
+export function encodeScenePackFragment(
+  value: unknown,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+): EncodedJsonFragment {
+  return encodeJsonFragment(value, maxEncodedBytes);
+}
+
+export function encodeLegacyJsonFragment(
+  value: unknown,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+): EncodedJsonFragment {
+  return encodeJsonFragment(value, maxEncodedBytes);
+}
+
 let brotliApiPromise: Promise<import("brotli-wasm").BrotliWasmType> | undefined;
 
 async function getBrotliApi(): Promise<import("brotli-wasm").BrotliWasmType> {
@@ -240,6 +254,20 @@ export function decodeJsonFragment(
     maxEncodedBytes,
   );
   return decodeCanonicalJson(inflateBounded(compressed), "V");
+}
+
+export function decodeScenePackFragment(
+  fragment: string,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+): unknown {
+  return decodeJsonFragment(fragment, maxEncodedBytes);
+}
+
+export function decodeLegacyJsonFragment(
+  fragment: string,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+): unknown {
+  return decodeJsonFragment(fragment, maxEncodedBytes);
 }
 
 function isBrotliStreamComplete(

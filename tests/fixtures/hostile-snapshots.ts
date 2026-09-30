@@ -1,4 +1,4 @@
-import { encodeJsonFragment } from "../../src/core/codec";
+import { encodeLegacyJsonFragment } from "../../src/core/codec";
 import { LIMITS } from "../../src/core/limits";
 import { createSnapshot, type SnapshotPayload } from "../../src/core/snapshot";
 import { snapshotScene, snapshotStyle, snapshotWordSet } from "./snapshots";
@@ -71,7 +71,7 @@ export const hostileSnapshotCases: HostileSnapshotCase[] = [
 ];
 
 export function encodeHostileSnapshot(payload: unknown): string {
-  return encodeJsonFragment(payload).fragment;
+  return encodeLegacyJsonFragment(payload).fragment;
 }
 
 export function withMutation(
