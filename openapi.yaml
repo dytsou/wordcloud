@@ -609,9 +609,9 @@ components:
     VUrl:
       type: string
       minLength: 1
-      maxLength: 12288
-      x-utf8-maxBytes: 12288
-      description: Existing HTTP(S) URL containing a #wc-pako:v1: fragment, or the fragment itself. It is parsed locally; no remote URL is fetched. The encoded fragment itself is limited to 8 KiB.
+      maxLength: 40960
+      x-utf8-maxBytes: 40960
+      description: Existing HTTP(S) URL containing a #wc-pako:v1: fragment, or the fragment itself. It is parsed locally; no remote URL is fetched. The encoded fragment itself is limited to 32 KiB.
       examples:
         - "https://wordcloud.example/#wc-pako:v1:<url-safe-base64>"
         - "#wc-pako:v1:<url-safe-base64>"
