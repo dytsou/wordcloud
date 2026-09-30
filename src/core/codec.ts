@@ -146,11 +146,12 @@ function inflateBounded(compressed: Uint8Array): Uint8Array {
 function encodeJson(
   value: unknown,
   maxEncodedBytes: number,
+  prefix: string,
 ): EncodedJsonFragment {
   const json = canonicalStringify(value);
   const jsonBytes = new TextEncoder().encode(json);
   const compressed = zlibSync(jsonBytes, { level: 9 });
-  const fragment = `${SNAPSHOT_PREFIX}${bytesToBase64Url(compressed)}`;
+  const fragment = `${prefix}${bytesToBase64Url(compressed)}`;
   if (utf8ByteLength(fragment) > maxEncodedBytes) {
     throw new CodecError(
       "PAYLOAD_LIMIT",
@@ -164,18 +165,26 @@ function encodeJson(
   };
 }
 
-export function encodeJsonFragment(
+export function encodeScenePackFragment(
   value: unknown,
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): EncodedJsonFragment {
-  return encodeJson(value, maxEncodedBytes);
+  return encodeJson(value, maxEncodedBytes, SNAPSHOT_PREFIX);
 }
 
-export function decodeJsonFragment(
+export function encodeLegacyJsonFragment(
+  value: unknown,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+): EncodedJsonFragment {
+  return encodeJson(value, maxEncodedBytes, SNAPSHOT_PREFIX);
+}
+
+function decodeJson(
   fragment: string,
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+  prefix: string,
 ): unknown {
-  if (!fragment.startsWith(SNAPSHOT_PREFIX)) {
+  if (!fragment.startsWith(prefix)) {
     throw new CodecError("PREFIX", "V URL prefix or version is not supported.");
   }
   if (utf8ByteLength(fragment) > maxEncodedBytes) {
@@ -184,7 +193,7 @@ export function decodeJsonFragment(
       `V fragment exceeds the ${maxEncodedBytes}-byte limit.`,
     );
   }
-  const payload = fragment.slice(SNAPSHOT_PREFIX.length);
+  const payload = fragment.slice(prefix.length);
   if (!payload) throw new CodecError("BASE64", "V payload must not be empty.");
   const compressed = base64UrlToBytes(payload);
   const inflated = inflateBounded(compressed);
@@ -212,6 +221,20 @@ export function decodeJsonFragment(
     );
   }
   return value;
+}
+
+export function decodeScenePackFragment(
+  fragment: string,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+): unknown {
+  return decodeJson(fragment, maxEncodedBytes, SNAPSHOT_PREFIX);
+}
+
+export function decodeLegacyJsonFragment(
+  fragment: string,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+): unknown {
+  return decodeJson(fragment, maxEncodedBytes, SNAPSHOT_PREFIX);
 }
 
 export function buildShareUrl(baseUrl: string, fragment: string): string {

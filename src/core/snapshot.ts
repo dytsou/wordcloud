@@ -1,4 +1,8 @@
-import { CODEC_VERSION, decodeJsonFragment, encodeJsonFragment } from "./codec";
+import {
+  CODEC_VERSION,
+  decodeScenePackFragment,
+  encodeScenePackFragment,
+} from "./codec";
 import { LIMITS, scalarLength } from "./limits";
 import { isSafeFontFamily, isSafeHexColor } from "./style-safety";
 import {
@@ -34,6 +38,8 @@ export type SnapshotPayload = SnapshotPayloadFields &
       }
   );
 
+const SCENE_PACK_MAGIC = "wc-scene-pack";
+
 export class SnapshotValidationError extends Error {
   public constructor(message: string) {
     super(message);
@@ -60,7 +66,9 @@ function exactKeys(
     keys.some((key) => !allowed.has(key)) ||
     required.some((key) => !keys.includes(key))
   ) {
-    throw new SnapshotValidationError(`${label} contains unknown or missing fields.`);
+    throw new SnapshotValidationError(
+      `${label} contains unknown or missing fields.`,
+    );
   }
 }
 
@@ -109,7 +117,9 @@ function numberValue(
 
 function colorValue(value: unknown, label: string): string {
   if (!isSafeHexColor(value)) {
-    throw new SnapshotValidationError(`${label} must be a safe hexadecimal color.`);
+    throw new SnapshotValidationError(
+      `${label} must be a safe hexadecimal color.`,
+    );
   }
   return value;
 }
@@ -173,7 +183,9 @@ function validateWordSet(value: unknown): WordSet {
     return word;
   });
   if (words.some((word, index) => word.rank !== index + 1)) {
-    throw new SnapshotValidationError("word ranks must be consecutive starting at 1.");
+    throw new SnapshotValidationError(
+      "word ranks must be consecutive starting at 1.",
+    );
   }
   return { locale, tokenizerVersion, totalTokens, words };
 }
@@ -184,7 +196,9 @@ function validateShape(value: unknown): ShapeSettings {
   const id = stringValue(object.id, "presentation.shape.id", 64);
   const shape = getBuiltInShape(id);
   if (!shape)
-    throw new SnapshotValidationError("presentation.shape.id is not supported.");
+    throw new SnapshotValidationError(
+      "presentation.shape.id is not supported.",
+    );
   return {
     id: shape.id,
     widthScale: numberValue(
@@ -261,11 +275,15 @@ function validatePresentation(value: unknown, shaped: boolean): Presentation {
     throw new SnapshotValidationError("palette is invalid.");
   const fontFamily = stringValue(object.fontFamily, "presentation.fontFamily");
   if (!isSafeFontFamily(fontFamily))
-    throw new SnapshotValidationError("fontFamily contains a disallowed CSS value.");
+    throw new SnapshotValidationError(
+      "fontFamily contains a disallowed CSS value.",
+    );
   const minFontSize = numberValue(object.minFontSize, "minFontSize", 1, 512);
   const maxFontSize = numberValue(object.maxFontSize, "maxFontSize", 1, 512);
   if (minFontSize > maxFontSize)
-    throw new SnapshotValidationError("minFontSize must not exceed maxFontSize.");
+    throw new SnapshotValidationError(
+      "minFontSize must not exceed maxFontSize.",
+    );
   const presentation: Presentation = {
     canvas: { width, height },
     minFontSize,
@@ -546,7 +564,9 @@ function validateSnapshotSceneWords(
   for (const word of scene.words) {
     const source = wordByRank.get(word.rank);
     if (source?.term !== word.term || source?.count !== word.count) {
-      throw new SnapshotValidationError("scene and wordSet word data do not match.");
+      throw new SnapshotValidationError(
+        "scene and wordSet word data do not match.",
+      );
     }
     if (sceneRanks.has(word.rank))
       throw new SnapshotValidationError("scene ranks must be unique.");
@@ -640,13 +660,121 @@ export function createSnapshot(
   });
 }
 
+function packScenePack(snapshot: SnapshotPayload): unknown {
+  const wordIndexByRank = new Map(
+    snapshot.wordSet.words.map((word, index) => [word.rank, index]),
+  );
+  const sceneWords = snapshot.scene.words.map((word) => {
+    const wordIndex = wordIndexByRank.get(word.rank);
+    if (wordIndex === undefined) {
+      throw new SnapshotValidationError(
+        "ScenePack scene word does not match a wordSet rank.",
+      );
+    }
+    return [
+      wordIndex,
+      word.locale,
+      word.fontSize,
+      word.angle,
+      word.x,
+      word.y,
+      word.width,
+      word.height,
+      word.color,
+      word.status,
+      ...(word.reason === undefined ? [] : [word.reason]),
+    ];
+  });
+  return [
+    SCENE_PACK_MAGIC,
+    {
+      ...snapshot,
+      scene: { ...snapshot.scene, words: sceneWords },
+    },
+  ];
+}
+
+function unpackScenePack(value: unknown): unknown {
+  if (
+    !Array.isArray(value) ||
+    value.length !== 2 ||
+    value[0] !== SCENE_PACK_MAGIC
+  ) {
+    throw new SnapshotValidationError("ScenePack format is not supported.");
+  }
+
+  const packedSnapshot = record(value[1], "ScenePack snapshot");
+  const wordSet = record(packedSnapshot.wordSet, "ScenePack wordSet");
+  const words = wordSet.words;
+  if (!Array.isArray(words) || words.length > LIMITS.maxUniqueTerms) {
+    throw new SnapshotValidationError("ScenePack wordSet is invalid.");
+  }
+  const scene = record(packedSnapshot.scene, "ScenePack scene");
+  if (
+    !Array.isArray(scene.words) ||
+    scene.words.length > LIMITS.maxUniqueTerms
+  ) {
+    throw new SnapshotValidationError("ScenePack scene words are invalid.");
+  }
+
+  const sceneWords = scene.words.map((value, index) => {
+    if (!Array.isArray(value) || (value.length !== 10 && value.length !== 11)) {
+      throw new SnapshotValidationError(
+        `ScenePack word ${index} has an invalid shape.`,
+      );
+    }
+    const wordIndex = value[0];
+    if (
+      typeof wordIndex !== "number" ||
+      !Number.isInteger(wordIndex) ||
+      wordIndex < 0 ||
+      wordIndex >= words.length
+    ) {
+      throw new SnapshotValidationError(
+        `ScenePack word ${index} has an invalid word index.`,
+      );
+    }
+    const word = record(words[wordIndex], `ScenePack wordSet[${wordIndex}]`);
+    return {
+      term: word.term,
+      count: word.count,
+      rank: word.rank,
+      locale: value[1],
+      fontSize: value[2],
+      angle: value[3],
+      x: value[4],
+      y: value[5],
+      width: value[6],
+      height: value[7],
+      color: value[8],
+      status: value[9],
+      ...(value.length === 11 ? { reason: value[10] } : {}),
+    };
+  });
+
+  return {
+    ...packedSnapshot,
+    scene: { ...scene, words: sceneWords },
+  };
+}
+
+export function encodeSnapshotPayload(
+  snapshot: SnapshotPayload,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+): ReturnType<typeof encodeScenePackFragment> {
+  return encodeScenePackFragment(
+    packScenePack(validateSnapshot(snapshot)),
+    maxEncodedBytes,
+  );
+}
+
 export function encodeSnapshot(
   wordSet: WordSet,
   presentation: Presentation,
   scene: SceneModel,
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
-): ReturnType<typeof encodeJsonFragment> {
-  return encodeJsonFragment(
+): ReturnType<typeof encodeScenePackFragment> {
+  return encodeSnapshotPayload(
     createSnapshot(wordSet, presentation, scene),
     maxEncodedBytes,
   );
@@ -656,5 +784,8 @@ export function decodeSnapshotFragment(
   fragment: string,
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): SnapshotPayload {
-  return validateSnapshot(decodeJsonFragment(fragment, maxEncodedBytes));
+  const value = decodeScenePackFragment(fragment, maxEncodedBytes);
+  return validateSnapshot(
+    Array.isArray(value) ? unpackScenePack(value) : value,
+  );
 }
