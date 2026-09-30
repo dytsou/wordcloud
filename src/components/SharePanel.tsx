@@ -97,7 +97,7 @@ export function SharePanel({
           {shareError}
         </p>
       )}
-      {hasShareUrl && (
+      {(hasShareUrl || shareError) && (
         <div className="file-actions">
           <button
             className="button button-quiet"
@@ -107,20 +107,24 @@ export function SharePanel({
           >
             {t("downloadSnapshot", { extension: SNAPSHOT_FILE_EXTENSION })}
           </button>
-          <button
-            className="button button-quiet"
-            type="button"
-            onClick={() => inputRef.current?.click()}
-          >
-            {t("importSnapshot", { extension: SNAPSHOT_FILE_EXTENSION })}
-          </button>
-          <input
-            ref={inputRef}
-            className="sr-only"
-            type="file"
-            accept={`${SNAPSHOT_FILE_EXTENSION},application/octet-stream,text/plain`}
-            onChange={onImport}
-          />
+          {hasShareUrl && (
+            <>
+              <button
+                className="button button-quiet"
+                type="button"
+                onClick={() => inputRef.current?.click()}
+              >
+                {t("importSnapshot", { extension: SNAPSHOT_FILE_EXTENSION })}
+              </button>
+              <input
+                ref={inputRef}
+                className="sr-only"
+                type="file"
+                accept={`${SNAPSHOT_FILE_EXTENSION},application/octet-stream,text/plain`}
+                onChange={onImport}
+              />
+            </>
+          )}
         </div>
       )}
       <button className="text-button" type="button" onClick={onNewSource}>
