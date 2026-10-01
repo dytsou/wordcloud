@@ -2,8 +2,8 @@ import { Unzlib, zlibSync } from "fflate";
 import { canonicalStringify, parseStrictJson } from "./canonical-json";
 import { LIMITS, utf8ByteLength } from "./limits";
 
-export const SNAPSHOT_PREFIX = "#wc-pako:v1:";
-export const CODEC_VERSION = "wc-pako-v1";
+export const SNAPSHOT_PREFIX = "#wc-pako:v2:";
+export const CODEC_VERSION = "wc-pako-v2";
 
 export type CodecErrorCode =
   | "PREFIX"
@@ -232,6 +232,7 @@ export function buildShareUrl(baseUrl: string, fragment: string): string {
       `V fragment exceeds the ${LIMITS.maxEncodedFragmentBytes}-byte limit.`,
     );
   const url = new URL(baseUrl);
+  url.searchParams.set("wc-codec", CODEC_VERSION);
   url.hash = fragment.slice(1);
   const result = url.toString();
   if (utf8ByteLength(result) > LIMITS.maxShareUrlBytes) {

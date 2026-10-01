@@ -42,7 +42,7 @@ describe("hostile snapshot corpus", () => {
   });
 
   it("rejects malformed and truncated fragments without partial state", () => {
-    expect(() => decodeSnapshotFragment("#wc-pako:v1:not-valid!!")).toThrow();
+    expect(() => decodeSnapshotFragment("#wc-pako:v2:not-valid!!")).toThrow();
     expect(() =>
       decodeSnapshotFragment(validSnapshotFragment().slice(0, -3)),
     ).toThrow();

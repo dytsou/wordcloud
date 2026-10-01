@@ -82,7 +82,7 @@ test("creator moves through the wizard and can return to update the cloud", asyn
     "產生連結後會顯示在這裡",
   );
   await page.getByRole("button", { name: "產生 V 連結" }).click();
-  await expect(shareUrl).toHaveValue(/\/create\/result#wc-pako:v1:/);
+  await expect(shareUrl).toHaveValue(/\/view\?wc-codec=wc-pako-v2#wc-pako:v2:/);
 
   expect(requests.some((request) => request.includes("Cloud cloud 雲端"))).toBe(
     false,

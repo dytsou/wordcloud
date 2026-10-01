@@ -23,13 +23,13 @@ The editor processes source text in the browser and keeps its draft in browser s
 
 ### `wordcloud-inspect`
 
-- Input: required existing V URL or `#wc-pako:v1:` fragment; optional `limit` from 1 to 100.
+- Input: required existing V URL or `#wc-pako:v2:` fragment; optional `limit` from 1 to 100.
 - Output: snapshot metadata, ranked word counts, layout status, and top words.
 - Source text is not accepted; the tool does not fetch remote URLs.
 
 ### `wordcloud-render-svg`
 
-- Input: required existing V URL or `#wc-pako:v1:` fragment; optional SVG title and description.
+- Input: required existing V URL or `#wc-pako:v2:` fragment; optional SVG title and description.
 - Output: SVG text for the validated saved scene.
 - Source text is not accepted; the tool does not fetch remote URLs.
 

@@ -126,7 +126,7 @@ paths:
                   params:
                     name: wordcloud-inspect
                     arguments:
-                      vUrl: "https://wordcloud.example/#wc-pako:v1:<url-safe-base64>"
+                      vUrl: "https://wordcloud.example/view?wc-codec=wc-pako-v2#wc-pako:v2:<url-safe-base64>"
                       limit: 20
               renderSvg:
                 summary: Render a previously generated V as SVG
@@ -137,7 +137,7 @@ paths:
                   params:
                     name: wordcloud-render-svg
                     arguments:
-                      vUrl: "#wc-pako:v1:<url-safe-base64>"
+                      vUrl: "#wc-pako:v2:<url-safe-base64>"
                       title: Wordcloud preview
                       description: Rendered from a validated V snapshot
       responses:
@@ -611,10 +611,10 @@ components:
       minLength: 1
       maxLength: 40960
       x-utf8-maxBytes: 40960
-      description: Existing HTTP(S) URL containing a #wc-pako:v1: fragment, or the fragment itself. It is parsed locally; no remote URL is fetched. The encoded fragment itself is limited to 32 KiB.
+      description: Existing HTTP(S) URL containing a #wc-pako:v2: fragment, or the fragment itself. It is parsed locally; no remote URL is fetched. The encoded fragment itself is limited to 32 KiB.
       examples:
-        - "https://wordcloud.example/#wc-pako:v1:<url-safe-base64>"
-        - "#wc-pako:v1:<url-safe-base64>"
+        - "https://wordcloud.example/view?wc-codec=wc-pako-v2#wc-pako:v2:<url-safe-base64>"
+        - "#wc-pako:v2:<url-safe-base64>"
     SafeLiteral:
       type: string
       minLength: 1
@@ -826,7 +826,7 @@ components:
       properties:
         vFragment:
           type: string
-          pattern: "^#wc-pako:v1:"
+          pattern: "^#wc-pako:v2:"
           description: Reproducible V fragment containing normalized terms, counts, ranks, style, and derived placements, but not raw source text or editable rule bodies.
         svg:
           type: string
@@ -857,7 +857,7 @@ components:
           const: wc-snapshot-v1
         codecVersion:
           type: string
-          const: wc-pako-v1
+          const: wc-pako-v2
         tokenizerVersion:
           type: string
           example: wc-tokenizer-v1

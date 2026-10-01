@@ -64,7 +64,7 @@ test("reopens V links as style-only remixes and .wc files as editor remixes", as
   await createCloud(page, privateSourceText);
   await page.getByRole("button", { name: "產生 V 連結" }).click();
   const originalUrl = await page.getByLabel("V URL").inputValue();
-  expect(originalUrl).toMatch(/#wc-pako:v1:/);
+  expect(originalUrl).toMatch(/#wc-pako:v2:/);
   expect(originalUrl).not.toContain(privateSourceText);
 
   await open(page, originalUrl);

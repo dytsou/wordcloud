@@ -60,10 +60,12 @@ test("shared snapshots open at results and can return to style", async ({
   await advance(page, /\/create\/result$/);
   const shareUrl = page.getByLabel("V URL");
   await page.getByRole("button", { name: "產生 V 連結" }).click();
-  await expect(shareUrl).toHaveValue(/#wc-pako:v1:/);
+  await expect(shareUrl).toHaveValue(/#wc-pako:v2:/);
 
   await open(page, await shareUrl.inputValue());
-  await expect.poll(() => page.url()).toMatch(/\/create\/result#wc-pako:v1:/);
+  await expect
+    .poll(() => page.url())
+    .toMatch(/\/view\?wc-codec=wc-pako-v2#wc-pako:v2:/);
   await expect(page.locator(".remix-banner")).toBeVisible();
   await expect(page.getByRole("button", { name: "原文" })).toHaveCount(0);
   await page
@@ -80,11 +82,9 @@ test("shows an actionable error for a malformed V fragment", async ({
 }) => {
   test.setTimeout(60_000);
   page.setDefaultTimeout(30_000);
-  await open(page, "/#wc-pako:v1:not-valid!!");
+  await open(page, "/#wc-pako:v2:not-valid!!");
   await expect(page.getByRole("alert")).toContainText("快照");
-  await expect
-    .poll(() => page.url())
-    .toMatch(/\/create\/result#wc-pako:v1:not-valid!!/);
+  await expect.poll(() => page.url()).toMatch(/\/view#wc-pako:v2:not-valid!!/);
   await expect(page.locator("#source-text")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: /開始新的文字雲/u }),

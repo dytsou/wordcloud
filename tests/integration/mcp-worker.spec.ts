@@ -268,7 +268,7 @@ describe("MCP Worker", () => {
     const snapshot = decodeSnapshotInput(result.vFragment);
 
     expect(response.status).toBe(200);
-    expect(result.vFragment).toMatch(/^#wc-pako:v1:/);
+    expect(result.vFragment).toMatch(/^#wc-pako:v2:/);
     expect(snapshot.schemaVersion).toBe("wc-snapshot-v1");
     expect(result.vFragment).not.toContain("Apple apple Cloudflare");
     expect(result.summary.topWords).toEqual(
@@ -313,7 +313,7 @@ describe("MCP Worker", () => {
     const snapshot = decodeSnapshotInput(generated.vFragment);
 
     expect(response.status).toBe(200);
-    expect(generated.vFragment).toMatch(/^#wc-pako:v1:/);
+    expect(generated.vFragment).toMatch(/^#wc-pako:v2:/);
     expect(snapshot).toMatchObject({
       schemaVersion: "wc-snapshot-v2",
       layoutVersion: "layout-v2",

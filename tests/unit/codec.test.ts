@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { deflateSync } from "node:zlib";
 import { zlibSync } from "fflate";
 import {
+  buildShareUrl,
   decodeScenePackFragment,
   encodeScenePackFragment,
   SNAPSHOT_PREFIX,
@@ -14,11 +15,11 @@ describe("snapshot codec", () => {
     const encoded = encodeScenePackFragment(value);
 
     expect(encoded.fragment.startsWith(SNAPSHOT_PREFIX)).toBe(true);
-    expect(encoded.fragment).toMatch(/^#wc-pako:v1:[A-Za-z0-9_-]+$/);
+    expect(encoded.fragment).toMatch(/^#wc-pako:v2:[A-Za-z0-9_-]+$/);
     expect(decodeScenePackFragment(encoded.fragment)).toEqual(value);
   });
 
-  it("reads V1 zlib fragments and rejects a damaged checksum", () => {
+  it("reads zlib fragments with the v2 marker and rejects a damaged checksum", () => {
     const json = new TextEncoder().encode('{"a":[1,true],"z":"最後"}');
     const compressed = deflateSync(json);
     const fragment = `${SNAPSHOT_PREFIX}${compressed.toString("base64url")}`;
@@ -34,6 +35,26 @@ describe("snapshot codec", () => {
     expect(() => decodeScenePackFragment(damagedFragment)).toThrow(
       /checksum|inflate/i,
     );
+  });
+
+  it("rejects V1 fragments after the ScenePack format upgrade", () => {
+    const fragment = encodeScenePackFragment(["wc-scene-pack", {}]).fragment;
+    const v1Fragment = fragment.replace(SNAPSHOT_PREFIX, "#wc-pako:v1:");
+
+    expect(() => decodeScenePackFragment(v1Fragment)).toThrow(
+      /prefix|version/i,
+    );
+  });
+
+  it("versions share URLs so a new codec loads the matching app build", () => {
+    const fragment = `${SNAPSHOT_PREFIX}payload`;
+    const shareUrl = new URL(
+      buildShareUrl("https://wordcloud.example/view?campaign=test", fragment),
+    );
+
+    expect(shareUrl.searchParams.get("campaign")).toBe("test");
+    expect(shareUrl.searchParams.get("wc-codec")).toBe("wc-pako-v2");
+    expect(shareUrl.hash).toBe(fragment);
   });
 
   it("rejects malformed, noncanonical, and oversized payloads", () => {

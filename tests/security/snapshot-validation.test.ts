@@ -58,11 +58,11 @@ describe("snapshot validation", () => {
     expect(serialized).not.toContain("protected phrase");
   });
 
-  it("rejects object-form snapshots with the V1 marker", () => {
+  it("rejects object-form snapshots with the v2 marker", () => {
     const snapshot = decodeSnapshotFragment(valid());
     const objectFragment = encodeScenePackFragment(snapshot).fragment;
 
-    expect(objectFragment).toMatch(/^#wc-pako:v1:/u);
+    expect(objectFragment).toMatch(/^#wc-pako:v2:/u);
     expect(() => decodeSnapshotFragment(objectFragment)).toThrow(/ScenePack/iu);
   });
 
@@ -87,7 +87,7 @@ describe("snapshot validation", () => {
     expect(snapshot.scene).toEqual(snapshotScene);
   });
 
-  it("round-trips shape geometry in the V1 ScenePack format", () => {
+  it("round-trips shape geometry in the v2 ScenePack format", () => {
     const presentation = {
       ...snapshotStyle,
       version: "layout-v2",
@@ -97,7 +97,7 @@ describe("snapshot validation", () => {
     const encoded = encodeSnapshot(snapshotWordSet, presentation, scene);
     const snapshot = decodeSnapshotFragment(encoded.fragment);
 
-    expect(encoded.fragment).toMatch(/^#wc-pako:v1:/u);
+    expect(encoded.fragment).toMatch(/^#wc-pako:v2:/u);
     expect(snapshot.schemaVersion).toBe("wc-snapshot-v2");
     expect(snapshot.layoutVersion).toBe("layout-v2");
     if (snapshot.schemaVersion !== "wc-snapshot-v2")

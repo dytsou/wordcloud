@@ -251,7 +251,7 @@ const snapshotInputSchema = z.strictObject({
     .trim()
     .min(1)
     .max(LIMITS.maxShareUrlBytes)
-    .describe("An existing V URL or #wc-pako:v1: fragment; never source text."),
+    .describe("An existing V URL or #wc-pako:v2: fragment; never source text."),
 });
 
 const summaryInputSchema = z.strictObject({
@@ -559,7 +559,7 @@ export function createWordcloudMcpServer(): McpServer {
         };
       } catch {
         return toolError(
-          "Unable to inspect this V. Provide a valid wc-pako:v1: URL or fragment.",
+          "Unable to inspect this V. Provide a valid wc-pako:v2: URL or fragment.",
         );
       }
     },
@@ -579,7 +579,7 @@ export function createWordcloudMcpServer(): McpServer {
         return { content: [{ type: "text" as const, text: svg }] };
       } catch {
         return toolError(
-          "Unable to render this V. Provide a valid wc-pako:v1: URL or fragment.",
+          "Unable to render this V. Provide a valid wc-pako:v2: URL or fragment.",
         );
       }
     },

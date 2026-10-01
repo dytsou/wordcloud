@@ -71,7 +71,7 @@ describe("MCP wordcloud helpers", () => {
       caseInsensitive: true,
     });
 
-    expect(generated.vFragment).toMatch(/^#wc-pako:v1:/);
+    expect(generated.vFragment).toMatch(/^#wc-pako:v2:/);
     expect(generated.summary).toMatchObject({
       schemaVersion: "wc-snapshot-v1",
       layoutVersion: "layout-v1",
@@ -95,7 +95,7 @@ describe("MCP wordcloud helpers", () => {
     });
     const snapshot = decodeSnapshotInput(generated.vFragment);
 
-    expect(generated.vFragment).toMatch(/^#wc-pako:v1:/);
+    expect(generated.vFragment).toMatch(/^#wc-pako:v2:/);
     expect(generated.summary).toMatchObject({
       schemaVersion: "wc-snapshot-v2",
       layoutVersion: "layout-v2",

@@ -77,7 +77,7 @@ describe("ScenePack large snapshot stress", () => {
       LIMITS.maxSnapshotFileBytes,
     );
 
-    expect(encoded.fragment).toMatch(/^#wc-pako:v1:/u);
+    expect(encoded.fragment).toMatch(/^#wc-pako:v2:/u);
     expect(utf8ByteLength(encoded.fragment)).toBeGreaterThan(
       LIMITS.maxEncodedFragmentBytes,
     );
