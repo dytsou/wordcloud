@@ -312,7 +312,7 @@ export function App() {
         navigateToStep("result", true);
       }
     };
-    loadHash();
+    void loadHash();
     window.addEventListener("hashchange", loadHash);
     return () => window.removeEventListener("hashchange", loadHash);
   }, [invalidatePendingWork, navigateToStep, t]);
@@ -881,6 +881,60 @@ export function App() {
     ],
   );
 
+  const createV1ShareLink = useCallback(
+    (
+      snapshot: ReturnType<typeof createSnapshot>,
+      isShareRunCurrent: () => boolean,
+    ): boolean => {
+      try {
+        const fragment = encodeJsonFragment(snapshot).fragment;
+        const url = buildShareUrl(
+          `${window.location.origin}${SHARE_VIEW_PATH}`,
+          fragment,
+        );
+        if (!isShareRunCurrent()) return false;
+        setState((current) => ({ ...current, shareUrl: url }));
+        return true;
+      } catch (error) {
+        if (!isShareRunCurrent()) return false;
+        setState((current) => ({
+          ...current,
+          shareErrorV1: t("linkFailedV1", { error: errorText(error) }),
+        }));
+        return false;
+      }
+    },
+    [t],
+  );
+
+  const createV2ShareLink = useCallback(
+    async (
+      snapshot: ReturnType<typeof createSnapshot>,
+      isShareRunCurrent: () => boolean,
+    ): Promise<boolean> => {
+      try {
+        const client = clientRef.current;
+        if (!client) throw new Error(t("v2WorkerUnavailable"));
+        const encoded = await client.encodeShare(snapshot);
+        const url = buildShareUrl(
+          `${window.location.origin}${SHARE_VIEW_PATH}`,
+          encoded.fragment,
+        );
+        if (!isShareRunCurrent()) return false;
+        setState((current) => ({ ...current, shareUrlV2: url }));
+        return true;
+      } catch (error) {
+        if (!isShareRunCurrent()) return false;
+        setState((current) => ({
+          ...current,
+          shareErrorV2: t("linkFailedV2", { error: errorText(error) }),
+        }));
+        return false;
+      }
+    },
+    [t],
+  );
+
   const handleCreateLink = useCallback(async () => {
     if (
       state.mode === "generating" ||
@@ -911,41 +965,9 @@ export function App() {
         state.presentation,
         state.scene,
       );
-      try {
-        const fragment = encodeJsonFragment(snapshot).fragment;
-        const url = buildShareUrl(
-          `${window.location.origin}${SHARE_VIEW_PATH}`,
-          fragment,
-        );
-        if (!isCurrent()) return;
-        v1Created = true;
-        setState((current) => ({ ...current, shareUrl: url }));
-      } catch (error) {
-        if (!isCurrent()) return;
-        setState((current) => ({
-          ...current,
-          shareErrorV1: t("linkFailedV1", { error: errorText(error) }),
-        }));
-      }
-
-      try {
-        const client = clientRef.current;
-        if (!client) throw new Error(t("v2WorkerUnavailable"));
-        const encoded = await client.encodeShare(snapshot);
-        const url = buildShareUrl(
-          `${window.location.origin}${SHARE_VIEW_PATH}`,
-          encoded.fragment,
-        );
-        if (!isCurrent()) return;
-        v2Created = true;
-        setState((current) => ({ ...current, shareUrlV2: url }));
-      } catch (error) {
-        if (!isCurrent()) return;
-        setState((current) => ({
-          ...current,
-          shareErrorV2: t("linkFailedV2", { error: errorText(error) }),
-        }));
-      }
+      v1Created = createV1ShareLink(snapshot, isCurrent);
+      if (!isCurrent()) return;
+      v2Created = await createV2ShareLink(snapshot, isCurrent);
     } catch (error) {
       if (!isCurrent()) return;
       const message = errorText(error);
@@ -957,18 +979,20 @@ export function App() {
     } finally {
       if (isCurrent()) {
         setState((current) => ({ ...current, shareEncoding: false }));
-        setStatus(
-          v1Created && v2Created
-            ? t("linksCreatedBoth")
-            : v1Created
-              ? t("linkCreatedV1Only")
-              : v2Created
-                ? t("linkCreatedV2Only")
-                : t("linkCreationFailed"),
-        );
+        if (v1Created && v2Created) {
+          setStatus(t("linksCreatedBoth"));
+        } else if (v1Created) {
+          setStatus(t("linkCreatedV1Only"));
+        } else if (v2Created) {
+          setStatus(t("linkCreatedV2Only"));
+        } else {
+          setStatus(t("linkCreationFailed"));
+        }
       }
     }
   }, [
+    createV1ShareLink,
+    createV2ShareLink,
     state.mode,
     state.presentation,
     state.scene,

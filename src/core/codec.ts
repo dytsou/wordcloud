@@ -260,6 +260,37 @@ export function decodeJsonFragment(
   return value;
 }
 
+function isBrotliStreamComplete(
+  resultCode: number,
+  resultCodes: {
+    ResultSuccess: number;
+    NeedsMoreInput: number;
+    NeedsMoreOutput: number;
+  },
+  inputOffset: number,
+  compressedByteLength: number,
+): boolean {
+  if (resultCode === resultCodes.ResultSuccess) {
+    if (inputOffset !== compressedByteLength) {
+      throw new CodecError(
+        "INFLATE_LIMIT",
+        "V2 payload has trailing compressed data.",
+      );
+    }
+    return true;
+  }
+  if (resultCode === resultCodes.NeedsMoreInput) {
+    throw new CodecError(
+      "INFLATE_LIMIT",
+      "V2 payload decompression failed because the compressed stream is incomplete.",
+    );
+  }
+  if (resultCode !== resultCodes.NeedsMoreOutput) {
+    throw new CodecError("INFLATE_LIMIT", "V2 payload decompression failed.");
+  }
+  return false;
+}
+
 async function inflateBrotliBounded(
   compressed: Uint8Array,
 ): Promise<Uint8Array> {
@@ -292,29 +323,12 @@ async function inflateBrotliBounded(
         }
         if (output.byteLength > 0) chunks.push(output);
 
-        if (result.code === brotli.BrotliStreamResultCode.ResultSuccess) {
-          if (inputOffset !== compressed.byteLength) {
-            throw new CodecError(
-              "INFLATE_LIMIT",
-              "V2 payload has trailing compressed data.",
-            );
-          }
-          completed = true;
-        } else if (
-          result.code === brotli.BrotliStreamResultCode.NeedsMoreInput
-        ) {
-          throw new CodecError(
-            "INFLATE_LIMIT",
-            "V2 payload decompression failed because the compressed stream is incomplete.",
-          );
-        } else if (
-          result.code !== brotli.BrotliStreamResultCode.NeedsMoreOutput
-        ) {
-          throw new CodecError(
-            "INFLATE_LIMIT",
-            "V2 payload decompression failed.",
-          );
-        }
+        completed = isBrotliStreamComplete(
+          result.code,
+          brotli.BrotliStreamResultCode,
+          inputOffset,
+          compressed.byteLength,
+        );
       } finally {
         result.free();
       }
