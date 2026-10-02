@@ -1895,9 +1895,12 @@ thead th {
   min-width: 0;
 }
 
-.share-url-copy-field .share-url {
+.share-url-copy-field
+  input:not([type="checkbox"]):not([type="color"]):not([type="range"]):not(
+    [type="file"]
+  ):not(.tag-entry).share-url {
   width: 100%;
-  padding-inline-end: 5rem;
+  padding-inline-end: 2.75rem;
 }
 
 .share-url-copy-button {
