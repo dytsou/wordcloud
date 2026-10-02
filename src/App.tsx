@@ -45,6 +45,7 @@ import {
   assertShareUrlNotTruncated,
   buildShareUrl,
   CodecError,
+  type EncodedJsonFragment,
   encodeJsonFragment,
   snapshotFormatFromFragment,
 } from "./core/codec";
@@ -109,6 +110,10 @@ function shareLoadErrorText(error: unknown, t: Translate): string {
   }
   return errorText(error);
 }
+
+type ShareEncoder = (
+  snapshot: ReturnType<typeof createSnapshot>,
+) => EncodedJsonFragment | Promise<EncodedJsonFragment>;
 
 function isSharedViewPath(pathname: string): boolean {
   let end = pathname.length;
@@ -888,53 +893,30 @@ export function App() {
     ],
   );
 
-  const createV1ShareLink = useCallback(
-    (
+  const createShareLink = useCallback(
+    async (
+      version: "v1" | "v2",
       snapshot: ReturnType<typeof createSnapshot>,
       isShareRunCurrent: () => boolean,
-    ): boolean => {
+      encode: ShareEncoder,
+    ): Promise<boolean> => {
       try {
-        const fragment = encodeJsonFragment(snapshot).fragment;
+        const { fragment } = await encode(snapshot);
         const url = buildShareUrl(
           `${window.location.origin}${SHARE_VIEW_PATH}`,
           fragment,
         );
         if (!isShareRunCurrent()) return false;
-        setState((current) => ({ ...current, shareUrl: url }));
+        const urlKey = version === "v1" ? "shareUrl" : "shareUrlV2";
+        setState((current) => ({ ...current, [urlKey]: url }));
         return true;
       } catch (error) {
         if (!isShareRunCurrent()) return false;
+        const errorKey = version === "v1" ? "shareErrorV1" : "shareErrorV2";
+        const messageKey = version === "v1" ? "linkFailedV1" : "linkFailedV2";
         setState((current) => ({
           ...current,
-          shareErrorV1: t("linkFailedV1", { error: errorText(error) }),
-        }));
-        return false;
-      }
-    },
-    [t],
-  );
-
-  const createV2ShareLink = useCallback(
-    async (
-      snapshot: ReturnType<typeof createSnapshot>,
-      isShareRunCurrent: () => boolean,
-    ): Promise<boolean> => {
-      try {
-        const client = clientRef.current;
-        if (!client) throw new Error(t("v2WorkerUnavailable"));
-        const encoded = await client.encodeShare(snapshot);
-        const url = buildShareUrl(
-          `${window.location.origin}${SHARE_VIEW_PATH}`,
-          encoded.fragment,
-        );
-        if (!isShareRunCurrent()) return false;
-        setState((current) => ({ ...current, shareUrlV2: url }));
-        return true;
-      } catch (error) {
-        if (!isShareRunCurrent()) return false;
-        setState((current) => ({
-          ...current,
-          shareErrorV2: t("linkFailedV2", { error: errorText(error) }),
+          [errorKey]: t(messageKey, { error: errorText(error) }),
         }));
         return false;
       }
@@ -972,9 +954,18 @@ export function App() {
         state.presentation,
         state.scene,
       );
-      v1Created = createV1ShareLink(snapshot, isCurrent);
+      v1Created = await createShareLink(
+        "v1",
+        snapshot,
+        isCurrent,
+        encodeJsonFragment,
+      );
       if (!isCurrent()) return;
-      v2Created = await createV2ShareLink(snapshot, isCurrent);
+      v2Created = await createShareLink("v2", snapshot, isCurrent, (value) => {
+        const client = clientRef.current;
+        if (!client) throw new Error(t("v2WorkerUnavailable"));
+        return client.encodeShare(value);
+      });
     } catch (error) {
       if (!isCurrent()) return;
       const message = errorText(error);
@@ -990,8 +981,7 @@ export function App() {
       }
     }
   }, [
-    createV1ShareLink,
-    createV2ShareLink,
+    createShareLink,
     state.mode,
     state.presentation,
     state.scene,

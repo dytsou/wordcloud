@@ -99,24 +99,41 @@ function adler32(bytes: Uint8Array): number {
   return ((b << 16) | a) >>> 0;
 }
 
-function inflateBounded(compressed: Uint8Array): Uint8Array {
+function createInflatedOutputCollector(
+  compressedByteLength: number,
+  version: "V" | "V2",
+) {
   const chunks: Uint8Array[] = [];
+  const ratioLimit = Math.max(compressedByteLength * LIMITS.maxInflateRatio, 1);
   let total = 0;
-  const ratioLimit = Math.max(
-    compressed.byteLength * LIMITS.maxInflateRatio,
-    1,
-  );
-  const inflater = new Unzlib();
-  inflater.ondata = (chunk) => {
-    total += chunk.byteLength;
-    if (total > LIMITS.maxInflatedJsonBytes || total > ratioLimit) {
-      throw new CodecError(
-        "INFLATE_LIMIT",
-        "V payload exceeds the safe decompressed size or expansion ratio limit.",
-      );
-    }
-    chunks.push(chunk);
+
+  return {
+    append(chunk: Uint8Array): void {
+      total += chunk.byteLength;
+      if (total > LIMITS.maxInflatedJsonBytes || total > ratioLimit) {
+        throw new CodecError(
+          "INFLATE_LIMIT",
+          `${version} payload exceeds the safe decompressed size or expansion ratio limit.`,
+        );
+      }
+      if (chunk.byteLength > 0) chunks.push(chunk);
+    },
+    finish(): Uint8Array {
+      const result = new Uint8Array(total);
+      let offset = 0;
+      for (const chunk of chunks) {
+        result.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      return result;
+    },
   };
+}
+
+function inflateBounded(compressed: Uint8Array): Uint8Array {
+  const output = createInflatedOutputCollector(compressed.byteLength, "V");
+  const inflater = new Unzlib();
+  inflater.ondata = (chunk) => output.append(chunk);
   try {
     const compressedChunkSize = 256;
     for (
@@ -138,12 +155,7 @@ function inflateBounded(compressed: Uint8Array): Uint8Array {
       cause: error,
     });
   }
-  const result = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
+  const result = output.finish();
   const trailerOffset = compressed.byteLength - 4;
   const expectedChecksum =
     ((compressed[trailerOffset]! << 24) |
@@ -221,43 +233,13 @@ export function decodeJsonFragment(
   fragment: string,
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): unknown {
-  if (!fragment.startsWith(SNAPSHOT_PREFIX)) {
-    throw new CodecError("PREFIX", "V URL prefix or version is not supported.");
-  }
-  if (utf8ByteLength(fragment) > maxEncodedBytes) {
-    throw new CodecError(
-      "PAYLOAD_LIMIT",
-      `V fragment exceeds the ${maxEncodedBytes}-byte limit.`,
-    );
-  }
-  const payload = fragment.slice(SNAPSHOT_PREFIX.length);
-  if (!payload) throw new CodecError("BASE64", "V payload must not be empty.");
-  const compressed = base64UrlToBytes(payload);
-  const inflated = inflateBounded(compressed);
-  let json: string;
-  try {
-    json = new TextDecoder("utf-8", { fatal: true }).decode(inflated);
-  } catch {
-    throw new CodecError("UTF8", "V payload is not valid UTF-8 JSON.");
-  }
-  let value: unknown;
-  try {
-    value = parseStrictJson(json);
-  } catch (error) {
-    // biome-ignore lint/style/useErrorCause: CodecError forwards ErrorOptions to Error.
-    throw new CodecError(
-      "JSON",
-      error instanceof Error ? error.message : "V payload JSON is invalid.",
-      { cause: error },
-    );
-  }
-  if (canonicalStringify(value) !== json) {
-    throw new CodecError(
-      "NONCANONICAL",
-      "V payload is not in canonical JSON form.",
-    );
-  }
-  return value;
+  const compressed = decodeCompressedPayload(
+    fragment,
+    SNAPSHOT_PREFIX,
+    "V",
+    maxEncodedBytes,
+  );
+  return decodeCanonicalJson(inflateBounded(compressed), "V");
 }
 
 function isBrotliStreamComplete(
@@ -296,12 +278,10 @@ async function inflateBrotliBounded(
 ): Promise<Uint8Array> {
   const brotli = await getBrotliApi();
   const decoder = new brotli.DecompressStream();
-  const chunks: Uint8Array[] = [];
-  const ratioLimit = Math.max(
-    compressed.byteLength * LIMITS.maxInflateRatio,
-    1,
+  const inflatedOutput = createInflatedOutputCollector(
+    compressed.byteLength,
+    "V2",
   );
-  let total = 0;
   let inputOffset = 0;
   let completed = false;
 
@@ -312,16 +292,9 @@ async function inflateBrotliBounded(
         4_096,
       );
       try {
-        const output = result.buf;
+        const chunk = result.buf;
         inputOffset += result.input_offset;
-        total += output.byteLength;
-        if (total > LIMITS.maxInflatedJsonBytes || total > ratioLimit) {
-          throw new CodecError(
-            "INFLATE_LIMIT",
-            "V2 payload exceeds the safe decompressed size or expansion ratio limit.",
-          );
-        }
-        if (output.byteLength > 0) chunks.push(output);
+        inflatedOutput.append(chunk);
 
         completed = isBrotliStreamComplete(
           result.code,
@@ -343,39 +316,57 @@ async function inflateBrotliBounded(
     decoder.free();
   }
 
-  const inflated = new Uint8Array(total);
-  let outputOffset = 0;
-  for (const chunk of chunks) {
-    inflated.set(chunk, outputOffset);
-    outputOffset += chunk.byteLength;
-  }
-  return inflated;
+  return inflatedOutput.finish();
 }
 
 export async function decodeBrotliJsonFragment(
   fragment: string,
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): Promise<unknown> {
-  if (!fragment.startsWith(BROTLI_SNAPSHOT_PREFIX)) {
+  const compressed = decodeCompressedPayload(
+    fragment,
+    BROTLI_SNAPSHOT_PREFIX,
+    "V2",
+    maxEncodedBytes,
+  );
+  const inflated = await inflateBrotliBounded(compressed);
+  return decodeCanonicalJson(inflated, "V2");
+}
+
+function decodeCompressedPayload(
+  fragment: string,
+  prefix: string,
+  version: "V" | "V2",
+  maxEncodedBytes: number,
+): Uint8Array {
+  if (!fragment.startsWith(prefix)) {
     throw new CodecError(
       "PREFIX",
-      "V2 URL prefix or version is not supported.",
+      `${version} URL prefix or version is not supported.`,
     );
   }
   if (utf8ByteLength(fragment) > maxEncodedBytes) {
     throw new CodecError(
       "PAYLOAD_LIMIT",
-      `V2 fragment exceeds the ${maxEncodedBytes}-byte limit.`,
+      `${version} fragment exceeds the ${maxEncodedBytes}-byte limit.`,
     );
   }
-  const payload = fragment.slice(BROTLI_SNAPSHOT_PREFIX.length);
-  if (!payload) throw new CodecError("BASE64", "V2 payload must not be empty.");
-  const inflated = await inflateBrotliBounded(base64UrlToBytes(payload));
+  const payload = fragment.slice(prefix.length);
+  if (!payload) {
+    throw new CodecError("BASE64", `${version} payload must not be empty.`);
+  }
+  return base64UrlToBytes(payload);
+}
+
+function decodeCanonicalJson(
+  inflated: Uint8Array,
+  version: "V" | "V2",
+): unknown {
   let json: string;
   try {
     json = new TextDecoder("utf-8", { fatal: true }).decode(inflated);
   } catch {
-    throw new CodecError("UTF8", "V2 payload is not valid UTF-8 JSON.");
+    throw new CodecError("UTF8", `${version} payload is not valid UTF-8 JSON.`);
   }
   let value: unknown;
   try {
@@ -384,14 +375,16 @@ export async function decodeBrotliJsonFragment(
     // biome-ignore lint/style/useErrorCause: CodecError forwards ErrorOptions to Error.
     throw new CodecError(
       "JSON",
-      error instanceof Error ? error.message : "V2 payload JSON is invalid.",
+      error instanceof Error
+        ? error.message
+        : `${version} payload JSON is invalid.`,
       { cause: error },
     );
   }
   if (canonicalStringify(value) !== json) {
     throw new CodecError(
       "NONCANONICAL",
-      "V2 payload is not in canonical JSON form.",
+      `${version} payload is not in canonical JSON form.`,
     );
   }
   return value;
