@@ -213,6 +213,13 @@ function firstIncompleteStep(
   return "style";
 }
 
+function shareLinkCreationStatusKey(v1Created: boolean, v2Created: boolean) {
+  if (v1Created && v2Created) return "linksCreatedBoth";
+  if (v1Created) return "linkCreatedV1Only";
+  if (v2Created) return "linkCreatedV2Only";
+  return "linkCreationFailed";
+}
+
 export function App() {
   const { locale: uiLocale, setLocale, t } = useI18n();
   const [state, setState] = useState<EditorState>(initialEditorState);
@@ -979,15 +986,7 @@ export function App() {
     } finally {
       if (isCurrent()) {
         setState((current) => ({ ...current, shareEncoding: false }));
-        if (v1Created && v2Created) {
-          setStatus(t("linksCreatedBoth"));
-        } else if (v1Created) {
-          setStatus(t("linkCreatedV1Only"));
-        } else if (v2Created) {
-          setStatus(t("linkCreatedV2Only"));
-        } else {
-          setStatus(t("linkCreationFailed"));
-        }
+        setStatus(t(shareLinkCreationStatusKey(v1Created, v2Created)));
       }
     }
   }, [
