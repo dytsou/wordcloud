@@ -23,18 +23,21 @@ export function SharedImageRoute({
   error,
 }: SharedImageRouteProps) {
   const { t } = useI18n();
-  const [imageUrl, setImageUrl] = useState<string>();
+  const [downloadUrl, setDownloadUrl] = useState<string>();
   const [renderError, setRenderError] = useState<string>();
 
   useEffect(() => {
-    setImageUrl(undefined);
+    setDownloadUrl(undefined);
     setRenderError(undefined);
     if (!scene || error) return;
 
     let isCurrent = true;
     let objectUrl: string | undefined;
-    const renderImage = async () => {
+    const renderAndDownload = async () => {
       try {
+        // Defer so Strict Mode can cancel its first effect setup.
+        await Promise.resolve();
+        if (!isCurrent) return;
         const blob =
           format === "png"
             ? await renderScenePng(scene)
@@ -43,7 +46,11 @@ export function SharedImageRoute({
               });
         if (!isCurrent) return;
         objectUrl = URL.createObjectURL(blob);
-        setImageUrl(objectUrl);
+        setDownloadUrl(objectUrl);
+        const downloadLink = document.createElement("a");
+        downloadLink.href = objectUrl;
+        downloadLink.download = `wordcloud.${format}`;
+        downloadLink.click();
       } catch (cause) {
         if (!isCurrent) return;
         const details = errorMessage(cause);
@@ -55,7 +62,7 @@ export function SharedImageRoute({
       }
     };
 
-    void renderImage();
+    void renderAndDownload();
     return () => {
       isCurrent = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
@@ -63,35 +70,35 @@ export function SharedImageRoute({
   }, [error, format, scene, t]);
 
   const message = error ?? renderError;
-  const content = (() => {
-    if (message) {
-      return (
-        <p className="shared-image-message" role="alert">
-          {message}
-        </p>
-      );
-    }
-    if (imageUrl) {
-      return (
-        <img
-          className="shared-image"
-          src={imageUrl}
-          alt={t("wizardPageResultTitle")}
-        />
-      );
-    }
-    return (
-      <output className="shared-image-message" aria-live="polite">
-        {t("wizardUpdating")}
-      </output>
-    );
-  })();
+  const content = message ? (
+    <p className="shared-image-message" role="alert">
+      {message}
+    </p>
+  ) : (
+    <output className="shared-image-message" aria-live="polite">
+      {downloadUrl ? (
+        <>
+          {t("sharedImageDownloadReady", { extension: format })}
+          {t("sharedImageDownloadFallback")}
+          <a
+            className="shared-image-download-link"
+            href={downloadUrl}
+            download={`wordcloud.${format}`}
+          >
+            {t("sharedImageDownloadLink", { extension: format })}
+          </a>
+        </>
+      ) : (
+        t("sharedImageDownloadPreparing", { extension: format })
+      )}
+    </output>
+  );
 
   return (
     <main
       className="shared-image-page"
-      aria-busy={!message && !imageUrl}
-      aria-label={t("wizardPageResultTitle")}
+      aria-busy={!message && !downloadUrl}
+      aria-label={t("sharedImageDownloadPreparing", { extension: format })}
     >
       {content}
     </main>

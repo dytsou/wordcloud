@@ -219,6 +219,12 @@ export const EN_MESSAGES = {
   snapshotDownloadFailed: "Snapshot download failed: {{error}}",
   svgDownloaded: "SVG downloaded; it uses the same SceneModel as the canvas.",
   svgDownloadFailed: "SVG export failed: {{error}}",
+  sharedImageDownloadPreparing:
+    "Preparing your .{{extension}} download…",
+  sharedImageDownloadReady: "Your .{{extension}} file is ready. ",
+  sharedImageDownloadFallback:
+    "If the download did not start automatically, use ",
+  sharedImageDownloadLink: "this link to download the .{{extension}} file.",
   pngGenerating: "Generating PNG locally…",
   pngDownloaded: "PNG downloaded; it uses the same SceneModel as the canvas.",
   pngDownloadFailed: "PNG export failed: {{error}}",

@@ -1892,17 +1892,16 @@ thead th {
   place-items: center;
 }
 
-.shared-image {
-  display: block;
-  max-width: 100%;
-  max-height: calc(100vh - 2rem);
-  object-fit: contain;
-}
-
 .shared-image-message {
   color: var(--ink-soft);
   font-size: 0.9rem;
   text-align: center;
+}
+
+.shared-image-download-link {
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
 }
 
 .text-button {
