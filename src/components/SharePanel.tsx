@@ -1,5 +1,5 @@
 import type { ChangeEvent } from "react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { SNAPSHOT_FILE_EXTENSION } from "../core/file-snapshot";
 import { useI18n } from "../i18n";
 
@@ -58,12 +58,37 @@ export function SharePanel({
 }: SharePanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { t } = useI18n();
+  const [selectedVersion, setSelectedVersion] = useState<"v1" | "v2">("v2");
+
   const hasShareUrl = Boolean(shareUrl || shareUrlV2);
-  const hasImageShareUrls = Boolean(
-    (pngShareUrlV1 && svgShareUrlV1) ||
+  const hasV1Output = Boolean(
+    shareUrl || shareErrorV1 || (pngShareUrlV1 && svgShareUrlV1),
+  );
+  const hasV2Output = Boolean(
+    shareUrlV2 ||
+      shareErrorV2 ||
+      shareEncoding ||
       (pngShareUrlV2 && svgShareUrlV2),
   );
-  return (
+  const activeVersion = shareEncoding
+    ? "v2"
+    : selectedVersion === "v1" && hasV1Output
+      ? "v1"
+      : hasV2Output
+        ? "v2"
+        : "v1";
+  const activeShareUrl = activeVersion === "v1" ? shareUrl : shareUrlV2;
+  const activeShareError = activeVersion === "v1" ? shareErrorV1 : shareErrorV2;
+  const activePngShareUrl =
+    activeVersion === "v1" ? pngShareUrlV1 : pngShareUrlV2;
+  const activeSvgShareUrl =
+    activeVersion === "v1" ? svgShareUrlV1 : svgShareUrlV2;
+  const activeImageCopyLabel = t(activeVersion === "v1" ? "copyV1" : "copyV2");
+  const canSwitchVersion = hasV1Output && hasV2Output && !shareEncoding;
+  const hasVersionChoice = Boolean(
+    shareUrl || shareUrlV2 || shareErrorV1 || shareErrorV2 || shareEncoding,
+  );
+  const panel = (
     <section className="panel share-panel" aria-labelledby="share-heading">
       <div className="panel-heading">
         <div>
@@ -100,115 +125,115 @@ export function SharePanel({
           {exporting ? t("downloadingPng") : t("downloadPng")}
         </button>
       </div>
-      {shareUrl && (
+
+      {hasVersionChoice && (
         <>
-          <label className="field-label" htmlFor="share-url-v1">
-            {t("v1Url")}
-          </label>
-          <input
-            id="share-url-v1"
-            className="share-url"
-            readOnly
-            value={shareUrl}
-            aria-describedby="share-url-v1-length"
-          />
-          <p id="share-url-v1-length" className="field-hint">
-            {t("shareUrlLength", { characters: shareUrl.length })}
-          </p>
-          <button
-            className="button button-quiet"
-            type="button"
-            disabled={disabled}
-            onClick={() => onCopy("v1")}
-          >
-            {t("copyV1")}
-          </button>
+          <div className="share-url-heading">
+            {activeShareUrl ? (
+              <label
+                className="field-label"
+                htmlFor={
+                  activeVersion === "v1" ? "share-url-v1" : "share-url-v2"
+                }
+              >
+                {t(activeVersion === "v1" ? "v1Url" : "v2Url")}
+              </label>
+            ) : (
+              <span className="field-label">{t("shareVersion")}</span>
+            )}
+            <div className="share-url-heading-actions">
+              {canSwitchVersion && (
+                <button
+                  className="share-version-toggle-text"
+                  type="button"
+                  disabled={disabled}
+                  onClick={() =>
+                    setSelectedVersion(activeVersion === "v1" ? "v2" : "v1")
+                  }
+                >
+                  {t("switchShareVersion", {
+                    version: activeVersion === "v1" ? "2" : "1",
+                  })}
+                </button>
+              )}
+              <button
+                className="share-version-info"
+                type="button"
+                aria-label={t("shareVersionInfoLabel")}
+                aria-describedby="share-version-info-tooltip"
+              >
+                <span aria-hidden="true">i</span>
+                <span
+                  className="share-version-tooltip"
+                  id="share-version-info-tooltip"
+                  role="tooltip"
+                >
+                  {t("shareVersionInfo")}
+                </span>
+              </button>
+            </div>
+          </div>
         </>
       )}
-      {shareErrorV1 && (
-        <p id="share-v1-error" className="warning-note">
-          {shareErrorV1}
-        </p>
-      )}
-      {shareEncoding && !shareUrlV2 && (
-        <p className="share-disclosure" aria-live="polite">
-          {t("v2Preparing")}
-        </p>
-      )}
-      {shareUrlV2 && (
-        <>
-          <label className="field-label" htmlFor="share-url-v2">
-            {t("v2Url")}
-          </label>
+      {activeShareUrl && (
+        <div className="share-url-copy-field">
           <input
-            id="share-url-v2"
+            id={activeVersion === "v1" ? "share-url-v1" : "share-url-v2"}
             className="share-url"
             readOnly
-            value={shareUrlV2}
-            aria-describedby="share-url-v2-length"
+            value={activeShareUrl}
           />
-          <p id="share-url-v2-length" className="field-hint">
-            {t("shareUrlLength", { characters: shareUrlV2.length })}
-          </p>
           <button
-            className="button button-quiet"
+            className="share-url-copy-button"
             type="button"
             disabled={disabled}
-            onClick={() => onCopy("v2")}
+            onClick={() => onCopy(activeVersion)}
+            aria-label={t(activeVersion === "v1" ? "copyV1" : "copyV2")}
           >
-            {t("copyV2")}
+            <CopyIcon />
           </button>
-        </>
+        </div>
       )}
-      {shareErrorV2 && (
-        <p id="share-v2-error" className="warning-note">
-          {shareErrorV2}
+      {activeVersion === "v2" &&
+        shareEncoding &&
+        !shareUrlV2 &&
+        !shareErrorV2 && (
+          <p className="share-disclosure" aria-live="polite">
+            {t("v2Preparing")}
+          </p>
+        )}
+      {activeShareError && (
+        <p
+          id={activeVersion === "v1" ? "share-v1-error" : "share-v2-error"}
+          className="warning-note"
+        >
+          {activeShareError}
         </p>
       )}
-      {hasShareUrl && hasImageShareUrls && (
+      {activePngShareUrl && activeSvgShareUrl && (
         <div className="share-image-links">
-          {pngShareUrlV1 && svgShareUrlV1 && (
-            <div className="share-image-link-set">
-              <p className="share-image-link-heading">{t("v1Url")}</p>
-              <ShareImageLinkRow
-                id="share-png-v1-url"
-                format="PNG"
-                url={pngShareUrlV1}
-                copyLabel={t("copyV1")}
-                disabled={disabled}
-                onCopy={onCopyPngV1}
-              />
-              <ShareImageLinkRow
-                id="share-svg-v1-url"
-                format="SVG"
-                url={svgShareUrlV1}
-                copyLabel={t("copyV1")}
-                disabled={disabled}
-                onCopy={onCopySvgV1}
-              />
-            </div>
-          )}
-          {pngShareUrlV2 && svgShareUrlV2 && (
-            <div className="share-image-link-set">
-              <p className="share-image-link-heading">{t("v2Url")}</p>
-              <ShareImageLinkRow
-                id="share-png-v2-url"
-                format="PNG"
-                url={pngShareUrlV2}
-                copyLabel={t("copyV2")}
-                disabled={disabled}
-                onCopy={onCopyPngV2}
-              />
-              <ShareImageLinkRow
-                id="share-svg-v2-url"
-                format="SVG"
-                url={svgShareUrlV2}
-                copyLabel={t("copyV2")}
-                disabled={disabled}
-                onCopy={onCopySvgV2}
-              />
-            </div>
-          )}
+          <div className="share-image-link-set">
+            <ShareImageLinkRow
+              id={
+                activeVersion === "v1" ? "share-png-v1-url" : "share-png-v2-url"
+              }
+              format="PNG"
+              url={activePngShareUrl}
+              copyLabel={activeImageCopyLabel}
+              disabled={disabled}
+              onCopy={activeVersion === "v1" ? onCopyPngV1 : onCopyPngV2}
+            />
+            <ShareImageLinkRow
+              id={
+                activeVersion === "v1" ? "share-svg-v1-url" : "share-svg-v2-url"
+              }
+              format="SVG"
+              url={activeSvgShareUrl}
+              copyLabel={activeImageCopyLabel}
+              disabled={disabled}
+              onCopy={activeVersion === "v1" ? onCopySvgV1 : onCopySvgV2}
+            />
+          </div>
         </div>
       )}
       {shareError && (
@@ -246,10 +271,21 @@ export function SharePanel({
           )}
         </div>
       )}
-      <button className="text-button" type="button" onClick={onNewSource}>
-        {disabled ? t("newCloudDisabled") : t("newCloud")}
-      </button>
     </section>
+  );
+  return (
+    <>
+      {panel}
+      <div className="share-panel-footer">
+        <button
+          className="text-button share-panel-new-source"
+          type="button"
+          onClick={onNewSource}
+        >
+          {disabled ? t("newCloudDisabled") : t("newCloud")}
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -275,16 +311,36 @@ function ShareImageLinkRow({
       <label className="field-label" htmlFor={id}>
         {format}
       </label>
-      <input id={id} className="share-url" readOnly value={url} />
-      <button
-        className="button button-quiet"
-        type="button"
-        disabled={disabled || !onCopy}
-        onClick={onCopy}
-        aria-label={`${copyLabel} ${format}`}
-      >
-        {copyLabel}
-      </button>
+      <div className="share-url-copy-field">
+        <input id={id} className="share-url" readOnly value={url} />
+        <button
+          className="share-url-copy-button"
+          type="button"
+          disabled={disabled || !onCopy}
+          onClick={onCopy}
+          aria-label={`${copyLabel} ${format}`}
+        >
+          <CopyIcon />
+        </button>
+      </div>
     </div>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="share-url-copy-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    >
+      <path d="M8 8V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2" />
+      <rect x="3" y="8" width="13" height="13" rx="2" />
+    </svg>
   );
 }
