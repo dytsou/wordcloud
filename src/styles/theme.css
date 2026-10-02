@@ -1860,8 +1860,18 @@ thead th {
 
 .share-image-links {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.8rem;
   margin-top: 0.85rem;
+}
+
+.share-image-link-set {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.share-image-link-heading {
+  margin: 0;
+  font-weight: 600;
 }
 
 .share-image-link-row {

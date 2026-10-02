@@ -119,6 +119,15 @@ type ShareEncoder = (
   snapshot: ReturnType<typeof createSnapshot>,
 ) => EncodedJsonFragment | Promise<EncodedJsonFragment>;
 
+function buildSharedImageUrls(shareUrl?: string) {
+  if (!shareUrl) return undefined;
+  const { origin, hash } = new URL(shareUrl);
+  return {
+    png: buildShareUrl(`${origin}${SHARE_PNG_PATH}`, hash),
+    svg: buildShareUrl(`${origin}${SHARE_SVG_PATH}`, hash),
+  };
+}
+
 function isSharedViewPath(pathname: string): boolean {
   let end = pathname.length;
   while (end > 0 && pathname[end - 1] === "/") end -= 1;
@@ -1025,10 +1034,16 @@ export function App() {
   ]);
 
   const handleCopy = useCallback(
-    async (target: "v1" | "v2" | { url: string } = "v1") => {
+    async (
+      target:
+        | "v1"
+        | "v2"
+        | { url: string; version: "v1" | "v2" } = "v1",
+    ) => {
+      const version = typeof target === "string" ? target : target.version;
       const shareUrl =
         typeof target === "string"
-          ? target === "v1"
+          ? version === "v1"
             ? state.shareUrl
             : state.shareUrlV2
           : target.url;
@@ -1040,11 +1055,7 @@ export function App() {
         }
         await navigator.clipboard.writeText(shareUrl);
         const statusKey =
-          target === "v1"
-            ? "linkCopiedV1"
-            : target === "v2"
-              ? "linkCopiedV2"
-              : "linkCopied";
+          version === "v1" ? "linkCopiedV1" : "linkCopiedV2";
         setStatus(t(statusKey));
       } catch {
         setStatus(t("copyUnavailable"));
@@ -1277,26 +1288,33 @@ export function App() {
   } else {
     sharedImageError = t("snapshotInvalid");
   }
-  const sharedImageUrls = useMemo(() => {
-    const baseShareUrl = state.shareUrl ?? state.shareUrlV2;
-    if (!baseShareUrl) return undefined;
-    const fragment = new URL(baseShareUrl).hash;
-    const origin = window.location.origin;
-    return {
-      png: buildShareUrl(`${origin}${SHARE_PNG_PATH}`, fragment),
-      svg: buildShareUrl(`${origin}${SHARE_SVG_PATH}`, fragment),
-    };
-  }, [state.shareUrl, state.shareUrlV2]);
+  const sharedImageUrls = useMemo(
+    () => ({
+      v1: buildSharedImageUrls(state.shareUrl),
+      v2: buildSharedImageUrls(state.shareUrlV2),
+    }),
+    [state.shareUrl, state.shareUrlV2],
+  );
   const sharedImageShareProps = {
-    pngShareUrl: sharedImageUrls?.png,
-    svgShareUrl: sharedImageUrls?.svg,
-    onCopyPng: () => {
-      if (sharedImageUrls?.png)
-        void handleCopy({ url: sharedImageUrls.png });
+    pngShareUrlV1: sharedImageUrls.v1?.png,
+    svgShareUrlV1: sharedImageUrls.v1?.svg,
+    pngShareUrlV2: sharedImageUrls.v2?.png,
+    svgShareUrlV2: sharedImageUrls.v2?.svg,
+    onCopyPngV1: () => {
+      const url = sharedImageUrls.v1?.png;
+      if (url) void handleCopy({ url, version: "v1" });
     },
-    onCopySvg: () => {
-      if (sharedImageUrls?.svg)
-        void handleCopy({ url: sharedImageUrls.svg });
+    onCopySvgV1: () => {
+      const url = sharedImageUrls.v1?.svg;
+      if (url) void handleCopy({ url, version: "v1" });
+    },
+    onCopyPngV2: () => {
+      const url = sharedImageUrls.v2?.png;
+      if (url) void handleCopy({ url, version: "v2" });
+    },
+    onCopySvgV2: () => {
+      const url = sharedImageUrls.v2?.svg;
+      if (url) void handleCopy({ url, version: "v2" });
     },
   };
   const isSharedView =
