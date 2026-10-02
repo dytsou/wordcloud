@@ -42,7 +42,7 @@ describe("wordcloud safety budgets", () => {
     expect(result.diagnostics[0]?.code).toBe("TOKEN_LIMIT");
   });
 
-  it("keeps a crowded layout bounded and preserves every ranked record", () => {
+  it("keeps a crowded layout bounded by the per-cloud word cap", () => {
     const terms = uniqueLatinWords(LIMITS.maxUniqueTerms);
     const tokenization = tokenize(terms.join(" "), {
       ...DEFAULT_TOKENIZER_SETTINGS,
@@ -81,7 +81,9 @@ describe("wordcloud safety budgets", () => {
     });
     const elapsed = performance.now() - started;
 
-    expect(scene.words).toHaveLength(terms.length);
+    expect(scene.words).toHaveLength(
+      Math.min(terms.length, LIMITS.maxWordsPerCloud),
+    );
     expect(scene.words.some((word) => word.status !== "placed")).toBe(true);
     expect(elapsed).toBeLessThan(1000);
   });
