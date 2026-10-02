@@ -1,4 +1,4 @@
-import type { ChangeEvent, FormEvent } from "react";
+import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createInitialEditorState,
@@ -38,6 +38,7 @@ import {
 import { CloudPreview } from "./components/CloudPreview";
 import { SharedImageRoute } from "./components/SharedImageRoute";
 import { SharePanel } from "./components/SharePanel";
+import { SnapshotImport } from "./components/SnapshotImport";
 import { SourcePanel } from "./components/SourcePanel";
 import { StatusAnnouncer } from "./components/StatusAnnouncer";
 import { StylePanel } from "./components/StylePanel";
@@ -1160,10 +1161,7 @@ export function App() {
   ]);
 
   const handleImport = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      event.target.value = "";
-      if (!file) return;
+    async (file: File) => {
       invalidatePendingWork();
       const importGeneration = generationRef.current;
       try {
@@ -1445,7 +1443,8 @@ export function App() {
                   error={stepError ?? sourceLimitError}
                   onSourceChange={handleSourceChange}
                 />
-                <div className="wizard-actions wizard-actions-end">
+                <div className="wizard-actions source-actions">
+                  <SnapshotImport onImport={handleImport} />
                   <button className="button button-primary" type="submit">
                     {t("wizardContinue")}
                   </button>
@@ -1573,7 +1572,6 @@ export function App() {
                   onExportSvg={handleExportSvg}
                   onExportPng={handleExportPng}
                   exporting={exporting}
-                  onImport={handleImport}
                   onNewSource={handleNewSource}
                 />
                 {activeStep === "result" && (
@@ -1644,7 +1642,6 @@ export function App() {
                   onExportSvg={handleExportSvg}
                   onExportPng={handleExportPng}
                   exporting={exporting}
-                  onImport={handleImport}
                   onNewSource={handleNewSource}
                 />
               </div>

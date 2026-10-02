@@ -330,6 +330,10 @@ textarea:focus-visible {
   justify-content: flex-end;
 }
 
+.source-actions {
+  flex-wrap: wrap;
+}
+
 .wizard-style-layout {
   display: grid;
   grid-template-columns: minmax(18rem, 0.82fr) minmax(0, 1.18fr);
@@ -880,6 +884,34 @@ textarea {
   font-size: 1rem;
 }
 
+.snapshot-import {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.25rem 0.4rem;
+  border: 1px dashed var(--line);
+  border-radius: 0.65rem;
+  background: transparent;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.snapshot-import--active {
+  border-color: var(--coral);
+  background: rgb(239 109 95 / 10%);
+}
+
+.snapshot-import-hint {
+  flex: 1 1 12rem;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
 .check-row {
   display: flex;
   gap: 1rem;
@@ -990,8 +1022,7 @@ input[type="checkbox"] {
   background: rgb(239 109 95 / 10%);
 }
 
-.share-actions,
-.file-actions {
+.share-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;

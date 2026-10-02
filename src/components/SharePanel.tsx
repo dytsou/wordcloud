@@ -1,5 +1,4 @@
-import type { ChangeEvent } from "react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { SNAPSHOT_FILE_EXTENSION } from "../core/file-snapshot";
 import { useI18n } from "../i18n";
 
@@ -26,7 +25,6 @@ interface SharePanelProps {
   readonly onExportSvg: () => void;
   readonly onExportPng: () => void;
   readonly exporting?: boolean;
-  readonly onImport: (event: ChangeEvent<HTMLInputElement>) => void;
   readonly onNewSource: () => void;
 }
 
@@ -53,14 +51,11 @@ export function SharePanel({
   onExportSvg,
   onExportPng,
   exporting = false,
-  onImport,
   onNewSource,
 }: SharePanelProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const { t } = useI18n();
   const [selectedVersion, setSelectedVersion] = useState<"v1" | "v2">("v2");
 
-  const hasShareUrl = Boolean(shareUrl || shareUrlV2);
   const hasV1Output = Boolean(
     shareUrl || shareErrorV1 || (pngShareUrlV1 && svgShareUrlV1),
   );
@@ -123,6 +118,14 @@ export function SharePanel({
           onClick={onExportPng}
         >
           {exporting ? t("downloadingPng") : t("downloadPng")}
+        </button>
+        <button
+          className="button button-quiet"
+          type="button"
+          disabled={disabled || exporting}
+          onClick={onDownload}
+        >
+          {t("downloadSnapshot", { extension: SNAPSHOT_FILE_EXTENSION })}
         </button>
       </div>
 
@@ -240,36 +243,6 @@ export function SharePanel({
         <p id="share-error" className="warning-note">
           {shareError}
         </p>
-      )}
-      {(hasShareUrl || shareError || shareErrorV1 || shareErrorV2) && (
-        <div className="file-actions">
-          <button
-            className="button button-quiet"
-            type="button"
-            disabled={disabled || exporting}
-            onClick={onDownload}
-          >
-            {t("downloadSnapshot", { extension: SNAPSHOT_FILE_EXTENSION })}
-          </button>
-          {hasShareUrl && (
-            <>
-              <button
-                className="button button-quiet"
-                type="button"
-                onClick={() => inputRef.current?.click()}
-              >
-                {t("importSnapshot", { extension: SNAPSHOT_FILE_EXTENSION })}
-              </button>
-              <input
-                ref={inputRef}
-                className="sr-only"
-                type="file"
-                accept={`${SNAPSHOT_FILE_EXTENSION},application/octet-stream,text/plain`}
-                onChange={onImport}
-              />
-            </>
-          )}
-        </div>
       )}
     </section>
   );

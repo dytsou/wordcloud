@@ -170,6 +170,8 @@ export const EN_MESSAGES = {
   downloadingPng: "Generating PNG…",
   downloadPng: "Download PNG",
   importSnapshot: "Import {{extension}}",
+  snapshotDropHint: "Drop a {{extension}} snapshot here, or choose a file.",
+  snapshotDropActive: "Release to import this {{extension}} snapshot.",
   newCloud: "＋ Start a new word cloud",
   newCloudDisabled: "← Start a new word cloud",
   indexHeading: "Word index",

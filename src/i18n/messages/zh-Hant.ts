@@ -148,6 +148,8 @@ export const ZH_HANT_MESSAGES: MessageMap = {
   downloadingPng: "PNG 產生中⋯",
   downloadPng: "下載 PNG",
   importSnapshot: "匯入 {{extension}}",
+  snapshotDropHint: "將 {{extension}} 快照拖曳到這裡，或選取檔案。",
+  snapshotDropActive: "放開滑鼠即可匯入這個 {{extension}} 快照。",
   newCloud: "＋ 開始新的文字雲",
   newCloudDisabled: "← 開始新的文字雲",
   indexHeading: "詞語索引",
