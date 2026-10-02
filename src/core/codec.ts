@@ -200,6 +200,13 @@ export function encodeJsonFragment(
   return encodeJson(value, maxEncodedBytes);
 }
 
+export function encodeScenePackFragment(
+  value: unknown,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+): EncodedJsonFragment {
+  return encodeJsonFragment(value, maxEncodedBytes);
+}
+
 let brotliApiPromise: Promise<import("brotli-wasm").BrotliWasmType> | undefined;
 
 async function getBrotliApi(): Promise<import("brotli-wasm").BrotliWasmType> {
@@ -229,17 +236,25 @@ export async function encodeBrotliJsonFragment(
   };
 }
 
-export function decodeJsonFragment(
+function decodeJson(
   fragment: string,
+  prefix: string,
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): unknown {
   const compressed = decodeCompressedPayload(
     fragment,
-    SNAPSHOT_PREFIX,
+    prefix,
     "V",
     maxEncodedBytes,
   );
   return decodeCanonicalJson(inflateBounded(compressed), "V");
+}
+
+export function decodeScenePackFragment(
+  fragment: string,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+): unknown {
+  return decodeJson(fragment, SNAPSHOT_PREFIX, maxEncodedBytes);
 }
 
 function isBrotliStreamComplete(
@@ -397,7 +412,7 @@ export async function decodeJsonFragmentAsync(
   if (fragment.startsWith(BROTLI_SNAPSHOT_PREFIX)) {
     return decodeBrotliJsonFragment(fragment, maxEncodedBytes);
   }
-  return decodeJsonFragment(fragment, maxEncodedBytes);
+  return decodeJson(fragment, SNAPSHOT_PREFIX, maxEncodedBytes);
 }
 
 export function buildShareUrl(baseUrl: string, fragment: string): string {

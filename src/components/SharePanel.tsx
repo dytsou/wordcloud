@@ -6,6 +6,10 @@ import { useI18n } from "../i18n";
 interface SharePanelProps {
   readonly shareUrl?: string;
   readonly shareUrlV2?: string;
+  readonly pngShareUrlV1?: string;
+  readonly svgShareUrlV1?: string;
+  readonly pngShareUrlV2?: string;
+  readonly svgShareUrlV2?: string;
   readonly shareError?: string;
   readonly shareErrorV1?: string;
   readonly shareErrorV2?: string;
@@ -14,6 +18,10 @@ interface SharePanelProps {
   readonly disabled?: boolean;
   readonly onCreateLink: () => void;
   readonly onCopy: (version: "v1" | "v2") => void;
+  readonly onCopyPngV1?: () => void;
+  readonly onCopySvgV1?: () => void;
+  readonly onCopyPngV2?: () => void;
+  readonly onCopySvgV2?: () => void;
   readonly onDownload: () => void;
   readonly onExportSvg: () => void;
   readonly onExportPng: () => void;
@@ -25,6 +33,10 @@ interface SharePanelProps {
 export function SharePanel({
   shareUrl,
   shareUrlV2,
+  pngShareUrlV1,
+  svgShareUrlV1,
+  pngShareUrlV2,
+  svgShareUrlV2,
   shareError,
   shareErrorV1,
   shareErrorV2,
@@ -33,6 +45,10 @@ export function SharePanel({
   disabled = false,
   onCreateLink,
   onCopy,
+  onCopyPngV1,
+  onCopySvgV1,
+  onCopyPngV2,
+  onCopySvgV2,
   onDownload,
   onExportSvg,
   onExportPng,
@@ -43,6 +59,10 @@ export function SharePanel({
   const inputRef = useRef<HTMLInputElement>(null);
   const { t } = useI18n();
   const hasShareUrl = Boolean(shareUrl || shareUrlV2);
+  const hasImageShareUrls = Boolean(
+    (pngShareUrlV1 && svgShareUrlV1) ||
+      (pngShareUrlV2 && svgShareUrlV2),
+  );
   return (
     <section className="panel share-panel" aria-labelledby="share-heading">
       <div className="panel-heading">
@@ -145,6 +165,52 @@ export function SharePanel({
           {shareErrorV2}
         </p>
       )}
+      {hasShareUrl && hasImageShareUrls && (
+        <div className="share-image-links">
+          {pngShareUrlV1 && svgShareUrlV1 && (
+            <div className="share-image-link-set">
+              <p className="share-image-link-heading">{t("v1Url")}</p>
+              <ShareImageLinkRow
+                id="share-png-v1-url"
+                format="PNG"
+                url={pngShareUrlV1}
+                copyLabel={t("copyV1")}
+                disabled={disabled}
+                onCopy={onCopyPngV1}
+              />
+              <ShareImageLinkRow
+                id="share-svg-v1-url"
+                format="SVG"
+                url={svgShareUrlV1}
+                copyLabel={t("copyV1")}
+                disabled={disabled}
+                onCopy={onCopySvgV1}
+              />
+            </div>
+          )}
+          {pngShareUrlV2 && svgShareUrlV2 && (
+            <div className="share-image-link-set">
+              <p className="share-image-link-heading">{t("v2Url")}</p>
+              <ShareImageLinkRow
+                id="share-png-v2-url"
+                format="PNG"
+                url={pngShareUrlV2}
+                copyLabel={t("copyV2")}
+                disabled={disabled}
+                onCopy={onCopyPngV2}
+              />
+              <ShareImageLinkRow
+                id="share-svg-v2-url"
+                format="SVG"
+                url={svgShareUrlV2}
+                copyLabel={t("copyV2")}
+                disabled={disabled}
+                onCopy={onCopySvgV2}
+              />
+            </div>
+          )}
+        </div>
+      )}
       {shareError && (
         <p id="share-error" className="warning-note">
           {shareError}
@@ -184,5 +250,41 @@ export function SharePanel({
         {disabled ? t("newCloudDisabled") : t("newCloud")}
       </button>
     </section>
+  );
+}
+
+interface ShareImageLinkRowProps {
+  readonly id: string;
+  readonly format: "PNG" | "SVG";
+  readonly url: string;
+  readonly copyLabel: string;
+  readonly disabled: boolean;
+  readonly onCopy?: () => void;
+}
+
+function ShareImageLinkRow({
+  id,
+  format,
+  url,
+  copyLabel,
+  disabled,
+  onCopy,
+}: ShareImageLinkRowProps) {
+  return (
+    <div className="share-image-link-row">
+      <label className="field-label" htmlFor={id}>
+        {format}
+      </label>
+      <input id={id} className="share-url" readOnly value={url} />
+      <button
+        className="button button-quiet"
+        type="button"
+        disabled={disabled || !onCopy}
+        onClick={onCopy}
+        aria-label={`${copyLabel} ${format}`}
+      >
+        {copyLabel}
+      </button>
+    </div>
   );
 }

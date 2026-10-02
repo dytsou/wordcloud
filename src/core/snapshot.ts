@@ -1,8 +1,9 @@
 import {
   CODEC_VERSION,
-  decodeJsonFragment,
   decodeJsonFragmentAsync,
-  encodeJsonFragment,
+  decodeScenePackFragment,
+  encodeScenePackFragment,
+  snapshotFormatFromFragment,
 } from "./codec";
 import type { LayoutStyle } from "./layout";
 import { LIMITS, scalarLength } from "./limits";
@@ -38,6 +39,8 @@ export type SnapshotPayload = SnapshotPayloadFields &
         presentation: Presentation & { shape: ShapeSettings };
       }
   );
+
+const SCENE_PACK_MAGIC = "wc-scene-pack";
 
 export class SnapshotValidationError extends Error {
   public constructor(message: string) {
@@ -659,13 +662,121 @@ export function createSnapshot(
   });
 }
 
+function packScenePack(snapshot: SnapshotPayload): unknown {
+  const wordIndexByRank = new Map(
+    snapshot.wordSet.words.map((word, index) => [word.rank, index]),
+  );
+  const sceneWords = snapshot.scene.words.map((word) => {
+    const wordIndex = wordIndexByRank.get(word.rank);
+    if (wordIndex === undefined) {
+      throw new SnapshotValidationError(
+        "ScenePack scene word does not match a wordSet rank.",
+      );
+    }
+    return [
+      wordIndex,
+      word.locale,
+      word.fontSize,
+      word.angle,
+      word.x,
+      word.y,
+      word.width,
+      word.height,
+      word.color,
+      word.status,
+      ...(word.reason === undefined ? [] : [word.reason]),
+    ];
+  });
+  return [
+    SCENE_PACK_MAGIC,
+    {
+      ...snapshot,
+      scene: { ...snapshot.scene, words: sceneWords },
+    },
+  ];
+}
+
+function unpackScenePack(value: unknown): unknown {
+  if (
+    !Array.isArray(value) ||
+    value.length !== 2 ||
+    value[0] !== SCENE_PACK_MAGIC
+  ) {
+    throw new SnapshotValidationError("ScenePack format is not supported.");
+  }
+
+  const packedSnapshot = record(value[1], "ScenePack snapshot");
+  const wordSet = record(packedSnapshot.wordSet, "ScenePack wordSet");
+  const words = wordSet.words;
+  if (!Array.isArray(words) || words.length > LIMITS.maxUniqueTerms) {
+    throw new SnapshotValidationError("ScenePack wordSet is invalid.");
+  }
+  const scene = record(packedSnapshot.scene, "ScenePack scene");
+  if (
+    !Array.isArray(scene.words) ||
+    scene.words.length > LIMITS.maxUniqueTerms
+  ) {
+    throw new SnapshotValidationError("ScenePack scene words are invalid.");
+  }
+
+  const sceneWords = scene.words.map((value, index) => {
+    if (!Array.isArray(value) || (value.length !== 10 && value.length !== 11)) {
+      throw new SnapshotValidationError(
+        `ScenePack word ${index} has an invalid shape.`,
+      );
+    }
+    const wordIndex = value[0];
+    if (
+      typeof wordIndex !== "number" ||
+      !Number.isInteger(wordIndex) ||
+      wordIndex < 0 ||
+      wordIndex >= words.length
+    ) {
+      throw new SnapshotValidationError(
+        `ScenePack word ${index} has an invalid word index.`,
+      );
+    }
+    const word = record(words[wordIndex], `ScenePack wordSet[${wordIndex}]`);
+    return {
+      term: word.term,
+      count: word.count,
+      rank: word.rank,
+      locale: value[1],
+      fontSize: value[2],
+      angle: value[3],
+      x: value[4],
+      y: value[5],
+      width: value[6],
+      height: value[7],
+      color: value[8],
+      status: value[9],
+      ...(value.length === 11 ? { reason: value[10] } : {}),
+    };
+  });
+
+  return {
+    ...packedSnapshot,
+    scene: { ...scene, words: sceneWords },
+  };
+}
+
+export function encodeSnapshotPayload(
+  snapshot: SnapshotPayload,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+): ReturnType<typeof encodeScenePackFragment> {
+  return encodeScenePackFragment(
+    packScenePack(validateSnapshot(snapshot)),
+    maxEncodedBytes,
+  );
+}
+
 export function encodeSnapshot(
   wordSet: WordSet,
   presentation: Presentation,
   scene: SceneModel,
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
-): ReturnType<typeof encodeJsonFragment> {
-  return encodeJsonFragment(
+): ReturnType<typeof encodeScenePackFragment> {
+  return encodeSnapshotPayload(
     createSnapshot(wordSet, presentation, scene),
     maxEncodedBytes,
   );
@@ -675,14 +786,15 @@ export function decodeSnapshotFragment(
   fragment: string,
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): SnapshotPayload {
-  return validateSnapshot(decodeJsonFragment(fragment, maxEncodedBytes));
+  const value = decodeScenePackFragment(fragment, maxEncodedBytes);
+  return validateSnapshot(unpackScenePack(value));
 }
 
 export async function decodeSnapshotFragmentAsync(
   fragment: string,
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): Promise<SnapshotPayload> {
-  return validateSnapshot(
-    await decodeJsonFragmentAsync(fragment, maxEncodedBytes),
-  );
+  const format = snapshotFormatFromFragment(fragment);
+  const value = await decodeJsonFragmentAsync(fragment, maxEncodedBytes);
+  return validateSnapshot(format === "v2" ? value : unpackScenePack(value));
 }

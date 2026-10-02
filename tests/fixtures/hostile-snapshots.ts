@@ -1,4 +1,4 @@
-import { encodeJsonFragment } from "../../src/core/codec";
+import { encodeScenePackFragment } from "../../src/core/codec";
 import { LIMITS } from "../../src/core/limits";
 import { createSnapshot, type SnapshotPayload } from "../../src/core/snapshot";
 import { snapshotScene, snapshotStyle, snapshotWordSet } from "./snapshots";
@@ -71,7 +71,33 @@ export const hostileSnapshotCases: HostileSnapshotCase[] = [
 ];
 
 export function encodeHostileSnapshot(payload: unknown): string {
-  return encodeJsonFragment(payload).fragment;
+  const snapshot = payload as SnapshotPayload;
+  const wordIndexByRank = new Map(
+    snapshot.wordSet.words.map((word, index) => [word.rank, index]),
+  );
+  const sceneWords = snapshot.scene.words.map((word) => {
+    const wordIndex = wordIndexByRank.get(word.rank);
+    if (wordIndex === undefined) {
+      throw new Error("Hostile ScenePack fixture has an unknown word rank.");
+    }
+    return [
+      wordIndex,
+      word.locale,
+      word.fontSize,
+      word.angle,
+      word.x,
+      word.y,
+      word.width,
+      word.height,
+      word.color,
+      word.status,
+      ...(word.reason === undefined ? [] : [word.reason]),
+    ];
+  });
+  return encodeScenePackFragment([
+    "wc-scene-pack",
+    { ...snapshot, scene: { ...snapshot.scene, words: sceneWords } },
+  ]).fragment;
 }
 
 export function withMutation(

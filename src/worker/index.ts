@@ -1,6 +1,6 @@
 import { createMcpHandler } from "@modelcontextprotocol/server";
-import type { Env } from "../worker-configuration";
 import { createWordcloudMcpServer } from "../mcp/wordcloud";
+import type { Env } from "../worker-configuration";
 
 export const MCP_PATH = "/mcp";
 export const MAX_MCP_REQUEST_BYTES = 64 * 1024;
@@ -164,9 +164,13 @@ const worker = {
     }
 
     const response = withCspNonce(await env.ASSETS.fetch(request));
-    const isNoIndexRoute = [MCP_PATH, "/view", "/create"].some((path) =>
-      isAtOrBelowPath(url.pathname, path),
-    );
+    const isNoIndexRoute = [
+      MCP_PATH,
+      "/view",
+      "/png",
+      "/svg",
+      "/create",
+    ].some((path) => isAtOrBelowPath(url.pathname, path));
     return isNoIndexRoute ? withNoIndex(response) : response;
   },
 };
