@@ -1346,9 +1346,7 @@ export function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand-lockup">
-          <span className="brand-mark" aria-hidden="true">
-            ✳
-          </span>
+          <img className="brand-mark" src="/favicon.svg" alt="" />
           <div>
             <p className="brand-name">wordcloud.download</p>
             <p className="brand-subtitle">{t("brandSubtitle")}</p>

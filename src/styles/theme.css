@@ -101,16 +101,11 @@ textarea:focus-visible {
 }
 
 .brand-mark {
-  display: grid;
+  display: block;
   width: 2.8rem;
   height: 2.8rem;
-  place-items: center;
-  border-radius: 50% 45% 55% 40%;
-  color: var(--paper);
-  background: var(--ink);
-  font-family: Georgia, serif;
-  font-size: 1.25rem;
-  transform: rotate(-12deg);
+  flex: 0 0 auto;
+  object-fit: contain;
 }
 
 .brand-name {
