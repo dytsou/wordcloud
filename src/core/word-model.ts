@@ -1,7 +1,7 @@
 import { LIMITS } from "./limits";
 import type { Token, Word, WordSet } from "./types";
 
-interface WordModelSettings {
+export interface WordModelSettings {
   caseMode: "preserve" | "lower" | "upper";
   caseInsensitive: boolean;
   locale: string;
@@ -30,6 +30,19 @@ function compareUnicode(left: string, right: string): number {
   return leftScalars.length - rightScalars.length;
 }
 
+export function countUniqueTerms(
+  tokens: Token[],
+  settings: Pick<WordModelSettings, "caseMode" | "caseInsensitive">,
+): number {
+  const terms = new Set<string>();
+  for (const token of tokens) {
+    const term = normalizeTerm(token.term, settings.caseMode);
+    if (!term) continue;
+    terms.add(settings.caseInsensitive ? term.toLocaleLowerCase() : term);
+  }
+  return terms.size;
+}
+
 export function buildWordSet(
   tokens: Token[],
   settings: WordModelSettings,
@@ -45,7 +58,9 @@ export function buildWordSet(
       continue;
     }
     if (byTerm.size >= LIMITS.maxUniqueTerms) {
-      throw new Error(`UNIQUE_TERM_LIMIT: ${LIMITS.maxUniqueTerms}`);
+      throw new Error(
+        `Unique terms are at least ${byTerm.size + 1}; the limit is ${LIMITS.maxUniqueTerms}.`,
+      );
     }
     byTerm.set(key, {
       term,
@@ -56,12 +71,14 @@ export function buildWordSet(
     });
   }
 
-  const words = [...byTerm.values()].sort(
-    (left, right) =>
-      right.count - left.count ||
-      left.firstSeen - right.firstSeen ||
-      compareUnicode(left.term, right.term),
-  );
+  const words = [...byTerm.values()]
+    .sort(
+      (left, right) =>
+        right.count - left.count ||
+        left.firstSeen - right.firstSeen ||
+        compareUnicode(left.term, right.term),
+    )
+    .slice(0, LIMITS.maxWordsPerCloud);
   words.forEach((word, index) => {
     word.rank = index + 1;
   });

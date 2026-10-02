@@ -1,12 +1,12 @@
 import {
   createContext,
   createElement,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
-  type ReactNode,
 } from "react";
 import type { TokenizerDiagnostic } from "./core/types";
 import {
@@ -210,7 +210,12 @@ export function translateTokenizerDiagnostic(
   diagnostic: TokenizerDiagnostic,
   t: Translate,
 ): string {
-  return t(DIAGNOSTIC_KEYS[diagnostic.code]);
+  return t(DIAGNOSTIC_KEYS[diagnostic.code], {
+    actual: diagnostic.actualIsMinimum
+      ? `≥${diagnostic.actual ?? 0}`
+      : (diagnostic.actual ?? 0),
+    limit: diagnostic.limit ?? 0,
+  });
 }
 
 interface I18nContextValue {

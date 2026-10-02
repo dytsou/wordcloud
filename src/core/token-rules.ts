@@ -1,5 +1,5 @@
 import { LIMITS, scalarLength } from "./limits";
-import type { RuleTrace, Token, TokenRule, TokenizerDiagnostic } from "./types";
+import type { RuleTrace, Token, TokenizerDiagnostic, TokenRule } from "./types";
 
 interface ProtectedSpan {
   ruleId: string;
@@ -101,8 +101,7 @@ export function validateTokenRules(rules: TokenRule[]): TokenizerDiagnostic[] {
     ) {
       diagnostics.push({
         code: "RULE_INVALID",
-        message:
-          `Rule ${ruleName} output must be non-empty and within the length limit.`,
+        message: `Rule ${ruleName} output must be non-empty and within the length limit.`,
       });
     }
     if (rule.kind === "split" && rule.terms.length === 0) {
@@ -125,7 +124,8 @@ export function validateTokenRules(rules: TokenRule[]): TokenizerDiagnostic[] {
   if (findCycle(edges)) {
     diagnostics.push({
       code: "RULE_CYCLE",
-      message: "Split and merge rules contain a cycle. Remove one of the rules.",
+      message:
+        "Split and merge rules contain a cycle. Remove one of the rules.",
     });
   }
 
@@ -166,7 +166,7 @@ export function findProtectedSpans(
   const candidates: ProtectedSpan[] = [];
   const traces: RuleTrace[] = [];
 
-  rules.forEach((rule, order) => {
+  for (const [order, rule] of rules.entries()) {
     let start = source.indexOf(rule.phrase);
     while (start >= 0) {
       candidates.push({
@@ -182,7 +182,7 @@ export function findProtectedSpans(
       }
       start = source.indexOf(rule.phrase, start + 1);
     }
-  });
+  }
 
   candidates.sort(
     (a, b) =>

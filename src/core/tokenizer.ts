@@ -1,7 +1,7 @@
 import {
-  LIMITS,
   hasLetterOrNumber,
   isNumberOnly,
+  LIMITS,
   scalarLength,
   utf8ByteLength,
 } from "./limits";
@@ -179,8 +179,12 @@ function capability(
 function diagnostic(
   code: TokenizerDiagnostic["code"],
   message: string,
+  details: Pick<
+    TokenizerDiagnostic,
+    "actual" | "actualIsMinimum" | "limit"
+  > = {},
 ): TokenizerDiagnostic {
-  return { code, message };
+  return { code, message, ...details };
 }
 
 function classifyCharacter(character: string): Lane {
@@ -462,11 +466,13 @@ function validateTokenizerInput(
   source: string,
   context: TokenizationContext,
 ): TokenizationResult | undefined {
-  if (utf8ByteLength(source) > LIMITS.maxSourceBytes) {
+  const sourceBytes = utf8ByteLength(source);
+  if (sourceBytes > LIMITS.maxSourceBytes) {
     return emptyTokenizationResult(context, "error", [
       diagnostic(
         "SOURCE_LIMIT",
-        `Source text exceeds the ${LIMITS.maxSourceBytes}-byte limit.`,
+        `Source text is ${sourceBytes} bytes; the limit is ${LIMITS.maxSourceBytes} bytes.`,
+        { actual: sourceBytes, limit: LIMITS.maxSourceBytes },
       ),
     ]);
   }
@@ -562,7 +568,12 @@ export function tokenize(
     return emptyTokenizationResult(context, "error", [
       diagnostic(
         "TOKEN_LIMIT",
-        `Candidate tokens exceed the ${LIMITS.maxCandidateTokens}-token limit.`,
+        `Candidate tokens are at least ${LIMITS.maxCandidateTokens + 1}; the limit is ${LIMITS.maxCandidateTokens}.`,
+        {
+          actual: LIMITS.maxCandidateTokens + 1,
+          actualIsMinimum: true,
+          limit: LIMITS.maxCandidateTokens,
+        },
       ),
     ]);
   }
@@ -576,7 +587,8 @@ export function tokenize(
     return emptyTokenizationResult(context, "error", [
       diagnostic(
         "TOKEN_LIMIT",
-        `Candidate tokens exceed the ${LIMITS.maxCandidateTokens}-token limit.`,
+        `Candidate tokens are ${rawTokens.length}; the limit is ${LIMITS.maxCandidateTokens}.`,
+        { actual: rawTokens.length, limit: LIMITS.maxCandidateTokens },
       ),
     ]);
   }
@@ -586,7 +598,11 @@ export function tokenize(
     return emptyTokenizationResult(context, "error", [
       diagnostic(
         "TOKEN_LIMIT",
-        `Token rules produce more than ${LIMITS.maxCandidateTokens} candidate tokens.`,
+        `Token rules produce ${applied.tokens.length} candidate tokens; the limit is ${LIMITS.maxCandidateTokens}.`,
+        {
+          actual: applied.tokens.length,
+          limit: LIMITS.maxCandidateTokens,
+        },
       ),
     ]);
   }
@@ -624,7 +640,8 @@ export function tokenize(
     return emptyTokenizationResult(context, "error", [
       diagnostic(
         "UNIQUE_TERM_LIMIT",
-        `Unique terms exceed the ${LIMITS.maxUniqueTerms}-term limit.`,
+        `There are ${uniqueTermCount} unique terms; the limit is ${LIMITS.maxUniqueTerms}.`,
+        { actual: uniqueTermCount, limit: LIMITS.maxUniqueTerms },
       ),
     ]);
   }

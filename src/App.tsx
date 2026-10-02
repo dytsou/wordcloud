@@ -1,20 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { buildShareUrl } from "./core/codec";
-import {
-  createFontMetricsTable,
-  waitForFonts,
-  type FontMetric,
-} from "./core/metrics";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createInitialEditorState,
   DEFAULT_PRESENTATION,
+  type EditorState,
   fromSnapshot,
   hasShapeFontDefaults,
   isGeometryChanging,
   withShapeFontDefaults,
-  type EditorState,
 } from "./app/editor-state";
+import {
+  createBrowserEngineClient,
+  EngineClient,
+  runLayoutFallback,
+} from "./app/engine-client";
+import type { CachedEditorPreferences } from "./app/local-draft";
 import {
   clearCachedSource,
   readCachedEditorPreferences,
@@ -25,40 +25,6 @@ import {
   writeCachedStylePreferences,
   writeCachedTokenizerSettings,
 } from "./app/local-draft";
-import type { CachedEditorPreferences } from "./app/local-draft";
-import {
-  decodeSnapshotFile,
-  encodeSnapshotFile,
-  SNAPSHOT_FILE_EXTENSION,
-} from "./core/file-snapshot";
-import { LIMITS } from "./core/limits";
-import type { LayoutStyle } from "./core/layout";
-import { recolorScene } from "./core/scene";
-import { decodeSnapshotFragment, encodeSnapshot } from "./core/snapshot";
-import { tokenize } from "./core/tokenizer";
-import { buildWordSet } from "./core/word-model";
-import { CloudPreview } from "./components/CloudPreview";
-import { SharePanel } from "./components/SharePanel";
-import { SourcePanel } from "./components/SourcePanel";
-import { StatusAnnouncer } from "./components/StatusAnnouncer";
-import { StylePanel } from "./components/StylePanel";
-import { TokenizationPanel } from "./components/TokenizationPanel";
-import { TokenRulesPanel } from "./components/TokenRulesPanel";
-import { WordTable } from "./components/WordTable";
-import { WizardStepper } from "./components/WizardStepper";
-import {
-  createBrowserEngineClient,
-  EngineClient,
-  runLayoutFallback,
-} from "./app/engine-client";
-import { renderScenePng } from "./render/png";
-import { renderSceneSvg } from "./render/svg";
-import { createGlyphSprites } from "./render/glyph-sprites";
-import {
-  translateTokenizerDiagnostic,
-  UI_LOCALE_OPTIONS,
-  useI18n,
-} from "./i18n";
 import {
   pathForStep,
   SHARE_VIEW_PATH,
@@ -66,6 +32,48 @@ import {
   WIZARD_STEPS,
   type WizardStep,
 } from "./app/wizard-route";
+import { CloudPreview } from "./components/CloudPreview";
+import { SharePanel } from "./components/SharePanel";
+import { SourcePanel } from "./components/SourcePanel";
+import { StatusAnnouncer } from "./components/StatusAnnouncer";
+import { StylePanel } from "./components/StylePanel";
+import { TokenizationPanel } from "./components/TokenizationPanel";
+import { TokenRulesPanel } from "./components/TokenRulesPanel";
+import { WizardStepper } from "./components/WizardStepper";
+import { WordTable } from "./components/WordTable";
+import {
+  assertShareUrlNotTruncated,
+  buildShareUrl,
+  CodecError,
+  type EncodedJsonFragment,
+  encodeJsonFragment,
+  snapshotFormatFromFragment,
+} from "./core/codec";
+import {
+  decodeSnapshotFile,
+  encodeSnapshotFile,
+  SNAPSHOT_FILE_EXTENSION,
+} from "./core/file-snapshot";
+import type { LayoutStyle } from "./core/layout";
+import { LIMITS } from "./core/limits";
+import {
+  createFontMetricsTable,
+  type FontMetric,
+  waitForFonts,
+} from "./core/metrics";
+import { recolorScene } from "./core/scene";
+import { createSnapshot, decodeSnapshotFragment } from "./core/snapshot";
+import { tokenize } from "./core/tokenizer";
+import { buildWordSet, countUniqueTerms } from "./core/word-model";
+import {
+  type Translate,
+  translateTokenizerDiagnostic,
+  UI_LOCALE_OPTIONS,
+  useI18n,
+} from "./i18n";
+import { createGlyphSprites } from "./render/glyph-sprites";
+import { renderScenePng } from "./render/png";
+import { renderSceneSvg } from "./render/svg";
 
 function measureWithCanvas(term: string, font: string): FontMetric {
   const canvas = document.createElement("canvas");
@@ -89,6 +97,24 @@ function errorText(error: unknown): string {
     : "An unknown error occurred. Please try again.";
 }
 
+function shareLoadErrorText(error: unknown, t: Translate): string {
+  if (
+    error instanceof CodecError &&
+    error.code === "TRUNCATED" &&
+    error.shareUrlLengths
+  ) {
+    return t("shareUrlTruncated", {
+      actual: error.shareUrlLengths.actualChars,
+      expected: error.shareUrlLengths.expectedChars,
+    });
+  }
+  return errorText(error);
+}
+
+type ShareEncoder = (
+  snapshot: ReturnType<typeof createSnapshot>,
+) => EncodedJsonFragment | Promise<EncodedJsonFragment>;
+
 function isSharedViewPath(pathname: string): boolean {
   let end = pathname.length;
   while (end > 0 && pathname[end - 1] === "/") end -= 1;
@@ -108,7 +134,7 @@ function isSnapshotLocation(): boolean {
   return (
     typeof window !== "undefined" &&
     (isSharedViewPath(window.location.pathname) ||
-      window.location.hash.startsWith("#wc-pako:"))
+      snapshotFormatFromFragment(window.location.hash) !== undefined)
   );
 }
 
@@ -155,7 +181,7 @@ function initialEditorState(): EditorState {
 
 function initialWizardStep(): WizardStep {
   if (typeof window === "undefined") return "source";
-  if (window.location.hash.startsWith("#wc-pako:")) return "result";
+  if (snapshotFormatFromFragment(window.location.hash)) return "result";
   return stepForPath(window.location.pathname);
 }
 
@@ -192,6 +218,13 @@ function firstIncompleteStep(
   return "style";
 }
 
+function shareLinkCreationStatusKey(v1Created: boolean, v2Created: boolean) {
+  if (v1Created && v2Created) return "linksCreatedBoth";
+  if (v1Created) return "linkCreatedV1Only";
+  if (v2Created) return "linkCreatedV2Only";
+  return "linkCreationFailed";
+}
+
 export function App() {
   const { locale: uiLocale, setLocale, t } = useI18n();
   const [state, setState] = useState<EditorState>(initialEditorState);
@@ -205,13 +238,14 @@ export function App() {
   const [exporting, setExporting] = useState(false);
   const clientRef = useRef<EngineClient | null>(null);
   const generationRef = useRef(0);
+  const shareGenerationRef = useRef(0);
   const layoutTimerRef = useRef<number | undefined>(undefined);
   const hasGeneratedCloudRef = useRef(Boolean(state.scene || state.wordSet));
 
   const navigateToStep = useCallback((step: WizardStep, replace = false) => {
     const path =
       isSharedViewPath(window.location.pathname) ||
-      window.location.hash.startsWith("#wc-pako:")
+      snapshotFormatFromFragment(window.location.hash) !== undefined
         ? SHARE_VIEW_PATH
         : pathForStep(step);
     const url = `${path}${window.location.search}${window.location.hash}`;
@@ -227,6 +261,7 @@ export function App() {
       layoutTimerRef.current = undefined;
     }
     generationRef.current += 1;
+    shareGenerationRef.current += 1;
     clientRef.current?.cancel();
     setExporting(false);
   }, []);
@@ -242,31 +277,54 @@ export function App() {
   }, [invalidatePendingWork]);
 
   useEffect(() => {
-    const loadHash = () => {
+    const loadHash = async () => {
       const hash = window.location.hash;
-      if (!hash.startsWith("#wc-pako:")) return;
-      invalidatePendingWork();
       try {
-        const snapshot = decodeSnapshotFragment(hash);
-        const shareUrl = buildShareUrl(
-          `${window.location.origin}${SHARE_VIEW_PATH}`,
-          hash,
-        );
-        setState({ ...fromSnapshot(snapshot), shareUrl });
-        hasGeneratedCloudRef.current = true;
-        setStatus(t("snapshotLoaded"));
-        navigateToStep("result", true);
+        assertShareUrlNotTruncated(window.location.href);
       } catch (error) {
         setState((current) => ({
           ...current,
           mode: "error",
-          error: `${t("snapshotInvalid")} ${errorText(error)}`,
+          error: `${t("snapshotInvalid")} ${shareLoadErrorText(error, t)}`,
+        }));
+        setStatus(t("snapshotInvalid"));
+        navigateToStep("result", true);
+        return;
+      }
+      const format = snapshotFormatFromFragment(hash);
+      if (!format) return;
+      invalidatePendingWork();
+      const loadId = shareGenerationRef.current;
+      try {
+        const snapshot =
+          format === "v2"
+            ? await (clientRef.current?.decodeShare(hash) ??
+                Promise.reject(new Error(t("v2WorkerUnavailable"))))
+            : decodeSnapshotFragment(hash);
+        if (loadId !== shareGenerationRef.current) return;
+        const shareUrl = buildShareUrl(
+          `${window.location.origin}${SHARE_VIEW_PATH}`,
+          hash,
+        );
+        setState({
+          ...fromSnapshot(snapshot),
+          ...(format === "v1" ? { shareUrl } : { shareUrlV2: shareUrl }),
+        });
+        hasGeneratedCloudRef.current = true;
+        setStatus(t("snapshotLoaded"));
+        navigateToStep("result", true);
+      } catch (error) {
+        if (loadId !== shareGenerationRef.current) return;
+        setState((current) => ({
+          ...current,
+          mode: "error",
+          error: `${t("snapshotInvalid")} ${shareLoadErrorText(error, t)}`,
         }));
         setStatus(t("snapshotInvalid"));
         navigateToStep("result", true);
       }
     };
-    loadHash();
+    void loadHash();
     window.addEventListener("hashchange", loadHash);
     return () => window.removeEventListener("hashchange", loadHash);
   }, [invalidatePendingWork, navigateToStep, t]);
@@ -285,7 +343,8 @@ export function App() {
 
   useEffect(() => {
     const syncRoute = () => {
-      const hasSnapshot = window.location.hash.startsWith("#wc-pako:");
+      const hasSnapshot =
+        snapshotFormatFromFragment(window.location.hash) !== undefined;
       const sharedView = isSharedViewPath(window.location.pathname);
       const requestedStep = hasSnapshot
         ? "result"
@@ -356,12 +415,17 @@ export function App() {
       tokenization?: EditorState["tokenization"],
     ) => {
       const runId = ++generationRef.current;
+      shareGenerationRef.current += 1;
       setState((current) => ({
         ...current,
         mode: "generating",
         error: undefined,
         shareUrl: undefined,
+        shareUrlV2: undefined,
         shareError: undefined,
+        shareErrorV1: undefined,
+        shareErrorV2: undefined,
+        shareEncoding: false,
         scene: undefined,
       }));
       setStatus(t("layoutWorking"));
@@ -446,7 +510,11 @@ export function App() {
           scene: undefined,
           error: message,
           shareUrl: undefined,
+          shareUrlV2: undefined,
           shareError: undefined,
+          shareErrorV1: undefined,
+          shareErrorV2: undefined,
+          shareEncoding: false,
         }));
         setStatus(message);
         return;
@@ -467,7 +535,11 @@ export function App() {
           scene: undefined,
           error: undefined,
           shareUrl: undefined,
+          shareUrlV2: undefined,
           shareError: undefined,
+          shareErrorV1: undefined,
+          shareErrorV2: undefined,
+          shareEncoding: false,
         }));
         void runLayout(wordSet, presentation, "ready", result);
       } catch (error) {
@@ -480,7 +552,11 @@ export function App() {
           scene: undefined,
           error: message,
           shareUrl: undefined,
+          shareUrlV2: undefined,
           shareError: undefined,
+          shareErrorV1: undefined,
+          shareErrorV2: undefined,
+          shareEncoding: false,
         }));
         setStatus(message);
       }
@@ -537,7 +613,11 @@ export function App() {
         wordSet,
         error: undefined,
         shareUrl: undefined,
+        shareUrlV2: undefined,
         shareError: undefined,
+        shareErrorV1: undefined,
+        shareErrorV2: undefined,
+        shareEncoding: false,
       }));
       void runLayout(wordSet, state.presentation, "ready", result);
     } catch (error) {
@@ -596,7 +676,12 @@ export function App() {
           return;
         }
         if (!sourceIsReady(state.sourceText)) {
-          setStepError(t("diagnosticSourceLimit"));
+          setStepError(
+            t("diagnosticSourceLimit", {
+              actual: new TextEncoder().encode(state.sourceText).byteLength,
+              limit: LIMITS.maxSourceBytes,
+            }),
+          );
           requestAnimationFrame(() =>
             document.getElementById("source-text")?.focus(),
           );
@@ -672,7 +757,11 @@ export function App() {
         tokenization: undefined,
         error: undefined,
         shareUrl: undefined,
+        shareUrlV2: undefined,
         shareError: undefined,
+        shareErrorV1: undefined,
+        shareErrorV2: undefined,
+        shareEncoding: false,
       }));
       if (shouldRefresh && sourceIsReady(sourceText)) {
         scheduleInputRefresh(sourceText, settings, presentation);
@@ -713,7 +802,11 @@ export function App() {
         tokenization: undefined,
         error: undefined,
         shareUrl: undefined,
+        shareUrlV2: undefined,
         shareError: undefined,
+        shareErrorV1: undefined,
+        shareErrorV2: undefined,
+        shareEncoding: false,
       }));
       if (shouldRefresh && sourceIsReady(sourceText)) {
         scheduleInputRefresh(sourceText, settings, presentation);
@@ -760,7 +853,11 @@ export function App() {
         ...current,
         presentation: nextPresentation,
         shareUrl: undefined,
+        shareUrlV2: undefined,
         shareError: undefined,
+        shareErrorV1: undefined,
+        shareErrorV2: undefined,
+        shareEncoding: false,
       }));
       if (!state.wordSet || !state.scene) return;
       if (!isGeometryChanging(previous, nextPresentation)) {
@@ -796,47 +893,120 @@ export function App() {
     ],
   );
 
-  const handleCreateLink = useCallback(() => {
-    if (state.mode === "generating" || !state.wordSet || !state.scene) return;
+  const createShareLink = useCallback(
+    async (
+      version: "v1" | "v2",
+      snapshot: ReturnType<typeof createSnapshot>,
+      isShareRunCurrent: () => boolean,
+      encode: ShareEncoder,
+    ): Promise<boolean> => {
+      try {
+        const { fragment } = await encode(snapshot);
+        const url = buildShareUrl(
+          `${window.location.origin}${SHARE_VIEW_PATH}`,
+          fragment,
+        );
+        if (!isShareRunCurrent()) return false;
+        const urlKey = version === "v1" ? "shareUrl" : "shareUrlV2";
+        setState((current) => ({ ...current, [urlKey]: url }));
+        return true;
+      } catch (error) {
+        if (!isShareRunCurrent()) return false;
+        const errorKey = version === "v1" ? "shareErrorV1" : "shareErrorV2";
+        const messageKey = version === "v1" ? "linkFailedV1" : "linkFailedV2";
+        setState((current) => ({
+          ...current,
+          [errorKey]: t(messageKey, { error: errorText(error) }),
+        }));
+        return false;
+      }
+    },
+    [t],
+  );
+
+  const handleCreateLink = useCallback(async () => {
+    if (
+      state.mode === "generating" ||
+      state.shareEncoding ||
+      !state.wordSet ||
+      !state.scene
+    ) {
+      return;
+    }
+    const shareRunId = ++shareGenerationRef.current;
+    const isCurrent = () => shareRunId === shareGenerationRef.current;
+    setState((current) => ({
+      ...current,
+      shareUrl: undefined,
+      shareUrlV2: undefined,
+      shareError: undefined,
+      shareErrorV1: undefined,
+      shareErrorV2: undefined,
+      shareEncoding: true,
+    }));
+    setStatus(t("creatingLinks"));
+
+    let v1Created = false;
+    let v2Created = false;
     try {
-      const fragment = encodeSnapshot(
+      const snapshot = createSnapshot(
         state.wordSet,
         state.presentation,
         state.scene,
-      ).fragment;
-      const url = buildShareUrl(
-        `${window.location.origin}${SHARE_VIEW_PATH}`,
-        fragment,
       );
-      setState((current) => ({
-        ...current,
-        shareUrl: url,
-        shareError: undefined,
-      }));
-      setStatus(t("linkCreated"));
+      v1Created = await createShareLink(
+        "v1",
+        snapshot,
+        isCurrent,
+        encodeJsonFragment,
+      );
+      if (!isCurrent()) return;
+      v2Created = await createShareLink("v2", snapshot, isCurrent, (value) => {
+        const client = clientRef.current;
+        if (!client) throw new Error(t("v2WorkerUnavailable"));
+        return client.encodeShare(value);
+      });
     } catch (error) {
+      if (!isCurrent()) return;
+      const message = errorText(error);
       setState((current) => ({
         ...current,
-        shareUrl: undefined,
-        shareError: t("linkFailed", { error: errorText(error) }),
+        shareErrorV1: t("linkFailedV1", { error: message }),
+        shareErrorV2: t("linkFailedV2", { error: message }),
       }));
-      setStatus(t("linkTooLong"));
-    }
-  }, [state.mode, state.presentation, state.scene, state.wordSet, t]);
-
-  const handleCopy = useCallback(async () => {
-    if (!state.shareUrl) return;
-    try {
-      if (!navigator.clipboard?.writeText) {
-        setStatus(t("copyUnavailable"));
-        return;
+    } finally {
+      if (isCurrent()) {
+        setState((current) => ({ ...current, shareEncoding: false }));
+        setStatus(t(shareLinkCreationStatusKey(v1Created, v2Created)));
       }
-      await navigator.clipboard.writeText(state.shareUrl);
-      setStatus(t("linkCopied"));
-    } catch {
-      setStatus(t("copyUnavailable"));
     }
-  }, [state.shareUrl, t]);
+  }, [
+    createShareLink,
+    state.mode,
+    state.presentation,
+    state.scene,
+    state.shareEncoding,
+    state.wordSet,
+    t,
+  ]);
+
+  const handleCopy = useCallback(
+    async (version: "v1" | "v2") => {
+      const shareUrl = version === "v1" ? state.shareUrl : state.shareUrlV2;
+      if (!shareUrl) return;
+      try {
+        if (!navigator.clipboard?.writeText) {
+          setStatus(t("copyUnavailable"));
+          return;
+        }
+        await navigator.clipboard.writeText(shareUrl);
+        setStatus(t(version === "v1" ? "linkCopiedV1" : "linkCopiedV2"));
+      } catch {
+        setStatus(t("copyUnavailable"));
+      }
+    },
+    [state.shareUrl, state.shareUrlV2, t],
+  );
 
   const downloadBlob = useCallback((blob: Blob, name: string) => {
     const url = URL.createObjectURL(blob);
@@ -1028,11 +1198,28 @@ export function App() {
     state.sourceText &&
     new TextEncoder().encode(state.sourceText).byteLength >
       LIMITS.maxSourceBytes
-      ? t("diagnosticSourceLimit")
+      ? t("diagnosticSourceLimit", {
+          actual: new TextEncoder().encode(state.sourceText).byteLength,
+          limit: LIMITS.maxSourceBytes,
+        })
       : undefined;
   const hasSharedFragment =
     typeof window !== "undefined" &&
-    window.location.hash.startsWith("#wc-pako:");
+    snapshotFormatFromFragment(window.location.hash) !== undefined;
+  const maxWordsNotice = useMemo(() => {
+    if (!state.tokenization || !state.wordSet) return undefined;
+    const uniqueTerms = countUniqueTerms(
+      state.tokenization.tokens,
+      state.settings,
+    );
+    const omitted = uniqueTerms - LIMITS.maxWordsPerCloud;
+    if (omitted <= 0) return undefined;
+    return t("maxWordsPerCloudNotice", {
+      uniqueTerms,
+      kept: LIMITS.maxWordsPerCloud,
+      omitted,
+    });
+  }, [state.settings, state.tokenization, state.wordSet, t]);
   const isSharedView =
     typeof window !== "undefined" &&
     (isSharedViewPath(window.location.pathname) || hasSharedFragment);
@@ -1259,8 +1446,17 @@ export function App() {
                 />
                 <SharePanel
                   shareUrl={state.shareUrl}
+                  shareUrlV2={state.shareUrlV2}
                   shareError={state.shareError}
-                  disabled={!state.scene || state.mode === "generating"}
+                  shareErrorV1={state.shareErrorV1}
+                  shareErrorV2={state.shareErrorV2}
+                  shareEncoding={state.shareEncoding}
+                  wordLimitNotice={maxWordsNotice}
+                  disabled={
+                    !state.scene ||
+                    state.mode === "generating" ||
+                    state.shareEncoding
+                  }
                   onCreateLink={handleCreateLink}
                   onCopy={handleCopy}
                   onDownload={handleDownload}
@@ -1320,8 +1516,17 @@ export function App() {
                 </div>
                 <SharePanel
                   shareUrl={state.shareUrl}
+                  shareUrlV2={state.shareUrlV2}
                   shareError={state.shareError}
-                  disabled={!state.scene || state.mode === "generating"}
+                  shareErrorV1={state.shareErrorV1}
+                  shareErrorV2={state.shareErrorV2}
+                  shareEncoding={state.shareEncoding}
+                  wordLimitNotice={maxWordsNotice}
+                  disabled={
+                    !state.scene ||
+                    state.mode === "generating" ||
+                    state.shareEncoding
+                  }
                   onCreateLink={handleCreateLink}
                   onCopy={handleCopy}
                   onDownload={handleDownload}

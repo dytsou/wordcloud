@@ -1,10 +1,12 @@
+import type { EncodedJsonFragment } from "../core/codec";
 import {
-  layoutWordCloud,
   type LayoutOptions,
   type LayoutStyle,
+  layoutWordCloud,
 } from "../core/layout";
 import type { FontMetricsTable } from "../core/metrics";
 import type { SceneModel } from "../core/scene";
+import type { SnapshotPayload } from "../core/snapshot";
 import type { WordSet } from "../core/types";
 
 export interface GenerateRequest {
@@ -20,10 +22,28 @@ export interface CancelRequest {
   jobId: number;
 }
 
-export type EngineRequest = GenerateRequest | CancelRequest;
+export interface ShareEncodeRequest {
+  type: "share-encode";
+  jobId: number;
+  value: unknown;
+}
+
+export interface ShareDecodeRequest {
+  type: "share-decode";
+  jobId: number;
+  fragment: string;
+}
+
+export type EngineRequest =
+  | GenerateRequest
+  | ShareEncodeRequest
+  | ShareDecodeRequest
+  | CancelRequest;
 
 export type EngineResponse =
   | { type: "success"; jobId: number; scene: SceneModel }
+  | { type: "share-encoded"; jobId: number; encoded: EncodedJsonFragment }
+  | { type: "share-decoded"; jobId: number; snapshot: SnapshotPayload }
   | { type: "error"; jobId: number; message: string }
   | { type: "cancelled"; jobId: number };
 
@@ -50,6 +70,7 @@ export interface LayoutInput {
 
 export class EngineClient {
   private static readonly JOB_TIMEOUT_MS = 10_000;
+  private static readonly SHARE_JOB_TIMEOUT_MS = 30_000;
   private nextJobId = 0;
   private active:
     | {
@@ -78,11 +99,18 @@ export class EngineClient {
     active.reject(error);
   }
 
-  public submit(input: LayoutInput): Promise<SceneModel> {
+  private request(
+    input:
+      | Omit<GenerateRequest, "jobId">
+      | Omit<ShareEncodeRequest, "jobId">
+      | Omit<ShareDecodeRequest, "jobId">,
+    expectedType: "success" | "share-encoded" | "share-decoded",
+    timeoutMs = EngineClient.JOB_TIMEOUT_MS,
+  ): Promise<EngineResponse> {
     const jobId = ++this.nextJobId;
     if (this.active) {
       const active = this.active;
-      this.rejectActive(new Error("superseded by a newer layout job"));
+      this.rejectActive(new Error("superseded by a newer engine job"));
       try {
         this.worker.postMessage({ type: "cancel", jobId: active.jobId });
       } catch {
@@ -90,7 +118,7 @@ export class EngineClient {
       }
     }
 
-    return new Promise<SceneModel>((resolve, reject) => {
+    return new Promise<EngineResponse>((resolve, reject) => {
       const listener = (event: MessageEvent<EngineResponse>) => {
         if (event.data.jobId !== jobId) return;
         const active = this.active;
@@ -98,28 +126,65 @@ export class EngineClient {
         this.active = undefined;
         this.worker.removeEventListener("message", listener);
         clearTimeout(active.timeoutId);
-        if (event.data.type === "success") {
-          resolve(event.data.scene);
-        } else if (event.data.type === "error") {
+        if (event.data.type === "error") {
           reject(new Error(event.data.message));
+        } else if (event.data.type === "cancelled") {
+          reject(new Error("engine job cancelled"));
+        } else if (event.data.type === expectedType) {
+          resolve(event.data);
         } else {
-          reject(new Error("layout job cancelled"));
+          reject(new Error("engine worker returned an unexpected response"));
         }
       };
       const timeoutId = setTimeout(() => {
         if (this.active?.jobId !== jobId) return;
-        this.rejectActive(new Error("layout worker timed out"));
-      }, EngineClient.JOB_TIMEOUT_MS);
+        this.rejectActive(new Error("engine worker timed out"));
+      }, timeoutMs);
       this.active = { jobId, reject, listener, timeoutId };
       try {
         this.worker.addEventListener("message", listener);
-        this.worker.postMessage({ type: "generate", jobId, ...input });
+        this.worker.postMessage({ ...input, jobId });
       } catch (error) {
         this.rejectActive(
-          error instanceof Error ? error : new Error("layout worker failed"),
+          error instanceof Error ? error : new Error("engine worker failed"),
         );
       }
     });
+  }
+
+  public async submit(input: LayoutInput): Promise<SceneModel> {
+    const response = await this.request(
+      { type: "generate", ...input },
+      "success",
+    );
+    if (response.type !== "success") {
+      throw new Error("engine worker returned an unexpected response");
+    }
+    return response.scene;
+  }
+
+  public async encodeShare(value: unknown): Promise<EncodedJsonFragment> {
+    const response = await this.request(
+      { type: "share-encode", value },
+      "share-encoded",
+      EngineClient.SHARE_JOB_TIMEOUT_MS,
+    );
+    if (response.type !== "share-encoded") {
+      throw new Error("engine worker returned an unexpected response");
+    }
+    return response.encoded;
+  }
+
+  public async decodeShare(fragment: string): Promise<SnapshotPayload> {
+    const response = await this.request(
+      { type: "share-decode", fragment },
+      "share-decoded",
+      EngineClient.SHARE_JOB_TIMEOUT_MS,
+    );
+    if (response.type !== "share-decoded") {
+      throw new Error("engine worker returned an unexpected response");
+    }
+    return response.snapshot;
   }
 
   public cancel(): void {

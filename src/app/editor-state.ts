@@ -1,5 +1,7 @@
 import type { LayoutStyle } from "../core/layout";
+import type { SceneModel } from "../core/scene";
 import { recommendShapeFontRange } from "../core/shapes";
+import type { SnapshotPayload } from "../core/snapshot";
 import {
   DEFAULT_TOKENIZER_SETTINGS,
   detectBrowserTokenizerLocale,
@@ -9,8 +11,6 @@ import type {
   TokenizerSettings,
   WordSet,
 } from "../core/types";
-import type { SceneModel } from "../core/scene";
-import type { SnapshotPayload } from "../core/snapshot";
 
 export type EditorMode =
   | "empty"
@@ -44,7 +44,11 @@ export interface EditorState {
   scene?: SceneModel;
   error?: string;
   shareUrl?: string;
+  shareUrlV2?: string;
   shareError?: string;
+  shareErrorV1?: string;
+  shareErrorV2?: string;
+  shareEncoding?: boolean;
 }
 
 export function createInitialEditorState(): EditorState {

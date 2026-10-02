@@ -138,9 +138,28 @@ export const EN_MESSAGES = {
   outputHeading: "Make it travel.",
   shareDisclosure:
     "V links contain normalized terms, frequencies, ranks, and derived visual data; they do not contain source text and are not secret links.",
-  createLink: "Create V link",
+  createLink: "Create V1 and V2 links",
+  creatingLinks: "Creating V1 and V2 links…",
   copy: "Copy",
   vUrl: "V URL",
+  v1Url: "V1 URL · zlib",
+  v2Url: "V2 URL · Brotli",
+  copyV1: "Copy V1 URL",
+  copyV2: "Copy V2 URL",
+  v2Preparing: "Compressing the V2 link locally in a browser worker…",
+  shareUrlLength: "{{characters}} characters",
+  linksCreatedBoth: "V1 and V2 share links created.",
+  linkCreatedV1Only: "V1 share link created; V2 could not be created.",
+  linkCreatedV2Only: "V2 share link created; V1 could not be created.",
+  linkCreationFailed: "Neither share link could be created.",
+  linkFailedV1: "V1 link was not created: {{error}}",
+  linkFailedV2: "V2 link was not created: {{error}}",
+  v2WorkerUnavailable:
+    "V2 Brotli links require the local browser worker, which is unavailable.",
+  shareUrlTruncated:
+    "The share URL was truncated: expected {{expected}} characters, received {{actual}}. Copy the complete link or reduce the word count before sharing.",
+  maxWordsPerCloudNotice:
+    "There are {{uniqueTerms}} unique terms. This cloud keeps the {{kept}} most frequent and omits {{omitted}}; add stop words or edit the source to choose which terms stay.",
   sharePlaceholder: "Your link will appear here",
   downloadSnapshot: "Download full {{extension}} snapshot",
   downloadSvg: "Download SVG",
@@ -188,6 +207,8 @@ export const EN_MESSAGES = {
   generationFailedStatus: "Layout failed. Adjust the settings and try again.",
   linkCreated: "V link created; it contains derived data but not source text.",
   linkCopied: "V link copied.",
+  linkCopiedV1: "V1 link copied.",
+  linkCopiedV2: "V2 link copied.",
   copyUnavailable:
     "Clipboard access is unavailable. Select the V URL and copy it manually.",
   linkFailed:
@@ -212,7 +233,8 @@ export const EN_MESSAGES = {
   unknownError: "An unknown error occurred. Please try again.",
   tokenizerError: "Tokenizer error: {{message}}",
   noWords: "There are no drawable words.",
-  diagnosticSourceLimit: "The source text is larger than the browser limit.",
+  diagnosticSourceLimit:
+    "Source text is {{actual}} bytes (limit {{limit}}). Remove some text to continue.",
   diagnosticRuleLimit: "There are too many custom token rules.",
   diagnosticRuleInvalid: "A custom token rule is incomplete or invalid.",
   diagnosticRuleCycle: "The custom token rules contain a cycle.",
@@ -220,8 +242,10 @@ export const EN_MESSAGES = {
     "This browser does not support the selected tokenizer locale.",
   diagnosticSegmenterUnavailable:
     "This browser does not support Intl.Segmenter.",
-  diagnosticTokenLimit: "The text produces too many candidate tokens.",
-  diagnosticUniqueTermLimit: "The text produces too many unique terms.",
+  diagnosticTokenLimit:
+    "The tokenizer found {{actual}} candidate tokens (limit {{limit}}). Reduce the source text or custom token rules.",
+  diagnosticUniqueTermLimit:
+    "The text produced {{actual}} unique terms (limit {{limit}}). Add stop words or reduce the source vocabulary.",
   diagnosticTermLimit: "A term is longer than the supported limit.",
   diagnosticEmptyInput: "Enter source text first.",
   diagnosticNoWords: "The current settings leave no drawable words.",
