@@ -1041,12 +1041,16 @@ export function App() {
         | { url: string; version: "v1" | "v2" } = "v1",
     ) => {
       const version = typeof target === "string" ? target : target.version;
-      const shareUrl =
-        typeof target === "string"
-          ? version === "v1"
-            ? state.shareUrl
-            : state.shareUrlV2
-          : target.url;
+      let shareUrl: string | undefined;
+      if (typeof target === "string") {
+        if (version === "v1") {
+          shareUrl = state.shareUrl;
+        } else {
+          shareUrl = state.shareUrlV2;
+        }
+      } else {
+        shareUrl = target.url;
+      }
       if (!shareUrl) return;
       try {
         if (!navigator.clipboard?.writeText) {
