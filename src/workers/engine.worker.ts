@@ -1,5 +1,7 @@
-import { layoutWordCloudAsync } from "../core/layout";
 import type { EngineRequest, EngineResponse } from "../app/engine-client";
+import { encodeBrotliJsonFragment } from "../core/codec";
+import { layoutWordCloudAsync } from "../core/layout";
+import { decodeSnapshotFragmentAsync } from "../core/snapshot";
 
 const cancelled = new Set<number>();
 const activeJobs = new Set<number>();
@@ -26,6 +28,43 @@ async function handleMessage(request: EngineRequest): Promise<void> {
   latestJobId = Math.max(latestJobId, request.jobId);
   activeJobs.add(request.jobId);
   try {
+    if (request.type === "share-encode") {
+      const encoded = await encodeBrotliJsonFragment(request.value);
+      if (cancelled.has(request.jobId) || request.jobId < latestJobId) {
+        const response: EngineResponse = {
+          type: "cancelled",
+          jobId: request.jobId,
+        };
+        scope.postMessage(response);
+        return;
+      }
+      const response: EngineResponse = {
+        type: "share-encoded",
+        jobId: request.jobId,
+        encoded,
+      };
+      scope.postMessage(response);
+      return;
+    }
+    if (request.type === "share-decode") {
+      const snapshot = await decodeSnapshotFragmentAsync(request.fragment);
+      if (cancelled.has(request.jobId) || request.jobId < latestJobId) {
+        const response: EngineResponse = {
+          type: "cancelled",
+          jobId: request.jobId,
+        };
+        scope.postMessage(response);
+        return;
+      }
+      const response: EngineResponse = {
+        type: "share-decoded",
+        jobId: request.jobId,
+        snapshot,
+      };
+      scope.postMessage(response);
+      return;
+    }
+
     const scene = await layoutWordCloudAsync(
       request.wordSet,
       request.style,

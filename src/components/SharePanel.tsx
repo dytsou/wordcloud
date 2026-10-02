@@ -1,14 +1,19 @@
-import { useRef } from "react";
 import type { ChangeEvent } from "react";
+import { useRef } from "react";
 import { SNAPSHOT_FILE_EXTENSION } from "../core/file-snapshot";
 import { useI18n } from "../i18n";
 
 interface SharePanelProps {
   readonly shareUrl?: string;
+  readonly shareUrlV2?: string;
   readonly shareError?: string;
+  readonly shareErrorV1?: string;
+  readonly shareErrorV2?: string;
+  readonly shareEncoding?: boolean;
+  readonly wordLimitNotice?: string;
   readonly disabled?: boolean;
   readonly onCreateLink: () => void;
-  readonly onCopy: () => void;
+  readonly onCopy: (version: "v1" | "v2") => void;
   readonly onDownload: () => void;
   readonly onExportSvg: () => void;
   readonly onExportPng: () => void;
@@ -19,7 +24,12 @@ interface SharePanelProps {
 
 export function SharePanel({
   shareUrl,
+  shareUrlV2,
   shareError,
+  shareErrorV1,
+  shareErrorV2,
+  shareEncoding = false,
+  wordLimitNotice,
   disabled = false,
   onCreateLink,
   onCopy,
@@ -32,7 +42,7 @@ export function SharePanel({
 }: SharePanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { t } = useI18n();
-  const hasShareUrl = Boolean(shareUrl);
+  const hasShareUrl = Boolean(shareUrl || shareUrlV2);
   return (
     <section className="panel share-panel" aria-labelledby="share-heading">
       <div className="panel-heading">
@@ -43,6 +53,7 @@ export function SharePanel({
         <span className="privacy-chip">{t("noRawText")}</span>
       </div>
       <p className="share-disclosure">{t("shareDisclosure")}</p>
+      {wordLimitNotice && <p className="warning-note">{wordLimitNotice}</p>}
       <div className="share-actions">
         <button
           className="button button-primary"
@@ -50,7 +61,7 @@ export function SharePanel({
           disabled={disabled}
           onClick={onCreateLink}
         >
-          {t("createLink")}
+          {shareEncoding ? t("creatingLinks") : t("createLink")}
         </button>
         <button
           className="button button-quiet"
@@ -68,36 +79,78 @@ export function SharePanel({
         >
           {exporting ? t("downloadingPng") : t("downloadPng")}
         </button>
-        {hasShareUrl && (
-          <button
-            className="button button-quiet"
-            type="button"
-            onClick={onCopy}
-          >
-            {t("copy")}
-          </button>
-        )}
       </div>
-      {hasShareUrl && (
+      {shareUrl && (
         <>
-          <label className="field-label" htmlFor="share-url">
-            {t("vUrl")}
+          <label className="field-label" htmlFor="share-url-v1">
+            {t("v1Url")}
           </label>
           <input
-            id="share-url"
+            id="share-url-v1"
             className="share-url"
             readOnly
             value={shareUrl}
-            aria-describedby={shareError ? "share-error" : undefined}
+            aria-describedby="share-url-v1-length"
           />
+          <p id="share-url-v1-length" className="field-hint">
+            {t("shareUrlLength", { characters: shareUrl.length })}
+          </p>
+          <button
+            className="button button-quiet"
+            type="button"
+            disabled={disabled}
+            onClick={() => onCopy("v1")}
+          >
+            {t("copyV1")}
+          </button>
         </>
+      )}
+      {shareErrorV1 && (
+        <p id="share-v1-error" className="warning-note">
+          {shareErrorV1}
+        </p>
+      )}
+      {shareEncoding && !shareUrlV2 && (
+        <p className="share-disclosure" aria-live="polite">
+          {t("v2Preparing")}
+        </p>
+      )}
+      {shareUrlV2 && (
+        <>
+          <label className="field-label" htmlFor="share-url-v2">
+            {t("v2Url")}
+          </label>
+          <input
+            id="share-url-v2"
+            className="share-url"
+            readOnly
+            value={shareUrlV2}
+            aria-describedby="share-url-v2-length"
+          />
+          <p id="share-url-v2-length" className="field-hint">
+            {t("shareUrlLength", { characters: shareUrlV2.length })}
+          </p>
+          <button
+            className="button button-quiet"
+            type="button"
+            disabled={disabled}
+            onClick={() => onCopy("v2")}
+          >
+            {t("copyV2")}
+          </button>
+        </>
+      )}
+      {shareErrorV2 && (
+        <p id="share-v2-error" className="warning-note">
+          {shareErrorV2}
+        </p>
       )}
       {shareError && (
         <p id="share-error" className="warning-note">
           {shareError}
         </p>
       )}
-      {(hasShareUrl || shareError) && (
+      {(hasShareUrl || shareError || shareErrorV1 || shareErrorV2) && (
         <div className="file-actions">
           <button
             className="button button-quiet"

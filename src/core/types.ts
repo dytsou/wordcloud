@@ -92,6 +92,9 @@ export interface TokenizerDiagnostic {
     | "EMPTY_INPUT"
     | "NO_WORDS";
   message: string;
+  actual?: number;
+  actualIsMinimum?: boolean;
+  limit?: number;
 }
 
 export interface TokenizationResult {

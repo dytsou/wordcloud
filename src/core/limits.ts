@@ -2,6 +2,7 @@ export const LIMITS = {
   maxSourceBytes: 1_048_576,
   maxCandidateTokens: 200_000,
   maxUniqueTerms: 500,
+  maxWordsPerCloud: 250,
   maxCustomRules: 100,
   maxLiteralScalars: 128,
   maxLayoutProbes: 100_000,

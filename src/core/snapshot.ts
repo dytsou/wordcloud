@@ -1,14 +1,19 @@
-import { CODEC_VERSION, decodeJsonFragment, encodeJsonFragment } from "./codec";
+import {
+  CODEC_VERSION,
+  decodeJsonFragment,
+  decodeJsonFragmentAsync,
+  encodeJsonFragment,
+} from "./codec";
+import type { LayoutStyle } from "./layout";
 import { LIMITS, scalarLength } from "./limits";
-import { isSafeFontFamily, isSafeHexColor } from "./style-safety";
+import { SCENE_VERSION, type SceneModel, type SceneWord } from "./scene";
 import {
   getBuiltInShape,
   MAX_SHAPE_SCALE,
   MIN_SHAPE_SCALE,
   type ShapeSettings,
 } from "./shapes";
-import { SCENE_VERSION, type SceneModel, type SceneWord } from "./scene";
-import type { LayoutStyle } from "./layout";
+import { isSafeFontFamily, isSafeHexColor } from "./style-safety";
 import type { Word, WordSet } from "./types";
 
 export type Presentation = LayoutStyle;
@@ -60,7 +65,9 @@ function exactKeys(
     keys.some((key) => !allowed.has(key)) ||
     required.some((key) => !keys.includes(key))
   ) {
-    throw new SnapshotValidationError(`${label} contains unknown or missing fields.`);
+    throw new SnapshotValidationError(
+      `${label} contains unknown or missing fields.`,
+    );
   }
 }
 
@@ -109,7 +116,9 @@ function numberValue(
 
 function colorValue(value: unknown, label: string): string {
   if (!isSafeHexColor(value)) {
-    throw new SnapshotValidationError(`${label} must be a safe hexadecimal color.`);
+    throw new SnapshotValidationError(
+      `${label} must be a safe hexadecimal color.`,
+    );
   }
   return value;
 }
@@ -173,7 +182,9 @@ function validateWordSet(value: unknown): WordSet {
     return word;
   });
   if (words.some((word, index) => word.rank !== index + 1)) {
-    throw new SnapshotValidationError("word ranks must be consecutive starting at 1.");
+    throw new SnapshotValidationError(
+      "word ranks must be consecutive starting at 1.",
+    );
   }
   return { locale, tokenizerVersion, totalTokens, words };
 }
@@ -184,7 +195,9 @@ function validateShape(value: unknown): ShapeSettings {
   const id = stringValue(object.id, "presentation.shape.id", 64);
   const shape = getBuiltInShape(id);
   if (!shape)
-    throw new SnapshotValidationError("presentation.shape.id is not supported.");
+    throw new SnapshotValidationError(
+      "presentation.shape.id is not supported.",
+    );
   return {
     id: shape.id,
     widthScale: numberValue(
@@ -261,11 +274,15 @@ function validatePresentation(value: unknown, shaped: boolean): Presentation {
     throw new SnapshotValidationError("palette is invalid.");
   const fontFamily = stringValue(object.fontFamily, "presentation.fontFamily");
   if (!isSafeFontFamily(fontFamily))
-    throw new SnapshotValidationError("fontFamily contains a disallowed CSS value.");
+    throw new SnapshotValidationError(
+      "fontFamily contains a disallowed CSS value.",
+    );
   const minFontSize = numberValue(object.minFontSize, "minFontSize", 1, 512);
   const maxFontSize = numberValue(object.maxFontSize, "maxFontSize", 1, 512);
   if (minFontSize > maxFontSize)
-    throw new SnapshotValidationError("minFontSize must not exceed maxFontSize.");
+    throw new SnapshotValidationError(
+      "minFontSize must not exceed maxFontSize.",
+    );
   const presentation: Presentation = {
     canvas: { width, height },
     minFontSize,
@@ -546,7 +563,9 @@ function validateSnapshotSceneWords(
   for (const word of scene.words) {
     const source = wordByRank.get(word.rank);
     if (source?.term !== word.term || source?.count !== word.count) {
-      throw new SnapshotValidationError("scene and wordSet word data do not match.");
+      throw new SnapshotValidationError(
+        "scene and wordSet word data do not match.",
+      );
     }
     if (sceneRanks.has(word.rank))
       throw new SnapshotValidationError("scene ranks must be unique.");
@@ -657,4 +676,13 @@ export function decodeSnapshotFragment(
   maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
 ): SnapshotPayload {
   return validateSnapshot(decodeJsonFragment(fragment, maxEncodedBytes));
+}
+
+export async function decodeSnapshotFragmentAsync(
+  fragment: string,
+  maxEncodedBytes: number = LIMITS.maxEncodedFragmentBytes,
+): Promise<SnapshotPayload> {
+  return validateSnapshot(
+    await decodeJsonFragmentAsync(fragment, maxEncodedBytes),
+  );
 }

@@ -117,9 +117,27 @@ export const ZH_HANT_MESSAGES: MessageMap = {
   outputHeading: "Make it travel.",
   shareDisclosure:
     "V 連結只包含正規化詞語、詞頻、排名與視覺衍生資料，不包含原文；它不是機密連結。",
-  createLink: "產生 V 連結",
+  createLink: "產生 V1 與 V2 連結",
+  creatingLinks: "正在產生 V1 與 V2 連結⋯",
   copy: "複製",
   vUrl: "V URL",
+  v1Url: "V1 URL · zlib",
+  v2Url: "V2 URL · Brotli",
+  copyV1: "複製 V1 URL",
+  copyV2: "複製 V2 URL",
+  v2Preparing: "正在本機瀏覽器 Worker 中壓縮 V2 連結⋯",
+  shareUrlLength: "{{characters}} 個字元",
+  linksCreatedBoth: "V1 與 V2 分享連結已產生。",
+  linkCreatedV1Only: "V1 分享連結已產生；V2 連結產生失敗。",
+  linkCreatedV2Only: "V2 分享連結已產生；V1 連結產生失敗。",
+  linkCreationFailed: "V1 與 V2 分享連結都無法產生。",
+  linkFailedV1: "V1 連結未產生：{{error}}",
+  linkFailedV2: "V2 連結未產生：{{error}}",
+  v2WorkerUnavailable: "V2 Brotli 連結需要本機瀏覽器 Worker，但目前無法使用。",
+  shareUrlTruncated:
+    "分享網址疑似遭截斷：預期 {{expected}} 個字元，實際收到 {{actual}} 個。請複製完整網址，或減少詞彙數再分享。",
+  maxWordsPerCloudNotice:
+    "共有 {{uniqueTerms}} 個不重複詞語。此文字雲保留詞頻最高的 {{kept}} 個，省略 {{omitted}} 個；可加入停用詞或編輯原文來選擇保留詞語。",
   sharePlaceholder: "產生連結後會顯示在這裡",
   downloadSnapshot: "下載完整 {{extension}} 快照",
   downloadSvg: "下載 SVG",
@@ -164,6 +182,8 @@ export const ZH_HANT_MESSAGES: MessageMap = {
   someOmitted: "文字雲完成，但有詞語未能放入畫布；請查看排名表。",
   linkCreated: "V 連結已產生；它包含衍生資料，不包含原文。",
   linkCopied: "V 連結已複製。",
+  linkCopiedV1: "V1 連結已複製。",
+  linkCopiedV2: "V2 連結已複製。",
   copyUnavailable:
     "Clipboard access is unavailable. Select the V URL and copy it manually.",
   linkTooLong:
@@ -181,7 +201,8 @@ export const ZH_HANT_MESSAGES: MessageMap = {
     "The V snapshot is invalid; the previous state was not partially restored.",
   unknownError: "An unknown error occurred. Please try again.",
   noWords: "There are no drawable words.",
-  diagnosticSourceLimit: "The source text is larger than the browser limit.",
+  diagnosticSourceLimit:
+    "原文為 {{actual}} bytes（上限 {{limit}} bytes）。請刪減部分文字後繼續。",
   diagnosticRuleLimit: "There are too many custom token rules.",
   diagnosticRuleInvalid: "A custom token rule is incomplete or invalid.",
   diagnosticRuleCycle: "The custom token rules contain a cycle.",
@@ -189,8 +210,10 @@ export const ZH_HANT_MESSAGES: MessageMap = {
     "This browser does not support the selected tokenizer locale.",
   diagnosticSegmenterUnavailable:
     "This browser does not support Intl.Segmenter.",
-  diagnosticTokenLimit: "The text produces too many candidate tokens.",
-  diagnosticUniqueTermLimit: "The text produces too many unique terms.",
+  diagnosticTokenLimit:
+    "分詞器找到 {{actual}} 個候選詞語（上限 {{limit}}）。請縮短原文或減少自訂分詞規則。",
+  diagnosticUniqueTermLimit:
+    "原文產生 {{actual}} 個不重複詞語（上限 {{limit}}）。請加入停用詞或減少原文詞彙。",
   diagnosticTermLimit: "A term is longer than the supported limit.",
   diagnosticEmptyInput: "Enter source text first.",
   diagnosticNoWords: "The current settings leave no drawable words.",
