@@ -4,6 +4,8 @@ export const ZH_HANT_MESSAGES: MessageMap = {
   metaDescription: "在瀏覽器本機製作、調整並分享多語言文字雲。",
   brandSubtitle: "為個人創作者打造的本機優先文字雲產生器。",
   language: "介面語言",
+  themeSwitchToDark: "切換為深色模式",
+  themeSwitchToLight: "切換為淺色模式",
   wizardNavigation: "文字雲建立步驟",
   wizardProgressLabel: "第 {{current}} 步，共 {{total}} 步",
   wizardStepSource: "原文",

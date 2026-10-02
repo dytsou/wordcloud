@@ -4,6 +4,8 @@ export const EN_MESSAGES = {
     "Create, tune, and share multilingual word clouds locally in your browser.",
   brandSubtitle: "A local-first word-cloud generator for individual creators.",
   language: "Interface language",
+  themeSwitchToDark: "Switch to dark mode",
+  themeSwitchToLight: "Switch to light mode",
   wizardNavigation: "Word cloud creation steps",
   wizardProgressLabel: "STEP {{current}} OF {{total}}",
   wizardStepSource: "Source",

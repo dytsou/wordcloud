@@ -2,6 +2,8 @@ import type { MessageMap } from "./types";
 
 export const JA_MESSAGES: MessageMap = {
   language: "表示言語",
+  themeSwitchToDark: "ダークモードに切り替え",
+  themeSwitchToLight: "ライトモードに切り替え",
   wizardNavigation: "ワードクラウド作成の手順",
   wizardProgressLabel: "{{total}} ステップ中 {{current}} ステップ目",
   wizardStepSource: "原文",

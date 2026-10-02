@@ -2,6 +2,8 @@ import type { MessageMap } from "./types";
 
 export const TH_MESSAGES: MessageMap = {
   language: "ภาษาของอินเทอร์เฟซ",
+  themeSwitchToDark: "เปลี่ยนเป็นโหมดมืด",
+  themeSwitchToLight: "เปลี่ยนเป็นโหมดสว่าง",
   wizardNavigation: "ขั้นตอนสร้างเวิร์ดคลาวด์",
   wizardProgressLabel: "ขั้นตอนที่ {{current}} จาก {{total}}",
   wizardStepSource: "ข้อความต้นฉบับ",

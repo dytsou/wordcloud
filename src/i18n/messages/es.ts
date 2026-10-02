@@ -2,6 +2,8 @@ import type { MessageMap } from "./types";
 
 export const ES_MESSAGES: MessageMap = {
   language: "Idioma de la interfaz",
+  themeSwitchToDark: "Activar el modo oscuro",
+  themeSwitchToLight: "Activar el modo claro",
   wizardNavigation: "Pasos para crear la nube de palabras",
   wizardProgressLabel: "PASO {{current}} DE {{total}}",
   wizardStepSource: "Texto",

@@ -1,6 +1,8 @@
 import type { MessageMap } from "./types";
 
 export const ZH_HANS_MESSAGES: MessageMap = {
+  themeSwitchToDark: "切换到深色模式",
+  themeSwitchToLight: "切换到浅色模式",
   wizardNavigation: "文字云创建步骤",
   wizardProgressLabel: "第 {{current}} 步，共 {{total}} 步",
   wizardStepSource: "原文",

@@ -93,7 +93,7 @@ export function CloudPreview({
       </div>
       <div
         className="canvas-frame"
-        style={{ background: scene?.background ?? "#edf2f4" }}
+        style={scene ? { background: scene.background } : undefined}
       >
         {scene ? (
           <>

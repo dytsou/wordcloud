@@ -1,5 +1,12 @@
 import type { FormEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   createInitialEditorState,
   DEFAULT_PRESENTATION,
@@ -240,8 +247,34 @@ function shareLinkCreationStatusKey(v1Created: boolean, v2Created: boolean) {
   return "linkCreationFailed";
 }
 
+type ColorMode = "dark" | "light";
+
+const COLOR_MODE_STORAGE_KEY = "wordcloud-color-mode";
+
+function readSavedColorMode(): ColorMode | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const saved = window.localStorage.getItem(COLOR_MODE_STORAGE_KEY);
+    return saved === "dark" || saved === "light" ? saved : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function saveColorMode(colorMode: ColorMode) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(COLOR_MODE_STORAGE_KEY, colorMode);
+  } catch {
+    // The theme still applies to this page view when storage is unavailable.
+  }
+}
+
 export function App() {
   const { locale: uiLocale, setLocale, t } = useI18n();
+  const [colorMode, setColorMode] = useState<ColorMode>(
+    () => readSavedColorMode() ?? "light",
+  );
   const [state, setState] = useState<EditorState>(initialEditorState);
   const [activeStep, setActiveStep] = useState<WizardStep>(initialWizardStep);
   const [stepError, setStepError] = useState<string>();
@@ -256,6 +289,19 @@ export function App() {
   const shareGenerationRef = useRef(0);
   const layoutTimerRef = useRef<number | undefined>(undefined);
   const hasGeneratedCloudRef = useRef(Boolean(state.scene || state.wordSet));
+
+  useLayoutEffect(() => {
+    document.documentElement.dataset.theme = colorMode;
+  }, [colorMode]);
+
+  const themeToggleLabel = t(
+    colorMode === "dark" ? "themeSwitchToLight" : "themeSwitchToDark",
+  );
+  const toggleColorMode = () => {
+    const nextColorMode = colorMode === "dark" ? "light" : "dark";
+    setColorMode(nextColorMode);
+    saveColorMode(nextColorMode);
+  };
 
   const navigateToStep = useCallback((step: WizardStep, replace = false) => {
     let path: string;
@@ -1369,6 +1415,25 @@ export function App() {
               </option>
             ))}
           </select>
+          <button
+            className="theme-toggle"
+            type="button"
+            aria-label={themeToggleLabel}
+            aria-pressed={colorMode === "dark"}
+            title={themeToggleLabel}
+            onClick={toggleColorMode}
+          >
+            {colorMode === "dark" ? (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="3.5" />
+                <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20.6 14.1A8 8 0 0 1 9.9 3.4 8.2 8.2 0 1 0 20.6 14.1Z" />
+              </svg>
+            )}
+          </button>
         </div>
       </header>
       <StatusAnnouncer message={status} />

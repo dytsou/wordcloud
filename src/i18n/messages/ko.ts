@@ -2,6 +2,8 @@ import type { MessageMap } from "./types";
 
 export const KO_MESSAGES: MessageMap = {
   language: "인터페이스 언어",
+  themeSwitchToDark: "어두운 모드로 전환",
+  themeSwitchToLight: "밝은 모드로 전환",
   wizardNavigation: "워드 클라우드 만들기 단계",
   wizardProgressLabel: "전체 {{total}}단계 중 {{current}}단계",
   wizardStepSource: "원문",
