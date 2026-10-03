@@ -221,6 +221,9 @@ test("preserves uploaded foreground through v3 share and .wc round trips", async
   const restoredUrl = await page.getByLabel("V URL").inputValue();
   const restoredSnapshot = decodeSnapshotFragment(new URL(restoredUrl).hash);
   expect(restoredSnapshot.schemaVersion).toBe("wc-snapshot-v3");
+  if (restoredSnapshot.schemaVersion !== "wc-snapshot-v3") {
+    throw new Error("Uploaded shapes must use a v3 snapshot.");
+  }
   expect(restoredSnapshot.presentation.shape).toEqual(snapshotUploadedShape);
   expect(restoredSnapshot.scene.shape).toEqual(snapshotUploadedShape);
   expect(restoredSnapshot.scene.words).toEqual(scene.words);

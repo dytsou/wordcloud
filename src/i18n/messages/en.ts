@@ -5,30 +5,61 @@ export const EN_MESSAGES = {
   imageShapeUpload: "Upload image",
   imageShapeReplace: "Replace image",
   imageShapeEdit: "Refine foreground",
+  imageShapeRemoveImage: "Remove image",
   imageShapeLocal:
     "PNG, JPEG or WebP · up to 8 MiB. Image processing stays on this device.",
   imageShapeSource: "Source image",
   imageShapeForeground: "Foreground to keep",
   imageShapeProcessing: "Processing image…",
   imageShapeTolerance: "Background tolerance",
+  imageShapeToleranceHelp:
+    "Adjust how much color difference the background detector can accept.",
   imageShapeHoles: "Remove matching background inside enclosed holes",
+  imageShapeHolesHelp:
+    "Also remove similar background colors enclosed inside the subject.",
   imageShapeDetect: "Detect background again",
+  imageShapeDetectHelp:
+    "Rebuild the foreground with the current tolerance and enclosed-hole setting.",
   imageShapeSimple: "For transparent images and plain backgrounds",
+  imageShapeSimpleHelp:
+    "Open automatic detection settings for transparent images and plain backgrounds.",
   imageShapePhoto: "For photos and complex backgrounds",
   imageShapePhotoHelp:
     "Draw a box around the subject, then mark areas to keep or remove. Find subject uses your marks and nearby colors; refine the result before confirming.",
   imageShapeBox: "Subject box",
+  imageShapeBoxHelp:
+    "Drag a rectangle around the subject. Pixels outside it guide the detector as background.",
   imageShapeKeep: "Keep brush",
+  imageShapeKeepHelp:
+    "Paint across areas that belong in the foreground to mark them as kept.",
   imageShapeRemove: "Remove brush",
+  imageShapeRemoveHelp:
+    "Paint across background or unwanted areas to exclude them from the shape.",
   imageShapeMarkKeep: "Foreground mark",
+  imageShapeMarkKeepHelp:
+    "Mark clear parts of the subject to guide Find subject toward what to keep.",
   imageShapeMarkRemove: "Background mark",
+  imageShapeMarkRemoveHelp:
+    "Mark background areas to help Find subject keep them out of the subject.",
   imageShapeRadius: "Brush radius",
+  imageShapeRadiusHelp:
+    "Change the stroke size for brush edits and subject marks.",
   imageShapeFind: "Find subject",
+  imageShapeFindHelp:
+    "Recalculate the foreground using the subject box and your keep and background marks.",
   imageShapeUndo: "Undo",
+  imageShapeUndoHelp: "Undo the last foreground, mark, or subject-box change.",
   imageShapeReset: "Reset edits",
+  imageShapeResetHelp:
+    "Restore the first detected foreground and clear later marks and the subject box.",
   imageShapeClearMarks: "Clear subject marks",
+  imageShapeClearMarksHelp:
+    "Clear the subject box and marks without changing the current foreground mask.",
   imageShapeConfirm: "Confirm foreground",
+  imageShapeConfirmHelp: "Save this foreground as the image shape.",
   imageShapeCancel: "Cancel",
+  imageShapeCancelHelp:
+    "Discard current edits and close the editor. Any unconfirmed upload is also discarded.",
   imageShapeEmpty:
     "Keep at least one visible foreground pixel before confirming.",
   imageShapeRetained: "Kept",
@@ -38,7 +69,13 @@ export const EN_MESSAGES = {
     "Use arrow keys on the foreground preview to move the cursor, Shift for 10 pixels, and Space to paint. You can also enter coordinates below.",
   imageShapeCursor: "Brush coordinates",
   imageShapePaint: "Paint at coordinates",
+  imageShapePaintHelp:
+    "Apply the active keep or remove brush once at the cursor coordinates.",
   imageShapeBoxCoordinates: "Subject box coordinates",
+  imageShapeBoxCoordinatesHelp:
+    "Adjust the subject box in pixels. Pixels outside it are treated as background.",
+  imageShapeCursorHelp:
+    "Set the exact pixel for the brush cursor, then use Paint at coordinates.",
   imageShapeX: "X",
   imageShapeY: "Y",
   imageShapeWidth: "Width",
@@ -50,7 +87,7 @@ export const EN_MESSAGES = {
   imageShapeColorMode: "Word colors",
   imageShapeOriginal: "Approximate original image colors",
   imageShapeReadable: "Adjust image colors for readability",
-  imageShapePalette: "Use the selected palette",
+  imageShapePalette: "Use custom palette",
   imageShapeReversible:
     "Color adjustments are reversible; the saved foreground colors stay intact.",
   imageShapeBackgrounds: "Suggested backgrounds",

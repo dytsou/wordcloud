@@ -1,25 +1,26 @@
-import { useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { LayoutStyle } from "../core/layout";
-import type { SceneModel } from "../core/scene";
-import type { WordSet } from "../core/types";
-import { ImageShapeEditor } from "./ImageShapeEditor";
-import { ImageShapeComparison } from "./ImageShapeComparison";
 import { LIMITS } from "../core/limits";
+import type { SceneModel } from "../core/scene";
 import {
   BUILT_IN_SHAPES,
+  type BuiltInShape,
+  type BuiltInShapeId,
   MAX_SHAPE_SCALE,
   MIN_SHAPE_SCALE,
   SHAPE_CATEGORIES,
-  type BuiltInShape,
-  type BuiltInShapeId,
   type ShapeCategory,
   type ShapeSettings,
 } from "../core/shapes";
+import type { WordSet } from "../core/types";
 import { useI18n } from "../i18n";
 import type { TranslationKey } from "../i18n/messages/types";
+import { ImageShapeComparison } from "./ImageShapeComparison";
+import { ImageShapeEditor } from "./ImageShapeEditor";
 import { TagInput } from "./TagInput";
 
 type RangeDraft = Pick<LayoutStyle, "minFontSize" | "maxFontSize" | "padding">;
+type ShapeSourceTab = "built-in" | "uploaded";
 
 const PALETTE_PRESETS = [
   {
@@ -160,6 +161,71 @@ function paletteMatches(
   );
 }
 
+interface PaletteControlsProps {
+  readonly palette: LayoutStyle["palette"];
+  readonly disabled: boolean;
+  readonly onChange: (palette: LayoutStyle["palette"]) => void;
+}
+
+function PaletteControls({
+  palette,
+  disabled,
+  onChange,
+}: PaletteControlsProps) {
+  const { t } = useI18n();
+  return (
+    <>
+      <div className="field image-shape-palette-field">
+        <label className="field-label" htmlFor="image-shape-palette">
+          {t("palette")} <span>{t("paletteSuffix")}</span>
+        </label>
+        <TagInput
+          id="image-shape-palette"
+          value={palette}
+          disabled={disabled}
+          onChange={onChange}
+          placeholder="#aa5948"
+        />
+      </div>
+      <div className="palette-presets">
+        <p className="field-label palette-presets-heading">
+          {t("palettePresets")}
+        </p>
+        <fieldset
+          className="palette-preset-grid"
+          aria-label={t("paletteGroup")}
+        >
+          {PALETTE_PRESETS.map((preset) => (
+            <button
+              className={
+                "palette-preset" +
+                (paletteMatches(palette, preset.colors) ? " is-active" : "")
+              }
+              key={preset.id}
+              type="button"
+              disabled={disabled}
+              aria-label={t("applyPalette", { label: t(preset.labelKey) })}
+              aria-pressed={paletteMatches(palette, preset.colors)}
+              onClick={() => onChange([...preset.colors])}
+            >
+              <span className="palette-swatch-row" aria-hidden="true">
+                {preset.colors.map((color) => (
+                  <span
+                    className="palette-swatch"
+                    key={color}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </span>
+              <span className="palette-preset-name">{t(preset.labelKey)}</span>
+            </button>
+          ))}
+        </fieldset>
+      </div>
+    </>
+  );
+}
+
 function rangeFrom(presentation: LayoutStyle): RangeDraft {
   return {
     minFontSize: presentation.minFontSize,
@@ -215,6 +281,11 @@ export function StylePanel({
   const angleRef = useRef(angleDraft);
   const [activeShapeCategory, setActiveShapeCategory] =
     useState<ShapeCategory>("basic");
+  const [activeShapeSource, setActiveShapeSource] = useState<ShapeSourceTab>(
+    () => (presentation.shape?.id === "uploaded" ? "uploaded" : "built-in"),
+  );
+  const builtInShapeTabRef = useRef<HTMLButtonElement>(null);
+  const uploadedShapeTabRef = useRef<HTMLButtonElement>(null);
   const [ratioLocked, setRatioLocked] = useState(
     () =>
       !presentation.shape ||
@@ -249,6 +320,7 @@ export function StylePanel({
       current?.heightScale === next?.heightScale;
     shapeDraftRef.current = next;
     setShapeDraft(next);
+    setActiveShapeSource(next?.id === "uploaded" ? "uploaded" : "built-in");
     if (!unchanged) {
       setRatioLocked(!next || next.widthScale === next.heightScale);
     }
@@ -364,6 +436,261 @@ export function StylePanel({
       update({ rotations: angle === 0 ? [0] : [0, -angle, angle] });
     }
   };
+  const focusShapeSourceTab = (tab: ShapeSourceTab) => {
+    setActiveShapeSource(tab);
+    (tab === "built-in"
+      ? builtInShapeTabRef
+      : uploadedShapeTabRef
+    ).current?.focus();
+  };
+  const handleShapeSourceKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (
+      event.key !== "ArrowLeft" &&
+      event.key !== "ArrowRight" &&
+      event.key !== "Home" &&
+      event.key !== "End"
+    ) {
+      return;
+    }
+    event.preventDefault();
+    const nextTab =
+      event.key === "Home"
+        ? "built-in"
+        : event.key === "End"
+          ? "uploaded"
+          : activeShapeSource === "built-in"
+            ? "uploaded"
+            : "built-in";
+    focusShapeSourceTab(nextTab);
+  };
+  const selectedShapeIsInActiveTab =
+    (presentation.shape?.id === "uploaded") ===
+    (activeShapeSource === "uploaded");
+  const renderTypographyFields = (id: string) => (
+    <>
+      <div className="field-row">
+        <div className="field field-grow">
+          <label className="field-label" htmlFor={id}>
+            {t("fontProfile")}
+          </label>
+          <select
+            id={id}
+            value={presentation.fontFamily}
+            disabled={disabled}
+            onChange={(event) => update({ fontFamily: event.target.value })}
+          >
+            <option value="system-ui">System Sans</option>
+            <option value="Georgia">Georgia Serif</option>
+            <option value="Trebuchet MS">Trebuchet MS</option>
+            <option value="Noto Sans CJK TC, system-ui">
+              Noto Sans CJK TC
+            </option>
+            <option value="Noto Sans CJK TC">Noto Sans CJK TC (legacy)</option>
+            <option value="Noto Sans Thai">Noto Sans Thai</option>
+          </select>
+        </div>
+        <div className="field field-small">
+          <label className="field-label" htmlFor={`${id}-scale`}>
+            {t("scale")}
+          </label>
+          <select
+            id={`${id}-scale`}
+            value={presentation.scale}
+            disabled={disabled}
+            onChange={(event) =>
+              update({ scale: event.target.value as LayoutStyle["scale"] })
+            }
+          >
+            <option value="sqrt">{t("sqrt")}</option>
+            <option value="linear">{t("linear")}</option>
+            <option value="log">{t("log")}</option>
+          </select>
+        </div>
+      </div>
+      <div className="range-grid">
+        <label className="range-field">
+          <span>
+            {t("minFontSize")} <output>{draft.minFontSize}px</output>
+          </span>
+          <input
+            type="range"
+            aria-label={t("minFontSize")}
+            min="8"
+            max="80"
+            value={draft.minFontSize}
+            disabled={disabled}
+            onPointerUp={commitRange}
+            onPointerCancel={commitRange}
+            onKeyUp={commitRange}
+            onBlur={commitRange}
+            onChange={(event) =>
+              updateFontRange("minFontSize", event.target.value)
+            }
+          />
+        </label>
+        <label className="range-field">
+          <span>
+            {t("maxFontSize")} <output>{draft.maxFontSize}px</output>
+          </span>
+          <input
+            type="range"
+            aria-label={t("maxFontSize")}
+            min="24"
+            max="160"
+            value={draft.maxFontSize}
+            disabled={disabled}
+            onPointerUp={commitRange}
+            onPointerCancel={commitRange}
+            onKeyUp={commitRange}
+            onBlur={commitRange}
+            onChange={(event) =>
+              updateFontRange("maxFontSize", event.target.value)
+            }
+          />
+        </label>
+        <div className="range-field">
+          <span>
+            <span className="range-label">
+              <label htmlFor={`${id}-word-spacing`}>{t("wordSpacing")}</label>
+              <span className="info-wrap">
+                <button
+                  className="info-button"
+                  type="button"
+                  aria-label={t("spacingInfoLabel")}
+                  aria-describedby={`${id}-spacing-help`}
+                  title={t("spacingHelp")}
+                >
+                  i
+                </button>
+                <span
+                  id={`${id}-spacing-help`}
+                  className="info-popover"
+                  role="tooltip"
+                >
+                  {t("spacingHelp")}
+                </span>
+              </span>
+            </span>
+            <output>{draft.padding}px</output>
+          </span>
+          <input
+            id={`${id}-word-spacing`}
+            type="range"
+            aria-label={t("wordSpacing")}
+            min={LIMITS.minPadding}
+            max="24"
+            value={draft.padding}
+            disabled={disabled}
+            onPointerUp={commitRange}
+            onPointerCancel={commitRange}
+            onKeyUp={commitRange}
+            onBlur={commitRange}
+            onChange={(event) =>
+              editRange({ padding: Number(event.target.value) })
+            }
+          />
+        </div>
+      </div>
+      <div className="rotation-controls">
+        <div className="range-field rotation-range">
+          <span>
+            <span className="range-label">
+              <label htmlFor={`${id}-rotation-angle`}>{t("rotation")}</label>
+              <span className="info-wrap">
+                <button
+                  className="info-button"
+                  type="button"
+                  aria-label={t("rotationInfoLabel")}
+                  aria-describedby={`${id}-rotation-help`}
+                  title={t("rotationHelp")}
+                >
+                  i
+                </button>
+                <span
+                  id={`${id}-rotation-help`}
+                  className="info-popover"
+                  role="tooltip"
+                >
+                  {t("rotationHelp")}
+                </span>
+              </span>
+            </span>
+            <output>{rotationLabel}</output>
+          </span>
+          <input
+            id={`${id}-rotation-angle`}
+            type="range"
+            aria-label={t("rotation")}
+            min="0"
+            max="120"
+            step="1"
+            value={angleDraft}
+            disabled={disabled}
+            onPointerUp={commitAngle}
+            onPointerCancel={commitAngle}
+            onKeyUp={commitAngle}
+            onBlur={commitAngle}
+            onChange={(event) => {
+              const angle = Number(event.target.value);
+              angleRef.current = angle;
+              setAngleDraft(angle);
+            }}
+          />
+        </div>
+      </div>
+    </>
+  );
+  const renderBackgroundField = (id: string) => (
+    <div className="field field-small">
+      <label className="field-label" htmlFor={`${id}-background`}>
+        {t("background")}
+      </label>
+      <input
+        id={`${id}-background`}
+        type="color"
+        value={presentation.background}
+        disabled={disabled}
+        onChange={(event) => update({ background: event.target.value })}
+      />
+    </div>
+  );
+  const renderCanvasFields = (id: string, showBackground = true) => (
+    <>
+      {showBackground && (
+        <div className="field-row">{renderBackgroundField(id)}</div>
+      )}
+      <div className="field-row canvas-fields">
+        <div className="field">
+          <label className="field-label" htmlFor={`${id}-canvas-width`}>
+            {t("canvasWidth")}
+          </label>
+          <input
+            id={`${id}-canvas-width`}
+            type="number"
+            min="120"
+            max={LIMITS.maxCanvasDimension}
+            value={presentation.canvas.width}
+            disabled={disabled}
+            onChange={(event) => updateCanvas("width", event.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor={`${id}-canvas-height`}>
+            {t("canvasHeight")}
+          </label>
+          <input
+            id={`${id}-canvas-height`}
+            type="number"
+            min="120"
+            max={LIMITS.maxCanvasDimension}
+            value={presentation.canvas.height}
+            disabled={disabled}
+            onChange={(event) => updateCanvas("height", event.target.value)}
+          />
+        </div>
+      </div>
+    </>
+  );
   return (
     <section className="panel style-panel" aria-labelledby="style-heading">
       <div className="panel-heading">
@@ -375,77 +702,175 @@ export function StylePanel({
       </div>
       <p className="muted-note">{t("styleNote")}</p>
       <div className="shape-controls">
-        <p className="field-label shape-controls-heading">
-          {t("shapeGalleryLabel")}
-        </p>
-        <button
-          className={
-            "shape-option shape-no-shape" +
-            (!presentation.shape ? " is-active" : "")
-          }
-          type="button"
-          disabled={disabled}
-          aria-pressed={!presentation.shape}
-          onClick={() => selectShape()}
+        <div
+          className="shape-source-tabs"
+          role="tablist"
+          aria-label={`${t("shapeGalleryLabel")} / ${t("imageShapeUpload")}`}
+          onKeyDown={handleShapeSourceKeyDown}
         >
-          <span className="shape-no-shape-mark" aria-hidden="true">
-            ∅
-          </span>
-          <span>{t("shapeNoShape")}</span>
-        </button>
-        <ImageShapeEditor
-          shape={
-            presentation.shape?.id === "uploaded"
-              ? presentation.shape
-              : undefined
-          }
-          disabled={parentDisabled}
-          background={presentation.background}
-          onApply={(shape) => update({ shape })}
-          onBackgroundChange={(background) => update({ background })}
-          onPendingChange={(pending) => {
-            setImagePending(pending);
-            onPendingShapeChange?.(pending);
-          }}
-        />
-        <fieldset
-          className="shape-category-list"
-          aria-label={t("shapeCategoryNavigation")}
+          <button
+            ref={builtInShapeTabRef}
+            className="shape-source-tab"
+            id="shape-source-tab-built-in"
+            type="button"
+            role="tab"
+            aria-controls="shape-source-panel-built-in"
+            aria-selected={activeShapeSource === "built-in"}
+            tabIndex={activeShapeSource === "built-in" ? 0 : -1}
+            disabled={disabled}
+            onClick={() => setActiveShapeSource("built-in")}
+          >
+            <svg
+              className="shape-source-tab-icon"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <circle cx="8" cy="8" r="5" />
+              <path d="M13 11 21 21H5Z" />
+            </svg>
+            <span>{t("shapeGalleryLabel")}</span>
+          </button>
+          <button
+            ref={uploadedShapeTabRef}
+            className="shape-source-tab"
+            id="shape-source-tab-uploaded"
+            type="button"
+            role="tab"
+            aria-controls="shape-source-panel-uploaded"
+            aria-selected={activeShapeSource === "uploaded"}
+            tabIndex={activeShapeSource === "uploaded" ? 0 : -1}
+            disabled={disabled}
+            onClick={() => setActiveShapeSource("uploaded")}
+          >
+            <svg
+              className="shape-source-tab-icon"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8" cy="8" r="1.5" />
+              <path d="m3 17 5-5 4 4 4-6 5 7" />
+            </svg>
+            <span>{t("imageShapeUpload")}</span>
+          </button>
+        </div>
+        <div
+          className="shape-source-panel"
+          id="shape-source-panel-built-in"
+          role="tabpanel"
+          aria-labelledby="shape-source-tab-built-in"
+          hidden={activeShapeSource !== "built-in"}
         >
-          {SHAPE_CATEGORIES.map((category) => (
-            <button
-              className="shape-category"
-              key={category}
-              type="button"
-              disabled={disabled}
-              aria-pressed={activeShapeCategory === category}
-              onClick={() => setActiveShapeCategory(category)}
-            >
-              {t(SHAPE_CATEGORY_LABELS[category])}
-            </button>
-          ))}
-        </fieldset>
-        <fieldset className="shape-gallery" aria-label={t("shapeGalleryLabel")}>
-          {BUILT_IN_SHAPES.filter(
-            (shape) => shape.category === activeShapeCategory,
-          ).map((shape) => (
-            <button
-              className={
-                "shape-option" +
-                (presentation.shape?.id === shape.id ? " is-active" : "")
-              }
-              key={shape.id}
-              type="button"
-              disabled={disabled}
-              aria-pressed={presentation.shape?.id === shape.id}
-              onClick={() => selectShape(shape.id)}
-            >
-              <ShapeThumbnail shape={shape} />
-              <span>{t(SHAPE_NAME_LABELS[shape.id])}</span>
-            </button>
-          ))}
-        </fieldset>
-        {presentation.shape && shapeSize && (
+          <button
+            className={
+              "shape-option shape-no-shape" +
+              (!presentation.shape ? " is-active" : "")
+            }
+            type="button"
+            disabled={disabled}
+            aria-pressed={!presentation.shape}
+            onClick={() => selectShape()}
+          >
+            <span className="shape-no-shape-mark" aria-hidden="true">
+              ∅
+            </span>
+            <span>{t("shapeNoShape")}</span>
+          </button>
+          <fieldset
+            className="shape-category-list"
+            aria-label={t("shapeCategoryNavigation")}
+          >
+            {SHAPE_CATEGORIES.map((category) => (
+              <button
+                className="shape-category"
+                key={category}
+                type="button"
+                disabled={disabled}
+                aria-pressed={activeShapeCategory === category}
+                onClick={() => setActiveShapeCategory(category)}
+              >
+                {t(SHAPE_CATEGORY_LABELS[category])}
+              </button>
+            ))}
+          </fieldset>
+          <fieldset
+            className="shape-gallery"
+            aria-label={t("shapeGalleryLabel")}
+          >
+            {BUILT_IN_SHAPES.filter(
+              (shape) => shape.category === activeShapeCategory,
+            ).map((shape) => (
+              <button
+                className={
+                  "shape-option" +
+                  (presentation.shape?.id === shape.id ? " is-active" : "")
+                }
+                key={shape.id}
+                type="button"
+                disabled={disabled}
+                aria-pressed={presentation.shape?.id === shape.id}
+                onClick={() => selectShape(shape.id)}
+              >
+                <ShapeThumbnail shape={shape} />
+                <span>{t(SHAPE_NAME_LABELS[shape.id])}</span>
+              </button>
+            ))}
+          </fieldset>
+          {activeShapeSource === "built-in" &&
+            presentation.shape?.id !== "uploaded" && (
+              <div className="shape-palette-controls">
+                <PaletteControls
+                  palette={presentation.palette}
+                  disabled={disabled}
+                  onChange={(palette) => update({ palette })}
+                />
+              </div>
+            )}
+          {renderTypographyFields("font-family-built-in")}
+          {renderCanvasFields("built-in")}
+        </div>
+        <div
+          className="shape-source-panel"
+          id="shape-source-panel-uploaded"
+          role="tabpanel"
+          aria-labelledby="shape-source-tab-uploaded"
+          hidden={activeShapeSource !== "uploaded"}
+        >
+          <ImageShapeEditor
+            shape={
+              presentation.shape?.id === "uploaded"
+                ? presentation.shape
+                : undefined
+            }
+            disabled={parentDisabled}
+            background={presentation.background}
+            backgroundControls={renderBackgroundField("uploaded")}
+            onApply={(shape) => update({ shape })}
+            onBackgroundChange={(background) => update({ background })}
+            paletteControls={
+              activeShapeSource === "uploaded" ? (
+                <PaletteControls
+                  palette={presentation.palette}
+                  disabled={disabled}
+                  onChange={(palette) => update({ palette })}
+                />
+              ) : undefined
+            }
+            onRemove={() => update({ shape: undefined })}
+            onPendingChange={(pending) => {
+              setImagePending(pending);
+              onPendingShapeChange?.(pending);
+            }}
+          />
+          {renderTypographyFields("font-family-uploaded")}
+          {renderCanvasFields(
+            "uploaded",
+            presentation.shape?.id !== "uploaded",
+          )}
+        </div>
+        {presentation.shape && shapeSize && selectedShapeIsInActiveTab && (
           <div className="shape-size-controls">
             <label className="shape-ratio-lock">
               <input
@@ -550,276 +975,18 @@ export function StylePanel({
           </div>
         )}
       </div>
-      {presentation.shape?.id === "uploaded" && (
-        <ImageShapeComparison
-          presentation={presentation}
-          scene={scene}
-          wordSet={wordSet}
-          onWordsChange={onWordsChange}
-          disabled={disabled}
-          onPreview={onPreviewLayout}
-          onAdopt={onAdoptTrial}
-        />
-      )}
-      <div className="field-row">
-        <div className="field field-grow">
-          <label className="field-label" htmlFor="font-family">
-            {t("fontProfile")}
-          </label>
-          <select
-            id="font-family"
-            value={presentation.fontFamily}
+      {activeShapeSource === "uploaded" &&
+        presentation.shape?.id === "uploaded" && (
+          <ImageShapeComparison
+            presentation={presentation}
+            scene={scene}
+            wordSet={wordSet}
+            onWordsChange={onWordsChange}
             disabled={disabled}
-            onChange={(event) => update({ fontFamily: event.target.value })}
-          >
-            <option value="system-ui">System Sans</option>
-            <option value="Georgia">Georgia Serif</option>
-            <option value="Trebuchet MS">Trebuchet MS</option>
-            <option value="Noto Sans CJK TC, system-ui">
-              Noto Sans CJK TC
-            </option>
-            <option value="Noto Sans CJK TC">Noto Sans CJK TC (legacy)</option>
-            <option value="Noto Sans Thai">Noto Sans Thai</option>
-          </select>
-        </div>
-        <div className="field field-small">
-          <label className="field-label" htmlFor="scale">
-            {t("scale")}
-          </label>
-          <select
-            id="scale"
-            value={presentation.scale}
-            disabled={disabled}
-            onChange={(event) =>
-              update({ scale: event.target.value as LayoutStyle["scale"] })
-            }
-          >
-            <option value="sqrt">{t("sqrt")}</option>
-            <option value="linear">{t("linear")}</option>
-            <option value="log">{t("log")}</option>
-          </select>
-        </div>
-      </div>
-      <div className="range-grid">
-        <label className="range-field">
-          <span>
-            {t("minFontSize")} <output>{draft.minFontSize}px</output>
-          </span>
-          <input
-            type="range"
-            aria-label={t("minFontSize")}
-            min="8"
-            max="80"
-            value={draft.minFontSize}
-            disabled={disabled}
-            onPointerUp={commitRange}
-            onPointerCancel={commitRange}
-            onKeyUp={commitRange}
-            onBlur={commitRange}
-            onChange={(event) =>
-              updateFontRange("minFontSize", event.target.value)
-            }
+            onPreview={onPreviewLayout}
+            onAdopt={onAdoptTrial}
           />
-        </label>
-        <label className="range-field">
-          <span>
-            {t("maxFontSize")} <output>{draft.maxFontSize}px</output>
-          </span>
-          <input
-            type="range"
-            aria-label={t("maxFontSize")}
-            min="24"
-            max="160"
-            value={draft.maxFontSize}
-            disabled={disabled}
-            onPointerUp={commitRange}
-            onPointerCancel={commitRange}
-            onKeyUp={commitRange}
-            onBlur={commitRange}
-            onChange={(event) =>
-              updateFontRange("maxFontSize", event.target.value)
-            }
-          />
-        </label>
-        <div className="range-field">
-          <span>
-            <span className="range-label">
-              <label htmlFor="word-spacing">{t("wordSpacing")}</label>
-              <span className="info-wrap">
-                <button
-                  className="info-button"
-                  type="button"
-                  aria-label={t("spacingInfoLabel")}
-                  aria-describedby="spacing-help"
-                  title={t("spacingHelp")}
-                >
-                  i
-                </button>
-                <span id="spacing-help" className="info-popover" role="tooltip">
-                  {t("spacingHelp")}
-                </span>
-              </span>
-            </span>
-            <output>{draft.padding}px</output>
-          </span>
-          <input
-            id="word-spacing"
-            type="range"
-            aria-label={t("wordSpacing")}
-            min={LIMITS.minPadding}
-            max="24"
-            value={draft.padding}
-            disabled={disabled}
-            onPointerUp={commitRange}
-            onPointerCancel={commitRange}
-            onKeyUp={commitRange}
-            onBlur={commitRange}
-            onChange={(event) =>
-              editRange({ padding: Number(event.target.value) })
-            }
-          />
-        </div>
-      </div>
-      <div className="rotation-controls">
-        <div className="range-field rotation-range">
-          <span>
-            <span className="range-label">
-              <label htmlFor="rotation-angle">{t("rotation")}</label>
-              <span className="info-wrap">
-                <button
-                  className="info-button"
-                  type="button"
-                  aria-label={t("rotationInfoLabel")}
-                  aria-describedby="rotation-help"
-                  title={t("rotationHelp")}
-                >
-                  i
-                </button>
-                <span
-                  id="rotation-help"
-                  className="info-popover"
-                  role="tooltip"
-                >
-                  {t("rotationHelp")}
-                </span>
-              </span>
-            </span>
-            <output>{rotationLabel}</output>
-          </span>
-          <input
-            id="rotation-angle"
-            type="range"
-            aria-label={t("rotation")}
-            min="0"
-            max="120"
-            step="1"
-            value={angleDraft}
-            disabled={disabled}
-            onPointerUp={commitAngle}
-            onPointerCancel={commitAngle}
-            onKeyUp={commitAngle}
-            onBlur={commitAngle}
-            onChange={(event) => {
-              const angle = Number(event.target.value);
-              angleRef.current = angle;
-              setAngleDraft(angle);
-            }}
-          />
-        </div>
-      </div>
-      <div className="field-row">
-        <div className="field field-grow">
-          <label className="field-label" htmlFor="palette">
-            {t("palette")} <span>{t("paletteSuffix")}</span>
-          </label>
-          <TagInput
-            id="palette"
-            value={presentation.palette}
-            disabled={disabled}
-            onChange={(palette) => update({ palette })}
-            placeholder="#aa5948"
-          />
-        </div>
-        <div className="field field-small">
-          <label className="field-label" htmlFor="background">
-            {t("background")}
-          </label>
-          <input
-            id="background"
-            type="color"
-            value={presentation.background}
-            disabled={disabled}
-            onChange={(event) => update({ background: event.target.value })}
-          />
-        </div>
-      </div>
-      <div className="palette-presets">
-        <p className="field-label palette-presets-heading">
-          {t("palettePresets")}
-        </p>
-        <fieldset
-          className="palette-preset-grid"
-          aria-label={t("paletteGroup")}
-        >
-          {PALETTE_PRESETS.map((preset) => (
-            <button
-              className={
-                "palette-preset" +
-                (paletteMatches(presentation.palette, preset.colors)
-                  ? " is-active"
-                  : "")
-              }
-              key={preset.id}
-              type="button"
-              disabled={disabled}
-              aria-label={t("applyPalette", { label: t(preset.labelKey) })}
-              aria-pressed={paletteMatches(presentation.palette, preset.colors)}
-              onClick={() => update({ palette: [...preset.colors] })}
-            >
-              <span className="palette-swatch-row" aria-hidden="true">
-                {preset.colors.map((color) => (
-                  <span
-                    className="palette-swatch"
-                    key={color}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </span>
-              <span className="palette-preset-name">{t(preset.labelKey)}</span>
-            </button>
-          ))}
-        </fieldset>
-      </div>
-      <div className="field-row canvas-fields">
-        <div className="field">
-          <label className="field-label" htmlFor="canvas-width">
-            {t("canvasWidth")}
-          </label>
-          <input
-            id="canvas-width"
-            type="number"
-            min="120"
-            max={LIMITS.maxCanvasDimension}
-            value={presentation.canvas.width}
-            disabled={disabled}
-            onChange={(event) => updateCanvas("width", event.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label className="field-label" htmlFor="canvas-height">
-            {t("canvasHeight")}
-          </label>
-          <input
-            id="canvas-height"
-            type="number"
-            min="120"
-            max={LIMITS.maxCanvasDimension}
-            value={presentation.canvas.height}
-            disabled={disabled}
-            onChange={(event) => updateCanvas("height", event.target.value)}
-          />
-        </div>
-      </div>
+        )}
       <p className="muted-note">{t("styleChangeNote")}</p>
     </section>
   );

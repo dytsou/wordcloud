@@ -1,6 +1,7 @@
 import {
   type KeyboardEvent,
   type PointerEvent,
+  type ReactNode,
   useEffect,
   useId,
   useRef,
@@ -12,6 +13,11 @@ import {
   processSubject,
 } from "../app/image-processing";
 import {
+  type ImagePoint,
+  paintMask,
+  paintSeeds,
+} from "../core/image-segmentation";
+import {
   decodeUploadedShapeImage,
   encodeUploadedShapeImage,
   type ImageRect,
@@ -22,11 +28,9 @@ import {
 } from "../core/image-shape";
 import { utf8ByteLength } from "../core/limits";
 import {
-  type ImagePoint,
-  paintMask,
-  paintSeeds,
-} from "../core/image-segmentation";
-import { useImageShapeMessages } from "./image-shape-messages";
+  type ImageShapeMessage,
+  useImageShapeMessages,
+} from "./image-shape-messages";
 import "../styles/image-shape.css";
 
 export interface ImageShapeEditorProps {
@@ -35,6 +39,9 @@ export interface ImageShapeEditorProps {
   background: string;
   onApply: (shape: UploadedShapeSettings) => void;
   onBackgroundChange: (background: string) => void;
+  paletteControls?: ReactNode;
+  backgroundControls?: ReactNode;
+  onRemove: () => void;
   onPendingChange: (pending: boolean) => void;
 }
 
@@ -51,6 +58,13 @@ interface ImageSession extends EditState {
   asset?: UploadedShapeImage;
 }
 type Tool = "keep" | "remove" | "markKeep" | "markRemove" | "box";
+const TOOL_HELP: Record<Tool, ImageShapeMessage> = {
+  keep: "keepHelp",
+  remove: "removeHelp",
+  box: "boxHelp",
+  markKeep: "markKeepHelp",
+  markRemove: "markRemoveHelp",
+};
 
 function visibleMask(mask: Uint8Array, raster: RasterImage): Uint8Array {
   return mask.map((value, index) =>
@@ -115,18 +129,82 @@ export function ImageShapeRasterView({
   );
 }
 
+const positionImageShapeTooltip = (
+  target: EventTarget | null,
+  root: HTMLElement,
+) => {
+  if (!(target instanceof Element)) return;
+  const tooltipTarget = target.closest<HTMLElement>(
+    ".image-shape-tooltip-target",
+  );
+  if (!tooltipTarget || !root.contains(tooltipTarget)) return;
+
+  const targetBounds = tooltipTarget.getBoundingClientRect();
+  const viewportWidth =
+    document.documentElement.clientWidth || window.innerWidth;
+  const dialogContent = tooltipTarget.closest<HTMLElement>(
+    ".image-shape-dialog-content",
+  );
+  const contentBounds = dialogContent?.getBoundingClientRect();
+  const leftBoundary = Math.max(
+    8,
+    contentBounds && dialogContent
+      ? contentBounds.left + dialogContent.clientLeft
+      : 0,
+  );
+  const rightBoundary = Math.min(
+    viewportWidth - 8,
+    contentBounds && dialogContent
+      ? contentBounds.left +
+          dialogContent.clientLeft +
+          dialogContent.clientWidth
+      : viewportWidth,
+  );
+  const leftSpace = Math.max(0, targetBounds.right - leftBoundary);
+  const rightSpace = Math.max(0, rightBoundary - targetBounds.left);
+  const align = rightSpace >= leftSpace ? "start" : "end";
+  const availableSpace = align === "start" ? rightSpace : leftSpace;
+
+  tooltipTarget.dataset.tooltipAlign = align;
+  tooltipTarget.style.setProperty(
+    "--image-shape-tooltip-max-width",
+    `${Math.min(288, availableSpace)}px`,
+  );
+};
+
+const repositionVisibleImageShapeTooltips = (root: HTMLElement) => {
+  root
+    .querySelectorAll<HTMLElement>(
+      ".image-shape-tooltip-target:hover, .image-shape-tooltip-target:focus-within",
+    )
+    .forEach((target) => positionImageShapeTooltip(target, root));
+};
+
 export function ImageShapeEditor({
   shape,
   disabled = false,
   background,
   onApply,
   onBackgroundChange,
+  paletteControls,
+  backgroundControls,
+  onRemove,
   onPendingChange,
 }: ImageShapeEditorProps) {
   const m = useImageShapeMessages();
+  const tooltipContainer = useRef<HTMLDivElement>(null);
+  const tooltipAttributes = (key: ImageShapeMessage) => {
+    const description = m(key);
+    return {
+      "data-tooltip": description,
+      "aria-description": description,
+    };
+  };
   const id = useId();
   const picker = useRef<HTMLInputElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const editorDialog = useRef<HTMLDialogElement>(null);
+  const editorDialogTitle = useRef<HTMLHeadingElement>(null);
   const pendingCallback = useRef(onPendingChange);
   pendingCallback.current = onPendingChange;
   const [session, setSession] = useState<ImageSession>();
@@ -184,6 +262,16 @@ export function ImageShapeEditor({
   useEffect(() => {
     pendingCallback.current(editing || busy);
   }, [editing, busy]);
+  useEffect(() => {
+    const dialog = editorDialog.current;
+    if (!dialog) return;
+    if (editing && !dialog.open) {
+      dialog.showModal();
+      editorDialogTitle.current?.focus();
+    } else if (!editing && dialog.open) {
+      dialog.close();
+    }
+  }, [editing]);
   useEffect(
     () => () => {
       job.current += 1;
@@ -223,6 +311,14 @@ export function ImageShapeEditor({
     if (canvas.current && editRaster)
       drawRaster(canvas.current, editRaster, editMask, editSeeds);
   }, [editMask, editRaster, editSeeds, editing]);
+  useEffect(() => {
+    const repositionTooltips = () => {
+      if (tooltipContainer.current)
+        repositionVisibleImageShapeTooltips(tooltipContainer.current);
+    };
+    window.addEventListener("resize", repositionTooltips);
+    return () => window.removeEventListener("resize", repositionTooltips);
+  }, []);
 
   const run = async (
     operation: (signal: AbortSignal) => Promise<ImageSession>,
@@ -311,6 +407,21 @@ export function ImageShapeEditor({
       confirmedSession.current = undefined;
       updateSession(undefined);
     }
+  };
+  const removeImage = () => {
+    if (!shape || locked) return;
+    job.current += 1;
+    controller.current?.abort();
+    controller.current = null;
+    setBusy(false);
+    setEditing(false);
+    setError("");
+    clearHistory();
+    gesture.current = undefined;
+    confirmedSession.current = undefined;
+    updateSession(undefined);
+    if (picker.current) picker.current.value = "";
+    onRemove();
   };
   const detect = () => {
     const current = sessionRef.current;
@@ -526,7 +637,20 @@ export function ImageShapeEditor({
     session?.mask.reduce((sum, value) => sum + Number(value !== 0), 0) ?? 0;
 
   return (
-    <div className="image-shape-editor" aria-busy={busy}>
+    <div
+      ref={tooltipContainer}
+      className="image-shape-editor"
+      aria-busy={busy}
+      onPointerOver={(event) =>
+        positionImageShapeTooltip(event.target, event.currentTarget)
+      }
+      onFocusCapture={(event) =>
+        positionImageShapeTooltip(event.target, event.currentTarget)
+      }
+      onScrollCapture={(event) =>
+        repositionVisibleImageShapeTooltips(event.currentTarget)
+      }
+    >
       <div className="image-shape-heading">
         <h3>{m("heading")}</h3>
         <div className="image-shape-actions">
@@ -551,6 +675,16 @@ export function ImageShapeEditor({
               {m("edit")}
             </button>
           )}
+          {shape && !editing && (
+            <button
+              type="button"
+              className="button button-quiet"
+              disabled={locked}
+              onClick={removeImage}
+            >
+              {m("removeImage")}
+            </button>
+          )}
         </div>
       </div>
       <input
@@ -566,358 +700,467 @@ export function ImageShapeEditor({
         }}
       />
       <p className="field-hint">{m("local")}</p>
-      {error && (
+      {error && !editing && (
         <p className="image-shape-error" role="alert">
           {error}
         </p>
       )}
-      {busy && (
+      {busy && !editing && (
         <p className="image-shape-status" role="status">
           {m("processing")}
         </p>
       )}
-      {editing && session && (
-        <>
-          {!session.sourceAvailable && (
-            <p className="image-shape-notice">{m("unavailable")}</p>
-          )}
-          <div className="image-shape-preview-pair">
-            <figure>
-              <figcaption>{m("source")}</figcaption>
-              {session.sourceUrl ? (
-                <img
-                  className="image-shape-source-image"
-                  src={session.sourceUrl}
-                  alt={m("source")}
-                  draggable={false}
-                />
-              ) : (
-                <ImageShapeRasterView
-                  raster={session.raster}
-                  label={m("source")}
-                />
-              )}
-            </figure>
-            <figure>
-              <figcaption>{m("foreground")}</figcaption>
-              <div
-                className="image-shape-edit-canvas-wrap"
-                style={{
-                  maxWidth: `${(18 * session.raster.width) / session.raster.height}rem`,
-                }}
+      <dialog
+        ref={editorDialog}
+        className="image-shape-dialog"
+        aria-labelledby={`${id}-dialog-title`}
+        onCancel={(event) => {
+          event.preventDefault();
+          cancel();
+        }}
+      >
+        {editing && (
+          <>
+            <div className="image-shape-dialog-heading">
+              <h2
+                ref={editorDialogTitle}
+                id={`${id}-dialog-title`}
+                tabIndex={-1}
               >
-                <canvas
-                  ref={canvas}
-                  className="image-shape-raster image-shape-edit-canvas"
-                  role="img"
-                  tabIndex={locked ? -1 : 0}
-                  aria-label={`${m("foreground")}: ${kept} / ${session.mask.length}`}
-                  aria-describedby={`${id}-keyboard`}
-                  onPointerDown={pointerDown}
-                  onPointerMove={pointerMove}
-                  onPointerUp={endGesture}
-                  onPointerCancel={endGesture}
-                  onLostPointerCapture={() => {
-                    gesture.current = undefined;
-                  }}
-                  onKeyDown={keyboardPaint}
-                >
-                  {m("keyboard")}
-                </canvas>
-                <svg
-                  className="image-shape-edit-overlay"
-                  viewBox={`0 0 ${session.raster.width} ${session.raster.height}`}
-                  aria-hidden="true"
-                >
-                  {session.box && (
-                    <>
-                      <rect
-                        x={session.box.x}
-                        y={session.box.y}
-                        width={session.box.width}
-                        height={session.box.height}
-                        fill="none"
-                        stroke="#ffffff"
-                        strokeWidth="2"
-                      />
-                      <rect
-                        x={session.box.x}
-                        y={session.box.y}
-                        width={session.box.width}
-                        height={session.box.height}
-                        fill="none"
-                        stroke="#075b66"
-                        strokeWidth="1"
-                        strokeDasharray="3 2"
-                      />
-                    </>
+                {session ? m("edit") : m("heading")}
+              </h2>
+            </div>
+            <div className="image-shape-dialog-content">
+              {error && (
+                <p className="image-shape-error" role="alert">
+                  {error}
+                </p>
+              )}
+              {busy && (
+                <p className="image-shape-status" role="status">
+                  {m("processing")}
+                </p>
+              )}
+              {editing && session && (
+                <>
+                  {!session.sourceAvailable && (
+                    <p className="image-shape-notice">{m("unavailable")}</p>
                   )}
-                  <rect
-                    x={cursor.x - 2}
-                    y={cursor.y - 2}
-                    width="4"
-                    height="4"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="2"
-                  />
-                  <rect
-                    x={cursor.x - 2}
-                    y={cursor.y - 2}
-                    width="4"
-                    height="4"
-                    fill="none"
-                    stroke="#111827"
-                    strokeWidth="1"
-                  />
-                </svg>
-              </div>
-            </figure>
-          </div>
-          <div className="image-shape-legend">
-            <span className="image-shape-kept">
-              {m("retained")} {kept}
-            </span>
-            <span className="image-shape-excluded">
-              {m("excluded")} {session.mask.length - kept}
-            </span>
-          </div>
-          <p className="field-hint">{m("resolution")}</p>
-          <div className="image-shape-toolbar" aria-label={m("foreground")}>
-            {(["keep", "remove", "box", "markKeep", "markRemove"] as const).map(
-              (item) => (
+                  <div className="image-shape-preview-pair">
+                    <figure>
+                      <figcaption>{m("source")}</figcaption>
+                      {session.sourceUrl ? (
+                        <img
+                          className="image-shape-source-image"
+                          src={session.sourceUrl}
+                          alt={m("source")}
+                          draggable={false}
+                        />
+                      ) : (
+                        <ImageShapeRasterView
+                          raster={session.raster}
+                          label={m("source")}
+                        />
+                      )}
+                    </figure>
+                    <figure>
+                      <figcaption>{m("foreground")}</figcaption>
+                      <div
+                        className="image-shape-edit-canvas-wrap image-shape-tooltip-target"
+                        {...tooltipAttributes("keyboard")}
+                        style={{
+                          maxWidth: `${(18 * session.raster.width) / session.raster.height}rem`,
+                        }}
+                      >
+                        <canvas
+                          ref={canvas}
+                          className="image-shape-raster image-shape-edit-canvas"
+                          role="img"
+                          tabIndex={locked ? -1 : 0}
+                          aria-label={`${m("foreground")}: ${kept} / ${session.mask.length}`}
+                          aria-describedby={`${id}-keyboard`}
+                          aria-description={m("keyboard")}
+                          onPointerDown={pointerDown}
+                          onPointerMove={pointerMove}
+                          onPointerUp={endGesture}
+                          onPointerCancel={endGesture}
+                          onLostPointerCapture={() => {
+                            gesture.current = undefined;
+                          }}
+                          onKeyDown={keyboardPaint}
+                        >
+                          {m("keyboard")}
+                        </canvas>
+                        <svg
+                          className="image-shape-edit-overlay"
+                          viewBox={`0 0 ${session.raster.width} ${session.raster.height}`}
+                          aria-hidden="true"
+                        >
+                          {session.box && (
+                            <>
+                              <rect
+                                x={session.box.x}
+                                y={session.box.y}
+                                width={session.box.width}
+                                height={session.box.height}
+                                fill="none"
+                                stroke="#ffffff"
+                                strokeWidth="2"
+                              />
+                              <rect
+                                x={session.box.x}
+                                y={session.box.y}
+                                width={session.box.width}
+                                height={session.box.height}
+                                fill="none"
+                                stroke="#075b66"
+                                strokeWidth="1"
+                                strokeDasharray="3 2"
+                              />
+                            </>
+                          )}
+                          <rect
+                            x={cursor.x - 2}
+                            y={cursor.y - 2}
+                            width="4"
+                            height="4"
+                            fill="none"
+                            stroke="#ffffff"
+                            strokeWidth="2"
+                          />
+                          <rect
+                            x={cursor.x - 2}
+                            y={cursor.y - 2}
+                            width="4"
+                            height="4"
+                            fill="none"
+                            stroke="#111827"
+                            strokeWidth="1"
+                          />
+                        </svg>
+                      </div>
+                    </figure>
+                  </div>
+                  <div className="image-shape-legend">
+                    <span className="image-shape-kept">
+                      {m("retained")} {kept}
+                    </span>
+                    <span className="image-shape-excluded">
+                      {m("excluded")} {session.mask.length - kept}
+                    </span>
+                  </div>
+                  <p className="field-hint">{m("resolution")}</p>
+                  <div
+                    className="image-shape-toolbar"
+                    aria-label={m("foreground")}
+                  >
+                    {(
+                      [
+                        "keep",
+                        "remove",
+                        "box",
+                        "markKeep",
+                        "markRemove",
+                      ] as const
+                    ).map((item) => (
+                      <button
+                        type="button"
+                        key={item}
+                        className="image-shape-tooltip-target"
+                        disabled={locked}
+                        aria-pressed={tool === item}
+                        {...tooltipAttributes(TOOL_HELP[item])}
+                        onClick={() => setTool(item)}
+                      >
+                        {m(item)}
+                      </button>
+                    ))}
+                  </div>
+                  <label
+                    className="range-field image-shape-tooltip-target"
+                    {...tooltipAttributes("radiusHelp")}
+                  >
+                    <span>
+                      {m("radius")} <output>{radius}px</output>
+                    </span>
+                    <input
+                      type="range"
+                      min="1"
+                      max="24"
+                      value={radius}
+                      disabled={locked}
+                      aria-description={m("radiusHelp")}
+                      onChange={(event) =>
+                        setRadius(Number(event.target.value))
+                      }
+                    />
+                  </label>
+                  <p className="field-hint" id={`${id}-keyboard`}>
+                    {m("keyboard")}
+                  </p>
+                  <div
+                    className="image-shape-coordinate-row"
+                    aria-label={m("cursor")}
+                  >
+                    {(["x", "y"] as const).map((axis) => (
+                      <label
+                        key={axis}
+                        className="image-shape-tooltip-target"
+                        {...tooltipAttributes("cursorHelp")}
+                      >
+                        {m(axis)}
+                        <input
+                          type="number"
+                          min="0"
+                          max={
+                            (axis === "x"
+                              ? session.raster.width
+                              : session.raster.height) - 1
+                          }
+                          step="1"
+                          value={cursor[axis]}
+                          disabled={locked}
+                          aria-description={m("cursorHelp")}
+                          onChange={(event) => {
+                            const value = Number(event.target.value);
+                            if (Number.isFinite(value))
+                              setCursor({
+                                ...cursor,
+                                [axis]: Math.round(
+                                  Math.max(
+                                    0,
+                                    Math.min(
+                                      (axis === "x"
+                                        ? session.raster.width
+                                        : session.raster.height) - 1,
+                                      value,
+                                    ),
+                                  ),
+                                ),
+                              });
+                          }}
+                        />
+                      </label>
+                    ))}
+                    <button
+                      type="button"
+                      className="button button-quiet image-shape-tooltip-target"
+                      disabled={locked || tool === "box"}
+                      {...tooltipAttributes("paintHelp")}
+                      onClick={() => {
+                        saveUndo();
+                        paint([cursor]);
+                      }}
+                    >
+                      {m("paint")}
+                    </button>
+                  </div>
+                  <details
+                    className="image-shape-details"
+                    open={
+                      tool === "box" ||
+                      tool === "markKeep" ||
+                      tool === "markRemove"
+                        ? true
+                        : undefined
+                    }
+                  >
+                    <summary
+                      className="image-shape-tooltip-target"
+                      {...tooltipAttributes("photoHelp")}
+                    >
+                      {m("photo")}
+                    </summary>
+                    <p className="field-hint">{m("photoHelp")}</p>
+                    <p className="field-hint">{m("markLegend")}</p>
+                    <div
+                      className="image-shape-coordinate-row image-shape-box-fields"
+                      aria-label={m("boxCoordinates")}
+                    >
+                      {(["x", "y", "width", "height"] as const).map((key) => (
+                        <label
+                          key={key}
+                          className="image-shape-tooltip-target"
+                          {...tooltipAttributes("boxCoordinatesHelp")}
+                        >
+                          {m(key)}
+                          <input
+                            type="number"
+                            min={key === "width" || key === "height" ? 1 : 0}
+                            max={
+                              key === "width" || key === "x"
+                                ? session.raster.width
+                                : session.raster.height
+                            }
+                            step="1"
+                            value={Math.round(
+                              session.box?.[key] ??
+                                (key === "width"
+                                  ? session.raster.width
+                                  : key === "height"
+                                    ? session.raster.height
+                                    : 0),
+                            )}
+                            disabled={locked}
+                            aria-description={m("boxCoordinatesHelp")}
+                            onChange={(event) =>
+                              setBox(key, Number(event.target.value))
+                            }
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <div className="image-shape-actions">
+                      <button
+                        type="button"
+                        className="button button-quiet image-shape-tooltip-target"
+                        disabled={
+                          locked ||
+                          (!session.box &&
+                            !session.seeds.some((value) => value === 1))
+                        }
+                        {...tooltipAttributes("findHelp")}
+                        onClick={findSubject}
+                      >
+                        {m("find")}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-quiet image-shape-tooltip-target"
+                        disabled={
+                          locked ||
+                          (!session.box && !session.seeds.some(Boolean))
+                        }
+                        {...tooltipAttributes("clearMarksHelp")}
+                        onClick={() => {
+                          saveUndo();
+                          updateSession({
+                            ...session,
+                            seeds: new Int8Array(session.mask.length),
+                            box: undefined,
+                          });
+                        }}
+                      >
+                        {m("clearMarks")}
+                      </button>
+                    </div>
+                  </details>
+                  <details className="image-shape-details">
+                    <summary
+                      className="image-shape-tooltip-target"
+                      {...tooltipAttributes("simpleHelp")}
+                    >
+                      {m("simple")}
+                    </summary>
+                    <label
+                      className="range-field image-shape-tooltip-target"
+                      {...tooltipAttributes("toleranceHelp")}
+                    >
+                      <span>
+                        {m("tolerance")} <output>{tolerance}</output>
+                      </span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={tolerance}
+                        disabled={locked}
+                        aria-description={m("toleranceHelp")}
+                        onChange={(event) =>
+                          setTolerance(Number(event.target.value))
+                        }
+                      />
+                    </label>
+                    <label
+                      className="check-label image-shape-tooltip-target"
+                      {...tooltipAttributes("holesHelp")}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={holes}
+                        disabled={locked}
+                        aria-description={m("holesHelp")}
+                        onChange={(event) => setHoles(event.target.checked)}
+                      />
+                      <span>{m("holes")}</span>
+                    </label>
+                    <button
+                      type="button"
+                      className="button button-quiet image-shape-tooltip-target"
+                      disabled={locked}
+                      {...tooltipAttributes("detectHelp")}
+                      onClick={detect}
+                    >
+                      {m("detect")}
+                    </button>
+                  </details>
+                  <div className="image-shape-actions">
+                    <button
+                      type="button"
+                      className="button button-quiet image-shape-tooltip-target"
+                      disabled={locked || undoHistory.length === 0}
+                      {...tooltipAttributes("undoHelp")}
+                      onClick={undo}
+                    >
+                      {m("undo")}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-quiet image-shape-tooltip-target"
+                      disabled={locked}
+                      {...tooltipAttributes("resetHelp")}
+                      onClick={() => {
+                        saveUndo();
+                        updateSession({
+                          ...session,
+                          mask: session.initialMask,
+                          seeds: new Int8Array(session.mask.length),
+                          box: undefined,
+                        });
+                      }}
+                    >
+                      {m("reset")}
+                    </button>
+                  </div>
+                  {kept === 0 && (
+                    <p className="image-shape-notice">{m("empty")}</p>
+                  )}
+                </>
+              )}
+              {editing && !session && !busy && (
                 <button
                   type="button"
-                  key={item}
-                  disabled={locked}
-                  aria-pressed={tool === item}
-                  onClick={() => setTool(item)}
+                  className="button button-quiet"
+                  disabled={disabled}
+                  onClick={() => picker.current?.click()}
                 >
-                  {m(item)}
+                  {m(shape ? "replace" : "upload")}
                 </button>
-              ),
-            )}
-          </div>
-          <label className="range-field">
-            <span>
-              {m("radius")} <output>{radius}px</output>
-            </span>
-            <input
-              type="range"
-              min="1"
-              max="24"
-              value={radius}
-              disabled={locked}
-              onChange={(event) => setRadius(Number(event.target.value))}
-            />
-          </label>
-          <p className="field-hint" id={`${id}-keyboard`}>
-            {m("keyboard")}
-          </p>
-          <div className="image-shape-coordinate-row" aria-label={m("cursor")}>
-            {(["x", "y"] as const).map((axis) => (
-              <label key={axis}>
-                {m(axis)}
-                <input
-                  type="number"
-                  min="0"
-                  max={
-                    (axis === "x"
-                      ? session.raster.width
-                      : session.raster.height) - 1
-                  }
-                  step="1"
-                  value={cursor[axis]}
-                  disabled={locked}
-                  onChange={(event) => {
-                    const value = Number(event.target.value);
-                    if (Number.isFinite(value))
-                      setCursor({
-                        ...cursor,
-                        [axis]: Math.round(
-                          Math.max(
-                            0,
-                            Math.min(
-                              (axis === "x"
-                                ? session.raster.width
-                                : session.raster.height) - 1,
-                              value,
-                            ),
-                          ),
-                        ),
-                      });
-                  }}
-                />
-              </label>
-            ))}
-            <button
-              type="button"
-              className="button button-quiet"
-              disabled={locked || tool === "box"}
-              onClick={() => {
-                saveUndo();
-                paint([cursor]);
-              }}
-            >
-              {m("paint")}
-            </button>
-          </div>
-          <details
-            className="image-shape-details"
-            open={
-              tool === "box" || tool === "markKeep" || tool === "markRemove"
-                ? true
-                : undefined
-            }
-          >
-            <summary>{m("photo")}</summary>
-            <p className="field-hint">{m("photoHelp")}</p>
-            <p className="field-hint">{m("markLegend")}</p>
-            <div
-              className="image-shape-coordinate-row image-shape-box-fields"
-              aria-label={m("boxCoordinates")}
-            >
-              {(["x", "y", "width", "height"] as const).map((key) => (
-                <label key={key}>
-                  {m(key)}
-                  <input
-                    type="number"
-                    min={key === "width" || key === "height" ? 1 : 0}
-                    max={
-                      key === "width" || key === "x"
-                        ? session.raster.width
-                        : session.raster.height
-                    }
-                    step="1"
-                    value={Math.round(
-                      session.box?.[key] ??
-                        (key === "width"
-                          ? session.raster.width
-                          : key === "height"
-                            ? session.raster.height
-                            : 0),
-                    )}
-                    disabled={locked}
-                    onChange={(event) =>
-                      setBox(key, Number(event.target.value))
-                    }
-                  />
-                </label>
-              ))}
+              )}
             </div>
-            <div className="image-shape-actions">
+            <div className="image-shape-confirm">
               <button
                 type="button"
-                className="button button-quiet"
-                disabled={
-                  locked ||
-                  (!session.box && !session.seeds.some((value) => value === 1))
-                }
-                onClick={findSubject}
+                className="button button-quiet image-shape-tooltip-target"
+                disabled={disabled}
+                {...tooltipAttributes("cancelHelp")}
+                onClick={cancel}
               >
-                {m("find")}
+                {m("cancel")}
               </button>
               <button
                 type="button"
-                className="button button-quiet"
-                disabled={
-                  locked || (!session.box && !session.seeds.some(Boolean))
-                }
-                onClick={() => {
-                  saveUndo();
-                  updateSession({
-                    ...session,
-                    seeds: new Int8Array(session.mask.length),
-                    box: undefined,
-                  });
-                }}
+                className="button button-primary image-shape-tooltip-target"
+                disabled={locked || !session || kept === 0}
+                {...tooltipAttributes("confirmHelp")}
+                onClick={confirm}
               >
-                {m("clearMarks")}
+                {m("confirm")}
               </button>
             </div>
-          </details>
-          <details className="image-shape-details">
-            <summary>{m("simple")}</summary>
-            <label className="range-field">
-              <span>
-                {m("tolerance")} <output>{tolerance}</output>
-              </span>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={tolerance}
-                disabled={locked}
-                onChange={(event) => setTolerance(Number(event.target.value))}
-              />
-            </label>
-            <label className="check-label">
-              <input
-                type="checkbox"
-                checked={holes}
-                disabled={locked}
-                onChange={(event) => setHoles(event.target.checked)}
-              />
-              <span>{m("holes")}</span>
-            </label>
-            <button
-              type="button"
-              className="button button-quiet"
-              disabled={locked}
-              onClick={detect}
-            >
-              {m("detect")}
-            </button>
-          </details>
-          <div className="image-shape-actions">
-            <button
-              type="button"
-              className="button button-quiet"
-              disabled={locked || undoHistory.length === 0}
-              onClick={undo}
-            >
-              {m("undo")}
-            </button>
-            <button
-              type="button"
-              className="button button-quiet"
-              disabled={locked}
-              onClick={() => {
-                saveUndo();
-                updateSession({
-                  ...session,
-                  mask: session.initialMask,
-                  seeds: new Int8Array(session.mask.length),
-                  box: undefined,
-                });
-              }}
-            >
-              {m("reset")}
-            </button>
-          </div>
-          {kept === 0 && <p className="image-shape-notice">{m("empty")}</p>}
-        </>
-      )}
-      {editing && (
-        <div className="image-shape-confirm">
-          <button
-            type="button"
-            className="button button-quiet"
-            disabled={disabled}
-            onClick={cancel}
-          >
-            {m("cancel")}
-          </button>
-          <button
-            type="button"
-            className="button button-primary"
-            disabled={locked || !session || kept === 0}
-            onClick={confirm}
-          >
-            {m("confirm")}
-          </button>
-        </div>
-      )}
+          </>
+        )}
+      </dialog>
       {shape && !editing && (
         <>
           <p className="image-shape-asset">
@@ -949,6 +1192,9 @@ export function ImageShapeEditor({
               ))}
             </select>
           </label>
+          {shape.colorMode === "palette" && paletteControls && (
+            <div className="shape-palette-controls">{paletteControls}</div>
+          )}
           <p className="field-hint">{m("reversible")}</p>
           <div className="image-shape-backgrounds">
             <span className="field-label">{m("backgrounds")}</span>
@@ -978,6 +1224,7 @@ export function ImageShapeEditor({
                 </span>
               </button>
             ))}
+            {backgroundControls}
           </div>
           <label className="check-label">
             <input
