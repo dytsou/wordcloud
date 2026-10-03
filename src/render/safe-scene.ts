@@ -1,6 +1,7 @@
 import { LIMITS, scalarLength } from "../core/limits";
 import { isSafeFontFamily, isSafeHexColor } from "../core/style-safety";
 import type { SceneModel, SceneWord } from "../core/scene";
+import { assertUploadedShapeSettings } from "../core/image-shape";
 
 // The control-character range is intentional: render data may be untrusted.
 const FORBIDDEN_TEXT =
@@ -115,6 +116,7 @@ export function assertRenderableScene(scene: SceneModel): void {
     throw new Error("Scene is required for rendering.");
   }
   safeText(scene.version, "scene.version", 64);
+  if (scene.shape?.id === "uploaded") assertUploadedShapeSettings(scene.shape);
   safeText(scene.layoutVersion, "scene.layoutVersion", 64);
   safeText(scene.fontMetricsFingerprint, "scene.fontMetricsFingerprint", 128);
   safeText(scene.seed, "scene.seed");

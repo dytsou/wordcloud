@@ -1,16 +1,17 @@
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import type { LayoutStyle } from "../../src/core/layout";
 import {
   decodeSnapshotFragment,
   encodeSnapshot,
 } from "../../src/core/snapshot";
-import type { LayoutStyle } from "../../src/core/layout";
+import { privateSourceText } from "../fixtures/multilingual-text";
 import {
   snapshotScene,
   snapshotStyle,
+  snapshotUploadedShape,
   snapshotWordSet,
 } from "../fixtures/snapshots";
-import { privateSourceText } from "../fixtures/multilingual-text";
 
 async function open(page: Page, url: string) {
   await page.goto(url, { waitUntil: "domcontentloaded" });
@@ -175,4 +176,52 @@ test("preserves shape geometry through v2 share and .wc round trips", async ({
   const resizedShape = (resizedSnapshot.presentation as LayoutStyle).shape;
   expect(resizedShape?.widthScale).not.toBe(0.72);
   expect(resizedShape?.heightScale).toBe(0.86);
+});
+
+test("preserves uploaded foreground through v3 share and .wc round trips", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const presentation = {
+    ...snapshotStyle,
+    version: "layout-v2",
+    shape: snapshotUploadedShape,
+  } satisfies LayoutStyle;
+  const scene = {
+    ...snapshotScene,
+    layoutVersion: "layout-v2",
+    shape: snapshotUploadedShape,
+  };
+  const originalFragment = encodeSnapshot(
+    snapshotWordSet,
+    presentation,
+    scene,
+  ).fragment;
+  const originalSnapshot = decodeSnapshotFragment(originalFragment);
+  expect(originalSnapshot.schemaVersion).toBe("wc-snapshot-v3");
+
+  await open(page, `/${originalFragment}`);
+  await expectStyleOnlyRemix(page);
+  await expect(page.locator(".cloud-svg")).toContainText("hello");
+
+  await page.getByRole("button", { name: "產生 V 連結" }).click();
+  const sharedUrl = await page.getByLabel("V URL").inputValue();
+  expect(new URL(sharedUrl).hash).toBe(originalFragment);
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: /下載完整 \.wc 快照/u }).click();
+  const download = await downloadPromise;
+  const filePath = await download.path();
+  expect(filePath).toBeTruthy();
+
+  await page.locator('input[type="file"]').setInputFiles(filePath!);
+  await expectSnapshotFileRemix(page);
+  await expect(page.locator(".cloud-svg")).toContainText("hello");
+  await page.getByRole("button", { name: "產生 V 連結" }).click();
+  const restoredUrl = await page.getByLabel("V URL").inputValue();
+  const restoredSnapshot = decodeSnapshotFragment(new URL(restoredUrl).hash);
+  expect(restoredSnapshot.schemaVersion).toBe("wc-snapshot-v3");
+  expect(restoredSnapshot.presentation.shape).toEqual(snapshotUploadedShape);
+  expect(restoredSnapshot.scene.shape).toEqual(snapshotUploadedShape);
+  expect(restoredSnapshot.scene.words).toEqual(scene.words);
 });

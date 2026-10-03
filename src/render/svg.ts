@@ -1,4 +1,5 @@
 import type { SceneModel, SceneWord } from "../core/scene";
+import { fitUploadedImageBounds, uploadedShapePath } from "../core/image-shape";
 import {
   buildShapeFillDots,
   DOT_RADIUS,
@@ -84,6 +85,36 @@ function appendSceneSvgChildren(
   background.setAttribute("aria-hidden", "true");
   svg.append(background);
 
+  const uploadedShape =
+    scene.shape?.id === "uploaded" ? scene.shape : undefined;
+  let content: SVGElement = svg;
+  if (uploadedShape) {
+    const bounds = fitUploadedImageBounds(
+      uploadedShape.image,
+      scene.canvas,
+      uploadedShape.widthScale,
+      uploadedShape.heightScale,
+    );
+    const clipId = "wordcloud-uploaded-shape";
+    const definitions = document.createElementNS(SVG_NAMESPACE, "defs");
+    const clipPath = document.createElementNS(SVG_NAMESPACE, "clipPath");
+    clipPath.setAttribute("id", clipId);
+    clipPath.setAttribute("clipPathUnits", "userSpaceOnUse");
+    const path = document.createElementNS(SVG_NAMESPACE, "path");
+    path.setAttribute("d", uploadedShapePath(uploadedShape.image));
+    path.setAttribute(
+      "transform",
+      `translate(${numberAttribute(bounds.x)} ${numberAttribute(bounds.y)}) scale(${numberAttribute(bounds.width / uploadedShape.image.width)} ${numberAttribute(bounds.height / uploadedShape.image.height)})`,
+    );
+    clipPath.append(path);
+    definitions.append(clipPath);
+    svg.append(definitions);
+    const clipped = document.createElementNS(SVG_NAMESPACE, "g");
+    clipped.setAttribute("clip-path", `url(#${clipId})`);
+    svg.append(clipped);
+    content = clipped;
+  }
+
   const fillDots = buildShapeFillDots(scene);
   if (fillDots.length > 0) {
     const fillGroup = document.createElementNS(SVG_NAMESPACE, "g");
@@ -95,9 +126,10 @@ function appendSceneSvgChildren(
       circle.setAttribute("cx", numberAttribute(dot.x));
       circle.setAttribute("cy", numberAttribute(dot.y));
       circle.setAttribute("r", numberAttribute(DOT_RADIUS));
+      if (dot.color) circle.setAttribute("fill", dot.color);
       fillGroup.append(circle);
     }
-    svg.append(fillGroup);
+    content.append(fillGroup);
   }
 
   const wordsGroup = document.createElementNS(SVG_NAMESPACE, "g");
@@ -123,7 +155,7 @@ function appendSceneSvgChildren(
     element.textContent = word.term;
     wordsGroup.append(element);
   }
-  svg.append(wordsGroup);
+  content.append(wordsGroup);
 
   const metadata = appendSvgText(
     document,
@@ -180,9 +212,22 @@ function serializeSceneSvg(
     ? `<g id="wordcloud-fill" aria-hidden="true" fill="${escapeXml(shapeFillDotColor(scene))}">${fillDots
         .map(
           (dot) =>
-            `<circle cx="${numberAttribute(dot.x)}" cy="${numberAttribute(dot.y)}" r="${numberAttribute(DOT_RADIUS)}"/>`,
+            `<circle cx="${numberAttribute(dot.x)}" cy="${numberAttribute(dot.y)}" r="${numberAttribute(DOT_RADIUS)}"${dot.color ? ` fill="${escapeXml(dot.color)}"` : ""}/>`,
         )
         .join("")}</g>`
+    : "";
+  const uploadedShape =
+    scene.shape?.id === "uploaded" ? scene.shape : undefined;
+  const clip = uploadedShape
+    ? (() => {
+        const bounds = fitUploadedImageBounds(
+          uploadedShape.image,
+          scene.canvas,
+          uploadedShape.widthScale,
+          uploadedShape.heightScale,
+        );
+        return `<defs><clipPath id="wordcloud-uploaded-shape" clipPathUnits="userSpaceOnUse"><path d="${escapeXml(uploadedShapePath(uploadedShape.image))}" transform="translate(${numberAttribute(bounds.x)} ${numberAttribute(bounds.y)}) scale(${numberAttribute(bounds.width / uploadedShape.image.width)} ${numberAttribute(bounds.height / uploadedShape.image.height)})"/></clipPath></defs>`;
+      })()
     : "";
   const words = placedWords
     .map((word) => {
@@ -191,7 +236,8 @@ function serializeSceneSvg(
       return `<text x="${numberAttribute(centerX)}" y="${numberAttribute(centerY)}" text-anchor="middle" dominant-baseline="central" fill="${escapeXml(word.color)}" font-size="${numberAttribute(word.fontSize)}" font-weight="500" font-family="${escapeXml(scene.fontFamily)}" transform="rotate(${numberAttribute(word.angle)} ${numberAttribute(centerX)} ${numberAttribute(centerY)})" data-rank="${word.rank}" data-count="${word.count}">${escapeXml(word.term)}</text>`;
     })
     .join("");
-  return `<svg xmlns="${SVG_NAMESPACE}" width="${numberAttribute(scene.canvas.width)}" height="${numberAttribute(scene.canvas.height)}" viewBox="0 0 ${numberAttribute(scene.canvas.width)} ${numberAttribute(scene.canvas.height)}" role="img" aria-labelledby="wordcloud-title wordcloud-description"><title id="wordcloud-title">${title}</title><desc id="wordcloud-description">${description}</desc><rect x="0" y="0" width="${numberAttribute(scene.canvas.width)}" height="${numberAttribute(scene.canvas.height)}" fill="${escapeXml(scene.background)}" aria-hidden="true"/>${fill}<g id="wordcloud-words">${words}</g><metadata id="wordcloud-records">${escapeXml(metadataText(scene.words))}</metadata></svg>`;
+  const content = `${fill}<g id="wordcloud-words">${words}</g>`;
+  return `<svg xmlns="${SVG_NAMESPACE}" width="${numberAttribute(scene.canvas.width)}" height="${numberAttribute(scene.canvas.height)}" viewBox="0 0 ${numberAttribute(scene.canvas.width)} ${numberAttribute(scene.canvas.height)}" role="img" aria-labelledby="wordcloud-title wordcloud-description"><title id="wordcloud-title">${title}</title><desc id="wordcloud-description">${description}</desc>${clip}<rect x="0" y="0" width="${numberAttribute(scene.canvas.width)}" height="${numberAttribute(scene.canvas.height)}" fill="${escapeXml(scene.background)}" aria-hidden="true"/>${uploadedShape ? `<g clip-path="url(#wordcloud-uploaded-shape)">${content}</g>` : content}<metadata id="wordcloud-records">${escapeXml(metadataText(scene.words))}</metadata></svg>`;
 }
 
 export function renderSceneSvg(

@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { LayoutStyle } from "../core/layout";
+import type { SceneModel } from "../core/scene";
+import type { WordSet } from "../core/types";
+import { ImageShapeEditor } from "./ImageShapeEditor";
+import { ImageShapeComparison } from "./ImageShapeComparison";
 import { LIMITS } from "../core/limits";
 import {
   BUILT_IN_SHAPES,
-  getBuiltInShape,
   MAX_SHAPE_SCALE,
   MIN_SHAPE_SCALE,
   SHAPE_CATEGORIES,
@@ -176,14 +179,34 @@ interface StylePanelProps {
   readonly presentation: LayoutStyle;
   readonly disabled?: boolean;
   readonly onChange: (presentation: LayoutStyle) => void;
+  readonly scene?: SceneModel;
+  readonly wordSet?: WordSet;
+  readonly onWordsChange?: (wordSet: WordSet) => void;
+  readonly onPreviewLayout?: (
+    presentation: LayoutStyle,
+    signal: AbortSignal,
+  ) => Promise<SceneModel>;
+  readonly onAdoptTrial?: (
+    presentation: LayoutStyle,
+    scene: SceneModel,
+  ) => void;
+  readonly onPendingShapeChange?: (pending: boolean) => void;
 }
 
 export function StylePanel({
   presentation,
-  disabled = false,
+  disabled: parentDisabled = false,
   onChange,
+  scene,
+  wordSet,
+  onWordsChange,
+  onPreviewLayout,
+  onAdoptTrial,
+  onPendingShapeChange,
 }: StylePanelProps) {
   const { t } = useI18n();
+  const [imagePending, setImagePending] = useState(false);
+  const disabled = parentDisabled || imagePending;
   const [draft, setDraft] = useState<RangeDraft>(() => rangeFrom(presentation));
   const draftRef = useRef(draft);
   const [angleDraft, setAngleDraft] = useState(() =>
@@ -201,9 +224,6 @@ export function StylePanel({
     presentation.shape,
   );
   const shapeDraftRef = useRef(shapeDraft);
-  const selectedShape = presentation.shape
-    ? getBuiltInShape(presentation.shape.id)
-    : undefined;
   const shapeSize =
     shapeDraft?.id === presentation.shape?.id ? shapeDraft : presentation.shape;
   useEffect(() => {
@@ -251,7 +271,9 @@ export function StylePanel({
   };
   const update = (patch: Partial<LayoutStyle>) =>
     onChange({ ...presentation, ...patch });
-  const updateShape = (patch: Partial<ShapeSettings>) => {
+  const updateShape = (
+    patch: Partial<Pick<ShapeSettings, "widthScale" | "heightScale">>,
+  ) => {
     if (!presentation.shape) return;
     update({ shape: { ...presentation.shape, ...patch } });
   };
@@ -371,6 +393,21 @@ export function StylePanel({
           </span>
           <span>{t("shapeNoShape")}</span>
         </button>
+        <ImageShapeEditor
+          shape={
+            presentation.shape?.id === "uploaded"
+              ? presentation.shape
+              : undefined
+          }
+          disabled={parentDisabled}
+          background={presentation.background}
+          onApply={(shape) => update({ shape })}
+          onBackgroundChange={(background) => update({ background })}
+          onPendingChange={(pending) => {
+            setImagePending(pending);
+            onPendingShapeChange?.(pending);
+          }}
+        />
         <fieldset
           className="shape-category-list"
           aria-label={t("shapeCategoryNavigation")}
@@ -408,7 +445,7 @@ export function StylePanel({
             </button>
           ))}
         </fieldset>
-        {selectedShape && shapeSize && (
+        {presentation.shape && shapeSize && (
           <div className="shape-size-controls">
             <label className="shape-ratio-lock">
               <input
@@ -513,6 +550,17 @@ export function StylePanel({
           </div>
         )}
       </div>
+      {presentation.shape?.id === "uploaded" && (
+        <ImageShapeComparison
+          presentation={presentation}
+          scene={scene}
+          wordSet={wordSet}
+          onWordsChange={onWordsChange}
+          disabled={disabled}
+          onPreview={onPreviewLayout}
+          onAdopt={onAdoptTrial}
+        />
+      )}
       <div className="field-row">
         <div className="field field-grow">
           <label className="field-label" htmlFor="font-family">

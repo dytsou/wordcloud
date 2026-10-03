@@ -1,6 +1,11 @@
 import type { FontMetricsTable } from "./metrics";
 import type { LayoutStyle } from "./layout";
 import { safeBackground, safePalette } from "./style-safety";
+import {
+  fitUploadedImageBounds,
+  readableShapeColor,
+  sampleUploadedShapeColor,
+} from "./image-shape";
 
 export const SCENE_VERSION = "scene-v1";
 
@@ -38,20 +43,52 @@ export interface SceneModel {
 export interface SceneFillDot {
   x: number;
   y: number;
+  color?: string;
+}
+
+export function sceneWordColor(
+  word: Pick<SceneWord, "x" | "y" | "width" | "height" | "rank">,
+  shape: LayoutStyle["shape"],
+  canvas: LayoutStyle["canvas"],
+  palette: string[],
+  background: string,
+): string {
+  const fallback = palette[(word.rank - 1) % palette.length]!;
+  if (shape?.id !== "uploaded" || shape.colorMode === "palette")
+    return fallback;
+  const bounds = fitUploadedImageBounds(
+    shape.image,
+    canvas,
+    shape.widthScale,
+    shape.heightScale,
+  );
+  const source =
+    sampleUploadedShapeColor(shape.image, bounds, word) ?? fallback;
+  return shape.colorMode === "readable"
+    ? readableShapeColor(source, background)
+    : source;
 }
 
 export function recolorScene(
   scene: SceneModel,
   palette: string[],
   background: string,
+  shape: LayoutStyle["shape"] = scene.shape,
 ): SceneModel {
   const colors = safePalette(palette);
   return {
     ...scene,
     background: safeBackground(background),
+    ...(shape ? { shape } : {}),
     words: scene.words.map((word) => ({
       ...word,
-      color: colors[(word.rank - 1) % colors.length],
+      color: sceneWordColor(
+        word,
+        shape,
+        scene.canvas,
+        colors,
+        safeBackground(background),
+      ),
     })),
   };
 }

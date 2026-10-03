@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { SceneModel } from "../core/scene";
+import { fitUploadedImageBounds, uploadedShapePath } from "../core/image-shape";
 import {
   buildShapeFillDots,
   DOT_RADIUS,
@@ -33,6 +34,7 @@ export function CloudPreview({
   const [fillHintPinned, setFillHintPinned] = useState(false);
   const [fillHintDismissed, setFillHintDismissed] = useState(false);
   const fillHintId = useId();
+  const shapeClipId = `${fillHintId}-uploaded-shape`;
   const { t } = useI18n();
   const placedWords = scene ? placedSceneWords(scene) : [];
   const fillDots = useMemo(
@@ -40,6 +42,17 @@ export function CloudPreview({
     [scene, hasSelectedShape],
   );
   const accessibleSummary = scene ? renderAccessibleSummary(scene) : undefined;
+  const uploadedShape =
+    scene?.shape?.id === "uploaded" ? scene.shape : undefined;
+  const shapeBounds =
+    uploadedShape && scene
+      ? fitUploadedImageBounds(
+          uploadedShape.image,
+          scene.canvas,
+          uploadedShape.widthScale,
+          uploadedShape.heightScale,
+        )
+      : undefined;
   const omittedCount = scene ? scene.words.length - placedWords.length : 0;
   const noWordsFit =
     hasSelectedShape && omittedCount > 0 && placedWords.length === 0;
@@ -109,40 +122,55 @@ export function CloudPreview({
               }}
             >
               <title>{t("cloudPreview")}</title>
-              {fillDots.length > 0 && (
-                <g
-                  className="shape-fill"
-                  aria-hidden="true"
-                  fill={shapeFillDotColor(scene)}
-                >
-                  {fillDots.map((dot) => (
-                    <circle
-                      key={`${dot.x}-${dot.y}`}
-                      cx={dot.x}
-                      cy={dot.y}
-                      r={DOT_RADIUS}
+              {uploadedShape && shapeBounds && (
+                <defs>
+                  <clipPath id={shapeClipId} clipPathUnits="userSpaceOnUse">
+                    <path
+                      d={uploadedShapePath(uploadedShape.image)}
+                      transform={`translate(${shapeBounds.x} ${shapeBounds.y}) scale(${shapeBounds.width / uploadedShape.image.width} ${shapeBounds.height / uploadedShape.image.height})`}
                     />
-                  ))}
-                </g>
+                  </clipPath>
+                </defs>
               )}
-              {placedWords.map((word) => (
-                <text
-                  key={`${word.term}-${word.rank}`}
-                  x={word.x + word.width / 2}
-                  y={word.y + word.height / 2}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fill={word.color}
-                  fontSize={word.fontSize}
-                  fontWeight={500}
-                  transform={`rotate(${word.angle} ${word.x + word.width / 2} ${word.y + word.height / 2})`}
-                  opacity={
-                    activeHighlight && activeHighlight !== word.term ? 0.28 : 1
-                  }
-                >
-                  {word.term}
-                </text>
-              ))}
+              <g clipPath={uploadedShape ? `url(#${shapeClipId})` : undefined}>
+                {fillDots.length > 0 && (
+                  <g
+                    className="shape-fill"
+                    aria-hidden="true"
+                    fill={shapeFillDotColor(scene)}
+                  >
+                    {fillDots.map((dot) => (
+                      <circle
+                        key={`${dot.x}-${dot.y}`}
+                        cx={dot.x}
+                        cy={dot.y}
+                        r={DOT_RADIUS}
+                        fill={dot.color}
+                      />
+                    ))}
+                  </g>
+                )}
+                {placedWords.map((word) => (
+                  <text
+                    key={`${word.term}-${word.rank}`}
+                    x={word.x + word.width / 2}
+                    y={word.y + word.height / 2}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fill={word.color}
+                    fontSize={word.fontSize}
+                    fontWeight={500}
+                    transform={`rotate(${word.angle} ${word.x + word.width / 2} ${word.y + word.height / 2})`}
+                    opacity={
+                      activeHighlight && activeHighlight !== word.term
+                        ? 0.28
+                        : 1
+                    }
+                  >
+                    {word.term}
+                  </text>
+                ))}
+              </g>
             </svg>
             <p id="preview-description" className="sr-only">
               {accessibleSummary}

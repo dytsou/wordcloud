@@ -6,6 +6,7 @@ import {
   snapshotFormatFromFragment,
 } from "./codec";
 import type { LayoutStyle } from "./layout";
+import { validateUploadedShapeSettings } from "./image-shape";
 import { LIMITS, scalarLength } from "./limits";
 import { SCENE_VERSION, type SceneModel, type SceneWord } from "./scene";
 import {
@@ -35,7 +36,7 @@ export type SnapshotPayload = SnapshotPayloadFields &
         presentation: Omit<Presentation, "shape">;
       }
     | {
-        schemaVersion: "wc-snapshot-v2";
+        schemaVersion: "wc-snapshot-v2" | "wc-snapshot-v3";
         presentation: Presentation & { shape: ShapeSettings };
       }
   );
@@ -43,8 +44,8 @@ export type SnapshotPayload = SnapshotPayloadFields &
 const SCENE_PACK_MAGIC = "wc-scene-pack";
 
 export class SnapshotValidationError extends Error {
-  public constructor(message: string) {
-    super(message);
+  public constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "SnapshotValidationError";
   }
 }
@@ -194,6 +195,16 @@ function validateWordSet(value: unknown): WordSet {
 
 function validateShape(value: unknown): ShapeSettings {
   const object = record(value, "presentation.shape");
+  if (object.id === "uploaded") {
+    try {
+      return validateUploadedShapeSettings(value);
+    } catch (error) {
+      throw new SnapshotValidationError(
+        error instanceof Error ? error.message : "Uploaded shape is invalid.",
+        { cause: error },
+      );
+    }
+  }
   exactKeys(object, ["id", "widthScale", "heightScale"], "presentation.shape");
   const id = stringValue(object.id, "presentation.shape.id", 64);
   const shape = getBuiltInShape(id);
@@ -473,10 +484,17 @@ function validateScene(value: unknown): SceneModel {
   };
 }
 
-type SnapshotSchemaVersion = "wc-snapshot-v1" | "wc-snapshot-v2";
+type SnapshotSchemaVersion =
+  | "wc-snapshot-v1"
+  | "wc-snapshot-v2"
+  | "wc-snapshot-v3";
 
 function snapshotSchemaVersion(value: unknown): SnapshotSchemaVersion {
-  if (value !== "wc-snapshot-v1" && value !== "wc-snapshot-v2") {
+  if (
+    value !== "wc-snapshot-v1" &&
+    value !== "wc-snapshot-v2" &&
+    value !== "wc-snapshot-v3"
+  ) {
     throw new SnapshotValidationError(
       "Snapshot schema or codec version is not supported.",
     );
@@ -503,12 +521,20 @@ function validateSnapshotShape(
   if (schemaVersion === "wc-snapshot-v1" && scene.shape) {
     throw new SnapshotValidationError("A v1 scene cannot contain a shape.");
   }
-  if (schemaVersion !== "wc-snapshot-v2") return;
+  if (schemaVersion === "wc-snapshot-v1") return;
+  if (
+    (schemaVersion === "wc-snapshot-v3") !==
+    (presentation.shape?.id === "uploaded")
+  ) {
+    throw new SnapshotValidationError("Uploaded shapes require a v3 snapshot.");
+  }
   if (
     scene.shape &&
     (scene.shape.id !== presentation.shape?.id ||
       scene.shape.widthScale !== presentation.shape?.widthScale ||
-      scene.shape.heightScale !== presentation.shape?.heightScale)
+      scene.shape.heightScale !== presentation.shape?.heightScale ||
+      (scene.shape.id === "uploaded" &&
+        JSON.stringify(scene.shape) !== JSON.stringify(presentation.shape)))
   ) {
     throw new SnapshotValidationError(
       "scene shape does not match the presentation shape.",
@@ -534,7 +560,7 @@ function validateSnapshotLayoutVersions(
     );
   }
   if (
-    schemaVersion === "wc-snapshot-v2" &&
+    schemaVersion !== "wc-snapshot-v1" &&
     (presentation.version !== "layout-v2" ||
       object.layoutVersion !== "layout-v2")
   ) {
@@ -599,7 +625,7 @@ export function validateSnapshot(value: unknown): SnapshotPayload {
   validateSnapshotCodecVersions(object);
   const wordSet = validateWordSet(object.wordSet);
   const presentation =
-    schemaVersion === "wc-snapshot-v2"
+    schemaVersion !== "wc-snapshot-v1"
       ? validatePresentation(object.presentation, true)
       : validatePresentation(object.presentation, false);
   const scene = validateScene(object.scene);
@@ -651,7 +677,12 @@ export function createSnapshot(
   const snapshotPresentation = { ...presentation };
   if (!shaped) delete snapshotPresentation.shape;
   return validateSnapshot({
-    schemaVersion: shaped ? "wc-snapshot-v2" : "wc-snapshot-v1",
+    schemaVersion:
+      presentation.shape?.id === "uploaded"
+        ? "wc-snapshot-v3"
+        : shaped
+          ? "wc-snapshot-v2"
+          : "wc-snapshot-v1",
     codecVersion: CODEC_VERSION,
     tokenizerVersion: wordSet.tokenizerVersion,
     layoutVersion: presentation.version,
@@ -663,6 +694,9 @@ export function createSnapshot(
 }
 
 function packScenePack(snapshot: SnapshotPayload): unknown {
+  // v3 carries the editable asset once; validation restores it on the scene.
+  const packedScene = { ...snapshot.scene };
+  if (snapshot.schemaVersion === "wc-snapshot-v3") delete packedScene.shape;
   const wordIndexByRank = new Map(
     snapshot.wordSet.words.map((word, index) => [word.rank, index]),
   );
@@ -691,7 +725,7 @@ function packScenePack(snapshot: SnapshotPayload): unknown {
     SCENE_PACK_MAGIC,
     {
       ...snapshot,
-      scene: { ...snapshot.scene, words: sceneWords },
+      scene: { ...packedScene, words: sceneWords },
     },
   ];
 }

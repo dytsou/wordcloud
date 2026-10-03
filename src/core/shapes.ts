@@ -1,3 +1,5 @@
+import { decodeImagePixels, type UploadedShapeSettings } from "./image-shape";
+
 export const MIN_SHAPE_SCALE = 0.2;
 export const MAX_SHAPE_SCALE = 1;
 
@@ -37,11 +39,13 @@ export interface BuiltInShape {
 
 export type BuiltInShapeId = (typeof BUILT_IN_SHAPES)[number]["id"];
 
-export interface ShapeSettings {
+export interface BuiltInShapeSettings {
   id: BuiltInShapeId;
   widthScale: number;
   heightScale: number;
 }
+
+export type ShapeSettings = BuiltInShapeSettings | UploadedShapeSettings;
 
 export interface MaskSpan {
   start: number;
@@ -591,7 +595,8 @@ export function compileShapeMask(
   canvas: { width: number; height: number },
 ): CompiledShapeMask {
   const definition = getBuiltInShape(settings.id);
-  if (!definition) throw new RangeError("Unknown built-in shape");
+  if (!definition && settings.id !== "uploaded")
+    throw new RangeError("Unknown shape");
   if (
     !Number.isFinite(settings.widthScale) ||
     settings.widthScale < MIN_SHAPE_SCALE ||
@@ -611,11 +616,13 @@ export function compileShapeMask(
     throw new RangeError("Canvas dimensions must be positive integers");
   }
 
-  const baseWidth = Math.min(
-    canvas.width,
-    canvas.height * definition.aspectRatio,
-  );
-  const baseHeight = baseWidth / definition.aspectRatio;
+  const image = settings.id === "uploaded" ? settings.image : undefined;
+  const imagePixels = image ? decodeImagePixels(image) : undefined;
+  const aspectRatio = image
+    ? image.width / image.height
+    : definition!.aspectRatio;
+  const baseWidth = Math.min(canvas.width, canvas.height * aspectRatio);
+  const baseHeight = baseWidth / aspectRatio;
   const width = baseWidth * settings.widthScale;
   const height = baseHeight * settings.heightScale;
   const x = (canvas.width - width) / 2;
@@ -626,12 +633,39 @@ export function compileShapeMask(
   for (let row = 0; row < canvas.height; row++) {
     const normalizedY = (row + 0.5 - y) / height;
     if (normalizedY < 0 || normalizedY > 1) continue;
+    if (image && imagePixels) {
+      const sourceRow = Math.floor(normalizedY * image.height);
+      if (sourceRow >= image.height) continue;
+      for (let column = 0; column < image.width; ) {
+        if (!imagePixels[sourceRow * image.width + column]) {
+          column += 1;
+          continue;
+        }
+        const first = column;
+        while (
+          column < image.width &&
+          imagePixels[sourceRow * image.width + column]
+        )
+          column += 1;
+        const start = Math.max(
+          0,
+          Math.ceil(x + (first / image.width) * width - 0.5),
+        );
+        // The right edge is exclusive: a background cell never receives ink.
+        const end = Math.min(
+          canvas.width,
+          Math.ceil(x + (column / image.width) * width - 0.5),
+        );
+        if (end > start) rows[row]?.push({ start, end });
+      }
+      continue;
+    }
     const regions = mergeSpans(
-      definition.regions.flatMap((region) =>
+      definition!.regions.flatMap((region) =>
         primitiveIntervalsAtY(region, normalizedY),
       ),
     );
-    const holes = definition.holes?.flatMap((hole) =>
+    const holes = definition!.holes?.flatMap((hole) =>
       primitiveIntervalsAtY(hole, normalizedY),
     );
     const inside = holes ? subtractSpans(regions, holes) : regions;

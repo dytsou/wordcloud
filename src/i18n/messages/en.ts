@@ -1,4 +1,106 @@
 export const EN_MESSAGES = {
+  imageShapeShareDisclosure:
+    "Links and .wc files include the confirmed foreground, its spatial colors, and the saved layout for editing. If the link is too large, download .wc to preserve the full shape.",
+  imageShapeHeading: "Image shape",
+  imageShapeUpload: "Upload image",
+  imageShapeReplace: "Replace image",
+  imageShapeEdit: "Refine foreground",
+  imageShapeLocal:
+    "PNG, JPEG or WebP · up to 8 MiB. Image processing stays on this device.",
+  imageShapeSource: "Source image",
+  imageShapeForeground: "Foreground to keep",
+  imageShapeProcessing: "Processing image…",
+  imageShapeTolerance: "Background tolerance",
+  imageShapeHoles: "Remove matching background inside enclosed holes",
+  imageShapeDetect: "Detect background again",
+  imageShapeSimple: "For transparent images and plain backgrounds",
+  imageShapePhoto: "For photos and complex backgrounds",
+  imageShapePhotoHelp:
+    "Draw a box around the subject, then mark areas to keep or remove. Find subject uses your marks and nearby colors; refine the result before confirming.",
+  imageShapeBox: "Subject box",
+  imageShapeKeep: "Keep brush",
+  imageShapeRemove: "Remove brush",
+  imageShapeMarkKeep: "Foreground mark",
+  imageShapeMarkRemove: "Background mark",
+  imageShapeRadius: "Brush radius",
+  imageShapeFind: "Find subject",
+  imageShapeUndo: "Undo",
+  imageShapeReset: "Reset edits",
+  imageShapeClearMarks: "Clear subject marks",
+  imageShapeConfirm: "Confirm foreground",
+  imageShapeCancel: "Cancel",
+  imageShapeEmpty:
+    "Keep at least one visible foreground pixel before confirming.",
+  imageShapeRetained: "Kept",
+  imageShapeExcluded: "Excluded",
+  imageShapeMarkLegend: "Green: foreground marks · pink: background marks",
+  imageShapeKeyboard:
+    "Use arrow keys on the foreground preview to move the cursor, Shift for 10 pixels, and Space to paint. You can also enter coordinates below.",
+  imageShapeCursor: "Brush coordinates",
+  imageShapePaint: "Paint at coordinates",
+  imageShapeBoxCoordinates: "Subject box coordinates",
+  imageShapeX: "X",
+  imageShapeY: "Y",
+  imageShapeWidth: "Width",
+  imageShapeHeight: "Height",
+  imageShapeUnavailable:
+    "This saved shape contains only the confirmed foreground. Replace the image to restore excluded source areas.",
+  imageShapeShare:
+    "Sharing includes the confirmed foreground and its colors. The original source photo and excluded areas are never included.",
+  imageShapeColorMode: "Word colors",
+  imageShapeOriginal: "Approximate original image colors",
+  imageShapeReadable: "Adjust image colors for readability",
+  imageShapePalette: "Use the selected palette",
+  imageShapeReversible:
+    "Color adjustments are reversible; the saved foreground colors stay intact.",
+  imageShapeBackgrounds: "Suggested backgrounds",
+  imageShapeBackground: "Use background {{color}}",
+  imageShapeBoundary: "Prefer words within similar color regions",
+  imageShapeBoundaryHelp:
+    "A placement preference, not a hard boundary. Turning it off may allow more words to fit.",
+  imageShapeAsset:
+    "Saved foreground: {{width}} × {{height}} pixels · approximately {{bytes}} KiB",
+  imageShapeResolution:
+    "The saved foreground uses at most 192 pixels per side and 96 representative colors. Inspect small holes and thin details before confirming.",
+  imageShapeEditWords: "Change words and reflow this shape",
+  imageShapeWordsFormat: "One word, a tab, and a count per line",
+  imageShapeWordsHelp:
+    "Edit derived words only. Up to 250 unique words and 200000 total occurrences; the original source text is not needed.",
+  imageShapeApplyWords: "Apply words and reflow",
+  imageShapeComparison: "Shape and word coverage",
+  imageShapeActual: "Current word scene",
+  imageShapeUncovered: "Kept areas without word ink",
+  imageShapeCoverage: "Approximate glyph coverage: {{percent}}% of kept pixels",
+  imageShapeCoverageHelp:
+    "Orange shows retained areas without actual rendered word ink. Excluded areas are transparent and never counted. Browser font rendering can differ slightly from layout measurements.",
+  imageShapePlaced: "Placed",
+  imageShapeNoFit: "No fit found",
+  imageShapeBudget: "Probe budget reached",
+  imageShapeCancelled: "Cancelled",
+  imageShapeInvalid: "Invalid canvas",
+  imageShapeStatusHelp:
+    "These are the actual results of this layout run. An omitted word does not establish that placement is geometrically impossible.",
+  imageShapeNoScene: "Generate a word scene to compare its coverage.",
+  imageShapeTrials: "Try three layouts",
+  imageShapeTrialsHelp:
+    "Each trial uses the same words. Your current scene stays selected until you adopt a result.",
+  imageShapeTrialRunning: "Trying layout {{number}} of 3…",
+  imageShapeSmaller: "Smaller words",
+  imageShapeHorizontal: "Horizontal words",
+  imageShapeRelaxed: "Color boundaries off",
+  imageShapeAlternate: "Alternative font",
+  imageShapeAdopt: "Adopt this result",
+  imageShapeStop: "Cancel trials",
+  imageShapeWordLimit: "Enter between 1 and {{max}} unique words.",
+  imageShapeWordLineFormat:
+    "Line {{line}}: use a word, a tab, and an integer count.",
+  imageShapeWordTerm:
+    "Line {{line}}: words must contain 1–{{max}} characters without control or bidirectional formatting characters.",
+  imageShapeWordDuplicate: "Line {{line}}: duplicate words are not allowed.",
+  imageShapeWordCount:
+    "Line {{line}}: count must be an integer from 1 to {{max}}.",
+  imageShapeWordTotal: "The total word count must not exceed {{max}}.",
+  imageShapeWordApplyError: "The word list could not be applied.",
   appTitle: "wordcloud.download",
   metaDescription:
     "Create, tune, and share multilingual word clouds locally in your browser.",
@@ -148,7 +250,8 @@ export const EN_MESSAGES = {
   v2Url: "V2 share view",
   shareVersion: "Share link version",
   shareVersionInfoLabel: "Explain the V1 and V2 difference",
-  shareVersionInfo: "V1 compresses snapshot data with zlib locally in your browser, without a backend server. V2 uses Brotli compression to produce shorter links.",
+  shareVersionInfo:
+    "V1 compresses snapshot data with zlib locally in your browser, without a backend server. V2 uses Brotli compression to produce shorter links.",
   switchShareVersion: "Switch to V{{version}} link",
   copyV1: "Copy V1 URL",
   copyV2: "Copy V2 URL",
@@ -227,8 +330,7 @@ export const EN_MESSAGES = {
   snapshotDownloadFailed: "Snapshot download failed: {{error}}",
   svgDownloaded: "SVG downloaded; it uses the same SceneModel as the canvas.",
   svgDownloadFailed: "SVG export failed: {{error}}",
-  sharedImageDownloadPreparing:
-    "Preparing your .{{extension}} download…",
+  sharedImageDownloadPreparing: "Preparing your .{{extension}} download…",
   sharedImageDownloadReady: "Your .{{extension}} file is ready. ",
   sharedImageDownloadFallback:
     "If the download did not start automatically, use ",

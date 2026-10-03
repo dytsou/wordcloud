@@ -14,6 +14,7 @@ interface SharePanelProps {
   readonly shareErrorV2?: string;
   readonly shareEncoding?: boolean;
   readonly wordLimitNotice?: string;
+  readonly hasUploadedShape?: boolean;
   readonly disabled?: boolean;
   readonly onCreateLink: () => void;
   readonly onCopy: (version: "v1" | "v2") => void;
@@ -40,6 +41,7 @@ export function SharePanel({
   shareErrorV2,
   shareEncoding = false,
   wordLimitNotice,
+  hasUploadedShape = false,
   disabled = false,
   onCreateLink,
   onCopy,
@@ -93,6 +95,9 @@ export function SharePanel({
         <span className="privacy-chip">{t("noRawText")}</span>
       </div>
       <p className="share-disclosure">{t("shareDisclosure")}</p>
+      {hasUploadedShape && (
+        <p className="share-disclosure">{t("imageShapeShareDisclosure")}</p>
+      )}
       {wordLimitNotice && <p className="warning-note">{wordLimitNotice}</p>}
       <div className="share-actions">
         <button
