@@ -56,6 +56,7 @@ test("foreground and background marks refine a photo selection before confirmati
   await page.locator("#source-text").fill("foreground foreground background");
   await advanceWizard(page, "words");
   await advanceWizard(page, "style");
+  await page.getByRole("tab", { name: "上傳圖片", exact: true }).click();
 
   const editor = page.locator(".image-shape-editor");
   await editor.getByLabel("上傳圖片").setInputFiles({
@@ -111,5 +112,5 @@ test("foreground and background marks refine a photo selection before confirmati
   await expect(editor.getByText(/儲存的前景：9 × 9 像素/)).toBeVisible();
   await expect(
     editor.getByRole("button", { name: "確認前景", exact: true }),
-  ).toHaveCount(0);
+  ).toBeHidden();
 });
