@@ -684,7 +684,7 @@ h2 {
   gap: 0.7rem;
   margin-top: 0.75rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--line);
+  border-top: 0;
 }
 
 .shape-ratio-lock {
@@ -1453,7 +1453,7 @@ input[type="checkbox"] {
   gap: 1rem;
   margin: -0.35rem 0 1.1rem;
   padding-top: 0.65rem;
-  border-top: 1px solid var(--line);
+  border-top: 0;
 }
 
 .preview-caption {
@@ -2644,10 +2644,6 @@ textarea:focus-visible {
 
 .preview-topline h2 {
   max-width: 22ch;
-}
-
-.preview-caption-row {
-  border-top-color: var(--line);
 }
 
 .preview-caption {
