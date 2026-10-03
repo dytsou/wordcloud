@@ -103,6 +103,10 @@ export function isGeometryChanging(
     previous.shape?.id !== next.shape?.id ||
     previous.shape?.widthScale !== next.shape?.widthScale ||
     previous.shape?.heightScale !== next.shape?.heightScale ||
+    (previous.shape?.id === "uploaded" &&
+      next.shape?.id === "uploaded" &&
+      (previous.shape.image !== next.shape.image ||
+        previous.shape.colorBoundary !== next.shape.colorBoundary)) ||
     JSON.stringify(previous.rotations) !== JSON.stringify(next.rotations)
   );
 }
@@ -116,6 +120,9 @@ export function withShapeFontDefaults(
     previous.shape?.id !== next.shape?.id ||
     previous.shape?.widthScale !== next.shape?.widthScale ||
     previous.shape?.heightScale !== next.shape?.heightScale ||
+    (previous.shape?.id === "uploaded" &&
+      next.shape?.id === "uploaded" &&
+      previous.shape.image !== next.shape.image) ||
     previous.canvas.width !== next.canvas.width ||
     previous.canvas.height !== next.canvas.height;
   if (!shapeChanged) return next;

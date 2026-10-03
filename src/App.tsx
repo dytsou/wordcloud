@@ -58,7 +58,6 @@ import {
   buildShareUrl,
   CodecError,
   type EncodedJsonFragment,
-  encodeJsonFragment,
   snapshotFormatFromFragment,
 } from "./core/codec";
 import {
@@ -66,15 +65,19 @@ import {
   encodeSnapshotFile,
   SNAPSHOT_FILE_EXTENSION,
 } from "./core/file-snapshot";
-import type { LayoutStyle } from "./core/layout";
+import { type LayoutStyle, layoutWordCloudAsync } from "./core/layout";
 import { LIMITS } from "./core/limits";
 import {
   createFontMetricsTable,
   type FontMetric,
   waitForFonts,
 } from "./core/metrics";
-import { recolorScene } from "./core/scene";
-import { createSnapshot, decodeSnapshotFragment } from "./core/snapshot";
+import { recolorScene, type SceneModel } from "./core/scene";
+import {
+  createSnapshot,
+  decodeSnapshotFragment,
+  encodeSnapshotPayload,
+} from "./core/snapshot";
 import { tokenize } from "./core/tokenizer";
 import { buildWordSet, countUniqueTerms } from "./core/word-model";
 import {
@@ -284,6 +287,7 @@ export function App() {
     state.sourceText ? t("readyRestored") : t("ready"),
   );
   const [exporting, setExporting] = useState(false);
+  const [shapeEditing, setShapeEditing] = useState(false);
   const clientRef = useRef<EngineClient | null>(null);
   const generationRef = useRef(0);
   const shareGenerationRef = useRef(0);
@@ -799,7 +803,7 @@ export function App() {
       }
 
       if (activeStep === "style") {
-        if (state.mode === "generating" || !state.scene) {
+        if (shapeEditing || state.mode === "generating" || !state.scene) {
           setStepError(t("wizardPreviewPending"));
           requestAnimationFrame(() =>
             document.getElementById("wizard-step-error")?.focus(),
@@ -811,6 +815,7 @@ export function App() {
     },
     [
       activeStep,
+      shapeEditing,
       navigateToStep,
       state.mode,
       state.scene,
@@ -958,6 +963,7 @@ export function App() {
                 current.scene,
                 nextPresentation.palette,
                 nextPresentation.background,
+                nextPresentation.shape,
               )
             : current.scene,
         }));
@@ -1014,6 +1020,87 @@ export function App() {
     [t],
   );
 
+  const previewLayout = useCallback(
+    async (
+      presentation: LayoutStyle,
+      signal: AbortSignal,
+    ): Promise<SceneModel> => {
+      const wordSet = state.wordSet;
+      if (!wordSet) throw new Error("Words are required for a layout trial.");
+      if (signal.aborted) throw new Error("Layout trial cancelled.");
+      const metrics = await makeMetrics(
+        wordSet,
+        presentation,
+        () => signal.aborted,
+      );
+      if (signal.aborted) throw new Error("Layout trial cancelled.");
+      const client = createBrowserEngineClient();
+      const cancel = () => client?.cancel();
+      signal.addEventListener("abort", cancel, { once: true });
+      try {
+        if (client)
+          return await client.submit({ wordSet, style: presentation, metrics });
+        return await layoutWordCloudAsync(wordSet, presentation, metrics, {
+          shouldCancel: () => signal.aborted,
+        });
+      } finally {
+        signal.removeEventListener("abort", cancel);
+        client?.dispose();
+      }
+    },
+    [state.wordSet, makeMetrics],
+  );
+
+  const adoptLayoutTrial = useCallback(
+    (presentation: LayoutStyle, scene: SceneModel) => {
+      if (!state.wordSet || shapeEditing) return;
+      invalidatePendingWork();
+      writeCachedStylePreferences(presentation);
+      setState((current) => ({
+        ...current,
+        presentation,
+        scene,
+        mode: current.mode === "remix" ? "remix" : "ready",
+        error: undefined,
+        shareUrl: undefined,
+        shareUrlV2: undefined,
+        shareError: undefined,
+        shareErrorV1: undefined,
+        shareErrorV2: undefined,
+        shareEncoding: false,
+      }));
+      setStatus(
+        t(
+          scene.words.some((word) => word.status !== "placed")
+            ? "someOmitted"
+            : "allPlaced",
+        ),
+      );
+    },
+    [state.wordSet, shapeEditing, invalidatePendingWork, t],
+  );
+
+  const handleDerivedWordSetChange = useCallback(
+    (wordSet: NonNullable<EditorState["wordSet"]>) => {
+      if (state.presentation.shape?.id !== "uploaded" || shapeEditing) return;
+      invalidatePendingWork();
+      void runLayout(
+        wordSet,
+        state.presentation,
+        state.mode === "remix" ? "remix" : "ready",
+        state.tokenization,
+      );
+    },
+    [
+      invalidatePendingWork,
+      runLayout,
+      shapeEditing,
+      state.mode,
+      state.presentation,
+      state.tokenization,
+    ],
+  );
+
   const handleCreateLink = useCallback(async () => {
     if (
       state.mode === "generating" ||
@@ -1048,7 +1135,7 @@ export function App() {
         "v1",
         snapshot,
         isCurrent,
-        encodeJsonFragment,
+        encodeSnapshotPayload,
       );
       if (!isCurrent()) return;
       v2Created = await createShareLink("v2", snapshot, isCurrent, (value) => {
@@ -1082,10 +1169,7 @@ export function App() {
 
   const handleCopy = useCallback(
     async (
-      target:
-        | "v1"
-        | "v2"
-        | { url: string; version: "v1" | "v2" } = "v1",
+      target: "v1" | "v2" | { url: string; version: "v1" | "v2" } = "v1",
     ) => {
       const version = typeof target === "string" ? target : target.version;
       let shareUrl: string | undefined;
@@ -1105,8 +1189,7 @@ export function App() {
           return;
         }
         await navigator.clipboard.writeText(shareUrl);
-        const statusKey =
-          version === "v1" ? "linkCopiedV1" : "linkCopiedV2";
+        const statusKey = version === "v1" ? "linkCopiedV1" : "linkCopiedV2";
         setStatus(t(statusKey));
       } catch {
         setStatus(t("copyUnavailable"));
@@ -1570,6 +1653,12 @@ export function App() {
                     presentation={state.presentation}
                     disabled={state.mode === "generating"}
                     onChange={handlePresentationChange}
+                    scene={state.scene}
+                    wordSet={state.wordSet}
+                    onWordsChange={handleDerivedWordSetChange}
+                    onPreviewLayout={previewLayout}
+                    onAdoptTrial={adoptLayoutTrial}
+                    onPendingShapeChange={setShapeEditing}
                   />
                   <CloudPreview
                     scene={state.scene}
@@ -1600,7 +1689,11 @@ export function App() {
                       {t("wizardBack")}
                     </button>
                   )}
-                  <button className="button button-primary" type="submit">
+                  <button
+                    className="button button-primary"
+                    type="submit"
+                    disabled={shapeEditing || state.mode === "generating"}
+                  >
                     {t("wizardContinue")}
                   </button>
                 </div>
@@ -1619,6 +1712,7 @@ export function App() {
                 />
                 <SharePanel
                   shareUrl={state.shareUrl}
+                  hasUploadedShape={state.presentation.shape?.id === "uploaded"}
                   shareUrlV2={state.shareUrlV2}
                   {...sharedImageShareProps}
                   shareError={state.shareError}
@@ -1629,7 +1723,8 @@ export function App() {
                   disabled={
                     !state.scene ||
                     state.mode === "generating" ||
-                    state.shareEncoding
+                    state.shareEncoding ||
+                    shapeEditing
                   }
                   onCreateLink={handleCreateLink}
                   onCopy={handleCopy}
@@ -1678,6 +1773,12 @@ export function App() {
                     presentation={state.presentation}
                     disabled={state.mode === "generating"}
                     onChange={handlePresentationChange}
+                    scene={state.scene}
+                    wordSet={state.wordSet}
+                    onWordsChange={handleDerivedWordSetChange}
+                    onPreviewLayout={previewLayout}
+                    onAdoptTrial={adoptLayoutTrial}
+                    onPendingShapeChange={setShapeEditing}
                   />
                   <CloudPreview
                     scene={state.scene}
@@ -1689,6 +1790,7 @@ export function App() {
                 </div>
                 <SharePanel
                   shareUrl={state.shareUrl}
+                  hasUploadedShape={state.presentation.shape?.id === "uploaded"}
                   shareUrlV2={state.shareUrlV2}
                   {...sharedImageShareProps}
                   shareError={state.shareError}
@@ -1699,7 +1801,8 @@ export function App() {
                   disabled={
                     !state.scene ||
                     state.mode === "generating" ||
-                    state.shareEncoding
+                    state.shareEncoding ||
+                    shapeEditing
                   }
                   onCreateLink={handleCreateLink}
                   onCopy={handleCopy}

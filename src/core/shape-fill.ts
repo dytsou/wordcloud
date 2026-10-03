@@ -1,12 +1,16 @@
 import type { SceneFillDot, SceneModel } from "./scene";
-import { compileShapeMask } from "./shapes";
+import { sceneWordColor } from "./scene";
+import { compileShapeMask, type CompiledShapeMask } from "./shapes";
 
 const DOT_RADIUS = 2.3;
 // A period's visible ink fits within this conservative 5 × 5 pixel budget.
 const DOT_AREA_BUDGET = 25;
 const MAX_FILL_FRACTION = 0.02;
 
-export function buildShapeFillDots(scene: SceneModel): SceneFillDot[] {
+export function buildShapeFillDots(
+  scene: SceneModel,
+  compiledMask?: CompiledShapeMask,
+): SceneFillDot[] {
   if (
     !scene.shape ||
     scene.words.length === 0 ||
@@ -14,7 +18,8 @@ export function buildShapeFillDots(scene: SceneModel): SceneFillDot[] {
   ) {
     return [];
   }
-  const mask = compileShapeMask(scene.shape, scene.canvas);
+  const shape = scene.shape;
+  const mask = compiledMask ?? compileShapeMask(shape, scene.canvas);
   const { bounds } = mask;
   const placed = scene.words;
   const usableArea = mask.rows.reduce(
@@ -47,8 +52,8 @@ export function buildShapeFillDots(scene: SceneModel): SceneFillDot[] {
       const dotX = Math.round(x);
       const dotY = Math.round(y);
       if (
-        ![-2, 0, 2].every((offset) =>
-          mask.containsSpan(dotY + offset, dotX - 2, dotX + 3),
+        ![-3, -2, -1, 0, 1, 2].every((offset) =>
+          mask.containsSpan(dotY + offset, dotX - 3, dotX + 3),
         )
       ) {
         continue;
@@ -67,12 +72,27 @@ export function buildShapeFillDots(scene: SceneModel): SceneFillDot[] {
       candidates.push({ x: dotX, y: dotY });
     }
   }
-  if (candidates.length <= maxDots) return candidates;
-  return Array.from(
-    { length: maxDots },
-    (_, index) =>
-      candidates[Math.floor(((index + 0.5) * candidates.length) / maxDots)]!,
-  );
+  const dots =
+    candidates.length <= maxDots
+      ? candidates
+      : Array.from(
+          { length: maxDots },
+          (_, index) =>
+            candidates[
+              Math.floor(((index + 0.5) * candidates.length) / maxDots)
+            ]!,
+        );
+  if (shape.id !== "uploaded") return dots;
+  return dots.map((dot) => ({
+    ...dot,
+    color: sceneWordColor(
+      { x: dot.x - 2, y: dot.y - 2, width: 4, height: 4, rank: 1 },
+      shape,
+      scene.canvas,
+      [scene.words[0]!.color],
+      scene.background,
+    ),
+  }));
 }
 
 export function shapeFillDotColor(scene: SceneModel): string {

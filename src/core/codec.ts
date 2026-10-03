@@ -178,7 +178,14 @@ function encodeJson(
 ): EncodedJsonFragment {
   const json = canonicalStringify(value);
   const jsonBytes = new TextEncoder().encode(json);
-  const compressed = zlibSync(jsonBytes, { level: 9 });
+  if (jsonBytes.byteLength > LIMITS.maxInflatedJsonBytes)
+    throw new CodecError(
+      "PAYLOAD_LIMIT",
+      "Snapshot exceeds the safe decompressed size limit.",
+    );
+  let compressed = zlibSync(jsonBytes, { level: 9 });
+  if (jsonBytes.byteLength > compressed.byteLength * LIMITS.maxInflateRatio)
+    compressed = zlibSync(jsonBytes, { level: 0 });
   const fragment = `${SNAPSHOT_PREFIX}${bytesToBase64Url(compressed)}`;
   if (utf8ByteLength(fragment) > maxEncodedBytes) {
     throw new CodecError(
@@ -220,8 +227,20 @@ export async function encodeBrotliJsonFragment(
 ): Promise<EncodedJsonFragment> {
   const json = canonicalStringify(value);
   const jsonBytes = new TextEncoder().encode(json);
+  if (jsonBytes.byteLength > LIMITS.maxInflatedJsonBytes)
+    throw new CodecError(
+      "PAYLOAD_LIMIT",
+      "Snapshot exceeds the safe decompressed size limit.",
+    );
   const brotli = await getBrotliApi();
-  const compressed = brotli.compress(jsonBytes, { quality: 11 });
+  let compressed = brotli.compress(jsonBytes, { quality: 11 });
+  if (jsonBytes.byteLength > compressed.byteLength * LIMITS.maxInflateRatio)
+    compressed = brotli.compress(jsonBytes, { quality: 0 });
+  if (jsonBytes.byteLength > compressed.byteLength * LIMITS.maxInflateRatio)
+    throw new CodecError(
+      "PAYLOAD_LIMIT",
+      "V2 compression exceeds the safe expansion ratio. Use V1 or a .wc file.",
+    );
   const fragment = `${BROTLI_SNAPSHOT_PREFIX}${bytesToBase64Url(compressed)}`;
   if (utf8ByteLength(fragment) > maxEncodedBytes) {
     throw new CodecError(

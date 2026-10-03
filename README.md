@@ -36,7 +36,7 @@ Open the local address printed by Vite, then follow the four editor steps:
 
 1. **Add your text.** Paste or type text on the Source step. Your latest draft stays in this browser so you can refresh without losing it.
 2. **Review the words.** On the Words step, choose the language used to split text and check the preview. You can ignore letter case, include numbers or symbols, remove common words, keep a phrase together, or split and merge terms.
-3. **Style the cloud.** Choose a built-in shape or no shape, then adjust the font, colors, word sizes, rotation, spacing, and canvas. Larger words represent terms that occur more often.
+3. **Style the cloud.** Choose a built-in shape or upload an image as a shape, then adjust the font, colors, word sizes, rotation, spacing, and canvas. Confirm the detected foreground before applying it; for photos, mark the subject and background, refine the mask with keep/remove brushes, and review the preview. Text and decorative fill stay clipped to the confirmed foreground. Larger words represent terms that occur more often.
 4. **Download or share.** Download a PNG for an image or an SVG for a scalable graphic. Create a V link to share or remix the design. You can also save or open a `.wc` snapshot file.
 
 The language menu in the header changes the editor labels. Choose the text's analysis language separately on the Words step.
@@ -45,11 +45,11 @@ The language menu in the header changes the editor labels. Choose the text's ana
 
 Text entered in the editor is analyzed and laid out in your browser. The app keeps the latest source draft in this browser's local storage to restore it after a refresh. Starting a new cloud clears that cached draft.
 
-V links contain the processed words, their counts and ranks, and the cloud's appearance and layout. It does not contain your original text or editable token rules. Anyone with the link can see the resulting words and counts, so share it only when that word list is okay to disclose. A `.wc` snapshot contains the same processed cloud data; use it when a link is too long or when you want a file to reopen later.
+V links contain the processed words, their counts and ranks, and the cloud's appearance and layout. For an uploaded shape, they also contain the confirmed foreground mask, its representative colors, and the saved arrangement so recipients can edit and reflow it. The original source photo is not included. Links and `.wc` files can disclose the word list and the retained shape image, so share them only when that content is okay to disclose. A `.wc` snapshot contains the same processed cloud data; use it when a link is too long or when you want a file to reopen later.
 
 ## Limits
 
-The editor accepts up to 1 MiB of text and 500 unique terms. Some terms may not fit the selected layout; they remain in the ranked word list with a reason.
+The editor accepts up to 1 MiB of text and 500 unique terms. Uploaded shapes are reduced to a 192 × 192 foreground mask with up to 96 representative colors. Source images are decoded and processed in the browser; the original photo is not included in a snapshot. You can change the derived word list, compare actual reflow attempts, and adopt a result. Some terms may not fit the selected layout; they remain in the ranked word list with a reason.
 
 ## For developers
 

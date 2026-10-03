@@ -11,7 +11,9 @@ import {
   SCENE_VERSION,
   type SceneModel,
   type SceneWord,
+  sceneWordColor,
 } from "./scene";
+import { uploadedShapeColorBoundaryPenalty } from "./image-shape";
 import type { FontMetricsTable, GlyphSprite } from "./metrics";
 import type { Word, WordSet } from "./types";
 
@@ -954,6 +956,18 @@ function* searchAnglePlacementSteps(
   let terminalReason: "probe-budget" | "cancelled" | undefined;
   const renderSize = plan.visualSize;
   let angleProbes = 0;
+  const imageShape =
+    context.style.shape?.id === "uploaded" ? context.style.shape : undefined;
+  const preferColor = Boolean(
+    imageShape?.colorBoundary &&
+      prepared.fontSize >
+        context.style.minFontSize +
+          (context.style.maxFontSize - context.style.minFontSize) * 0.42,
+  );
+  let bestPlacement: WordPlacement | undefined;
+  let bestPenalty = Number.POSITIVE_INFINITY;
+  let firstFitProbe = 0;
+  let fittingCandidates = 0;
   const nearby = nearbyCandidatePoints(
     context,
     plan.collisionSize,
@@ -980,6 +994,10 @@ function* searchAnglePlacementSteps(
     !placement && !terminalReason && probe < remainingProbeCount;
     probe += 1
   ) {
+    if (bestPlacement && probe - firstFitProbe >= 48) {
+      placement = bestPlacement;
+      break;
+    }
     context.probes += 1;
     angleProbes += 1;
     const reason = placementBudgetFailure(context);
@@ -998,7 +1016,31 @@ function* searchAnglePlacementSteps(
     const attempt = attemptPlacement(prepared, plan, centerX, centerY, context);
     placement = attempt.placement;
     terminalReason = attempt.terminalReason;
+    if (placement && preferColor && imageShape && context.shapeMask) {
+      const penalty = uploadedShapeColorBoundaryPenalty(
+        imageShape.image,
+        context.shapeMask.bounds,
+        placement.visual,
+      );
+      fittingCandidates += 1;
+      if (!bestPlacement) firstFitProbe = probe;
+      if (penalty < bestPenalty) {
+        bestPlacement = placement;
+        bestPenalty = penalty;
+      }
+      if (
+        bestPenalty > 0.015 &&
+        fittingCandidates < 6 &&
+        probe - firstFitProbe < 48
+      )
+        placement = undefined;
+      else placement = bestPlacement;
+    }
     yield;
+  }
+  if (bestPlacement && terminalReason !== "cancelled") {
+    placement = bestPlacement;
+    terminalReason = undefined;
   }
   return { placement, terminalReason, renderSize };
 }
@@ -1059,7 +1101,13 @@ function commitPlacement(
     y: placement.visual.y,
     width: placement.visual.width,
     height: placement.visual.height,
-    color: prepared.color,
+    color: sceneWordColor(
+      { ...placement.visual, rank: prepared.word.rank },
+      context.style.shape,
+      context.style.canvas,
+      context.palette,
+      safeBackground(context.style.background),
+    ),
     status: "placed",
   });
 }
