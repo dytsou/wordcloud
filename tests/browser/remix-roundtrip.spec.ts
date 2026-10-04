@@ -52,11 +52,10 @@ async function expectStyleOnlyRemix(page: Page) {
 }
 
 async function expectSnapshotFileRemix(page: Page) {
-  await expect(
-    page.getByRole("heading", { name: "文字雲已完成" }),
-  ).toBeVisible();
-  await expect(page.getByText("你正在編輯一個 V 快照。")).toBeVisible();
-  await expect(page.locator(".cloud-svg")).toBeVisible();
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/view");
+  await expect(page).not.toHaveURL(/#/u);
+  await expectStyleOnlyRemix(page);
+  await expect(page.getByRole("alert")).toHaveCount(0);
 }
 
 test.beforeEach(async ({ page }) => {

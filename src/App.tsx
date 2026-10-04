@@ -1307,7 +1307,7 @@ export function App() {
         window.history.replaceState(
           null,
           "",
-          `${pathForStep("result")}${window.location.search}`,
+          `${SHARE_VIEW_PATH}${window.location.search}`,
         );
         setActiveStep("result");
         setStepError(undefined);
@@ -1451,6 +1451,7 @@ export function App() {
   const isSharedView =
     typeof window !== "undefined" &&
     (isSharedViewPath(window.location.pathname) || hasSharedFragment);
+  const hasViewSnapshot = hasSharedFragment || Boolean(state.scene);
   const wordIndex = (
     <WordTable
       wordSet={state.wordSet}
@@ -1760,7 +1761,7 @@ export function App() {
             <header className="wizard-page-heading">
               <p className="section-kicker">{t("previewHeading")}</p>
               <h1 id="wizard-page-title" tabIndex={-1}>
-                {state.mode === "error" || !hasSharedFragment
+                {state.mode === "error" || !hasViewSnapshot
                   ? t("snapshotInvalid")
                   : t("wizardPageStyleTitle")}
               </h1>
@@ -1819,7 +1820,7 @@ export function App() {
                 {t("wizardUpdating")}
               </output>
             )}
-            {(state.mode === "error" || !hasSharedFragment) && (
+            {(state.mode === "error" || !hasViewSnapshot) && (
               <div className="wizard-error" role="alert">
                 <strong>{t("attention")}</strong>
                 <p>{state.error ?? t("snapshotInvalid")}</p>
