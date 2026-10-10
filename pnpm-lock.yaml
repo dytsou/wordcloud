@@ -37,8 +37,8 @@ importers:
         specifier: 1.63.0
         version: 1.63.0
       '@redocly/cli':
-        specifier: 2.55.0
-        version: 2.55.0
+        specifier: 2.59.0
+        version: 2.59.0
       '@types/node':
         specifier: 26.6.4
         version: 26.6.4
@@ -539,8 +539,8 @@ packages:
   '@poppinss/exception@1.2.3':
     resolution: {integrity: sha512-dCED+QRChTVatE9ibtoaxc+WkdzOSjYTKi/+uacHWIsfodVfpsueo3+DKpgU5Px8qXjgmXkSvhXvSCz3fnP9lw==}
 
-  '@redocly/cli@2.55.0':
-    resolution: {integrity: sha512-YKDNfgv7hHsbWeudSLw8CQumX8LZeztdBht82yfFZLIg62BL6srKBzM0SIG+Ct+cnkHfkM0jzJ7OSP0I62W53Q==}
+  '@redocly/cli@2.59.0':
+    resolution: {integrity: sha512-eHdpcIqPzeof36ibjOBYSTb9dkWNa5F/Ql8xr2ArdiFYHjB0y/DX6G6PMVVjhyiggU3MNf4CnoLqFf0DVbTJ+w==}
     engines: {node: '>=22.12.0 || >=20.19.0 <21.0.0', npm: '>=10'}
     hasBin: true
 
@@ -1513,7 +1513,7 @@ snapshots:
 
   '@poppinss/exception@1.2.3': {}
 
-  '@redocly/cli@2.55.0': {}
+  '@redocly/cli@2.59.0': {}
 
   '@rolldown/binding-android-arm-eabi@1.2.11':
     optional: true
