@@ -492,12 +492,10 @@ async function main() {
     return;
   }
 
-  run("pnpm", ["exec", "wrangler", "deploy"], {
+  run("pnpm", ["run", "deploy"], {
     includeCloudflareCredentials: true,
   });
-  console.log(
-    "\nCloudflare deployment completed. Use the URL printed by Wrangler to open the Worker.",
-  );
+  console.log("\nCloudflare deployment completed.");
 }
 
 try {

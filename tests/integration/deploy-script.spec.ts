@@ -19,9 +19,40 @@ const packageJson = JSON.parse(
 describe("Deployment helper", () => {
   it("exposes local and GitHub deployment entry points", () => {
     expect(packageJson.scripts).toMatchObject({
+      deploy: "node scripts/wrangler-deploy.mjs",
       "deploy:release": "node scripts/deploy.mjs",
       "deploy:github": "node scripts/deploy.mjs --github",
     });
+  });
+
+  it("redacts workers.dev URLs and Version IDs from Wrangler deploy output", () => {
+    const sample = [
+      "Deployed wordcloud triggers (0.42 sec)",
+      "  https://wordcloud.example-subdomain.workers.dev",
+      "Current Version ID: 00000000-0000-0000-0000-000000000000",
+    ].join("\n");
+    const expected = [
+      "Deployed wordcloud triggers (0.42 sec)",
+      "  [workers.dev URL redacted]",
+      "Current Version ID: [redacted]",
+    ].join("\n");
+    const output = execFileSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `import { redactDeployOutput } from ${JSON.stringify(resolve(root, "scripts/wrangler-deploy.mjs"))};
+         const sample = ${JSON.stringify(sample)};
+         const expected = ${JSON.stringify(expected)};
+         const actual = redactDeployOutput(sample);
+         if (actual !== expected) {
+           console.error(actual);
+           process.exit(1);
+         }`,
+      ],
+      { cwd: root, encoding: "utf8" },
+    );
+    expect(output).toBe("");
   });
 
   it("provides a safe help path without invoking deployment commands", () => {

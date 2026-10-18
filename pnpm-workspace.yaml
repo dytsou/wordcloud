@@ -3,5 +3,12 @@ allowBuilds:
   esbuild: true
   sharp: true
   workerd: true
+# Keep both Darwin CPU variants so Rosetta (x64) and native arm64 Node can run Biome.
+supportedArchitectures:
+  os:
+    - current
+  cpu:
+    - x64
+    - arm64
 minimumReleaseAgeExclude:
   - '@redocly/cli@2.53.3'

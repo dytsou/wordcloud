@@ -164,13 +164,9 @@ const worker = {
     }
 
     const response = withCspNonce(await env.ASSETS.fetch(request));
-    const isNoIndexRoute = [
-      MCP_PATH,
-      "/view",
-      "/png",
-      "/svg",
-      "/create",
-    ].some((path) => isAtOrBelowPath(url.pathname, path));
+    const isNoIndexRoute = [MCP_PATH, "/view", "/png", "/svg", "/create"].some(
+      (path) => isAtOrBelowPath(url.pathname, path),
+    );
     return isNoIndexRoute ? withNoIndex(response) : response;
   },
 };
