@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
 } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SceneModel } from "../core/scene";
 import type { WordSet } from "../core/types";
 import { useI18n } from "../i18n";

@@ -29,6 +29,30 @@ interface SharePanelProps {
   readonly onNewSource: () => void;
 }
 
+function resolveActiveShareVersion(
+  shareEncoding: boolean,
+  selectedVersion: "v1" | "v2",
+  hasV1Output: boolean,
+  hasV2Output: boolean,
+): "v1" | "v2" {
+  if (shareEncoding) return "v2";
+  if (selectedVersion === "v1" && hasV1Output) return "v1";
+  if (hasV2Output) return "v2";
+  return "v1";
+}
+
+function hasShareVersionOutput(
+  shareUrl?: string,
+  shareError?: string,
+  shareEncoding?: boolean,
+  pngShareUrl?: string,
+  svgShareUrl?: string,
+): boolean {
+  return Boolean(
+    shareUrl || shareError || shareEncoding || (pngShareUrl && svgShareUrl),
+  );
+}
+
 export function SharePanel({
   shareUrl,
   shareUrlV2,
@@ -58,22 +82,26 @@ export function SharePanel({
   const { t } = useI18n();
   const [selectedVersion, setSelectedVersion] = useState<"v1" | "v2">("v2");
 
-  const hasV1Output = Boolean(
-    shareUrl || shareErrorV1 || (pngShareUrlV1 && svgShareUrlV1),
+  const hasV1Output = hasShareVersionOutput(
+    shareUrl,
+    shareErrorV1,
+    false,
+    pngShareUrlV1,
+    svgShareUrlV1,
   );
-  const hasV2Output = Boolean(
-    shareUrlV2 ||
-      shareErrorV2 ||
-      shareEncoding ||
-      (pngShareUrlV2 && svgShareUrlV2),
+  const hasV2Output = hasShareVersionOutput(
+    shareUrlV2,
+    shareErrorV2,
+    shareEncoding,
+    pngShareUrlV2,
+    svgShareUrlV2,
   );
-  const activeVersion = shareEncoding
-    ? "v2"
-    : selectedVersion === "v1" && hasV1Output
-      ? "v1"
-      : hasV2Output
-        ? "v2"
-        : "v1";
+  const activeVersion = resolveActiveShareVersion(
+    shareEncoding,
+    selectedVersion,
+    hasV1Output,
+    hasV2Output,
+  );
   const activeShareUrl = activeVersion === "v1" ? shareUrl : shareUrlV2;
   const activeShareError = activeVersion === "v1" ? shareErrorV1 : shareErrorV2;
   const activePngShareUrl =
@@ -135,53 +163,49 @@ export function SharePanel({
       </div>
 
       {hasVersionChoice && (
-        <>
-          <div className="share-url-heading">
-            {activeShareUrl ? (
-              <label
-                className="field-label"
-                htmlFor={
-                  activeVersion === "v1" ? "share-url-v1" : "share-url-v2"
+        <div className="share-url-heading">
+          {activeShareUrl ? (
+            <label
+              className="field-label"
+              htmlFor={activeVersion === "v1" ? "share-url-v1" : "share-url-v2"}
+            >
+              {t(activeVersion === "v1" ? "v1Url" : "v2Url")}
+            </label>
+          ) : (
+            <span className="field-label">{t("shareVersion")}</span>
+          )}
+          <div className="share-url-heading-actions">
+            {canSwitchVersion && (
+              <button
+                className="share-version-toggle-text"
+                type="button"
+                disabled={disabled}
+                onClick={() =>
+                  setSelectedVersion(activeVersion === "v1" ? "v2" : "v1")
                 }
               >
-                {t(activeVersion === "v1" ? "v1Url" : "v2Url")}
-              </label>
-            ) : (
-              <span className="field-label">{t("shareVersion")}</span>
-            )}
-            <div className="share-url-heading-actions">
-              {canSwitchVersion && (
-                <button
-                  className="share-version-toggle-text"
-                  type="button"
-                  disabled={disabled}
-                  onClick={() =>
-                    setSelectedVersion(activeVersion === "v1" ? "v2" : "v1")
-                  }
-                >
-                  {t("switchShareVersion", {
-                    version: activeVersion === "v1" ? "2" : "1",
-                  })}
-                </button>
-              )}
-              <button
-                className="share-version-info"
-                type="button"
-                aria-label={t("shareVersionInfoLabel")}
-                aria-describedby="share-version-info-tooltip"
-              >
-                <span aria-hidden="true">i</span>
-                <span
-                  className="share-version-tooltip"
-                  id="share-version-info-tooltip"
-                  role="tooltip"
-                >
-                  {t("shareVersionInfo")}
-                </span>
+                {t("switchShareVersion", {
+                  version: activeVersion === "v1" ? "2" : "1",
+                })}
               </button>
-            </div>
+            )}
+            <button
+              className="share-version-info"
+              type="button"
+              aria-label={t("shareVersionInfoLabel")}
+              aria-describedby="share-version-info-tooltip"
+            >
+              <span aria-hidden="true">i</span>
+              <span
+                className="share-version-tooltip"
+                id="share-version-info-tooltip"
+                role="tooltip"
+              >
+                {t("shareVersionInfo")}
+              </span>
+            </button>
           </div>
-        </>
+        </div>
       )}
       {activeShareUrl && (
         <div className="share-url-copy-field">

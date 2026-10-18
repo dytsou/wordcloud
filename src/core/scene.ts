@@ -1,11 +1,11 @@
-import type { FontMetricsTable } from "./metrics";
-import type { LayoutStyle } from "./layout";
-import { safeBackground, safePalette } from "./style-safety";
 import {
   fitUploadedImageBounds,
   readableShapeColor,
   sampleUploadedShapeColor,
 } from "./image-shape";
+import type { LayoutStyle } from "./layout";
+import type { FontMetricsTable } from "./metrics";
+import { safeBackground, safePalette } from "./style-safety";
 
 export const SCENE_VERSION = "scene-v1";
 

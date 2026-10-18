@@ -453,14 +453,16 @@ export function StylePanel({
       return;
     }
     event.preventDefault();
-    const nextTab =
-      event.key === "Home"
-        ? "built-in"
-        : event.key === "End"
-          ? "uploaded"
-          : activeShapeSource === "built-in"
-            ? "uploaded"
-            : "built-in";
+    let nextTab: ShapeSourceTab;
+    if (event.key === "Home") {
+      nextTab = "built-in";
+    } else if (event.key === "End") {
+      nextTab = "uploaded";
+    } else if (activeShapeSource === "built-in") {
+      nextTab = "uploaded";
+    } else {
+      nextTab = "built-in";
+    }
     focusShapeSourceTab(nextTab);
   };
   const selectedShapeIsInActiveTab =
@@ -705,6 +707,7 @@ export function StylePanel({
         <div
           className="shape-source-tabs"
           role="tablist"
+          tabIndex={-1}
           aria-label={`${t("shapeGalleryLabel")} / ${t("imageShapeUpload")}`}
           onKeyDown={handleShapeSourceKeyDown}
         >

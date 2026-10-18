@@ -1,5 +1,5 @@
-import type { TokenizationResult, TokenizerSettings } from "../core/types";
 import { getSupportedTokenizerLocales } from "../core/tokenizer";
+import type { TokenizationResult, TokenizerSettings } from "../core/types";
 import { tokenizerLocaleLabel, useI18n } from "../i18n";
 import { TagInput } from "./TagInput";
 

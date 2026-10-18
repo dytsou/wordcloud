@@ -1,11 +1,11 @@
+import { LIMITS, utf8ByteLength } from "./limits";
+import type { SceneModel } from "./scene";
 import {
   decodeSnapshotFragment,
   encodeSnapshot,
   type Presentation,
   type SnapshotPayload,
 } from "./snapshot";
-import { LIMITS, utf8ByteLength } from "./limits";
-import type { SceneModel } from "./scene";
 import type { WordSet } from "./types";
 
 export const SNAPSHOT_FILE_EXTENSION = ".wc";

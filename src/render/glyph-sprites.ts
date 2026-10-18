@@ -1,12 +1,12 @@
+import { glyphInkSpans, padGlyph } from "../core/glyph-grid";
 import {
+  type LayoutStyle,
   mapFrequency,
   rotationCandidates,
-  type LayoutStyle,
 } from "../core/layout";
-import { glyphInkSpans, padGlyph } from "../core/glyph-grid";
+import { LIMITS } from "../core/limits";
 import type { FontMetricsTable, GlyphSprite } from "../core/metrics";
 import type { WordSet } from "../core/types";
-import { LIMITS } from "../core/limits";
 
 interface GlyphMeasurement {
   fontSize: number;
@@ -148,6 +148,7 @@ export async function createGlyphSprites(
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) return undefined;
+  const drawingContext: CanvasRenderingContext2D = context;
   const sprites: NonNullable<FontMetricsTable["sprites"]> = Object.create(null);
   const counts = wordSet.words.map((word) => word.count);
   const minimum = Math.min(...counts);
@@ -157,8 +158,14 @@ export async function createGlyphSprites(
     Math.min(LIMITS.maxPadding, style.padding),
   );
   let totalPixels = 0;
-  for (const [index, word] of wordSet.words.entries()) {
+
+  async function buildWordSprites(
+    index: number,
+  ): Promise<FontMetricsTable["sprites"] | undefined> {
+    if (index >= wordSet.words.length) return sprites;
     if (shouldCancel()) throw new Error("Layout was cancelled.");
+    const word = wordSet.words[index];
+    if (!word) return sprites;
     const fontSize = mapFrequency(
       word.count,
       minimum,
@@ -171,7 +178,7 @@ export async function createGlyphSprites(
       word.term,
       fontSize,
       style.fontFamily,
-      context,
+      drawingContext,
     );
     if (!measurement) return undefined;
     const eligible = rotationEligible(
@@ -190,15 +197,18 @@ export async function createGlyphSprites(
         padding,
         totalPixels,
         canvas,
-        context,
+        context: drawingContext,
       });
       if (!rendered) return undefined;
       variants[angle] = rendered.sprite;
       totalPixels += rendered.pixelCost;
     }
     sprites[word.term] = variants;
-    if (index % 8 === 7)
+    if (index % 8 === 7) {
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
+    return buildWordSprites(index + 1);
   }
-  return sprites;
+
+  return buildWordSprites(0);
 }

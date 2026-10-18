@@ -1,12 +1,12 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { LayoutStyle } from "../core/layout";
 import {
   decodeUploadedShapeImage,
   fitUploadedImageBounds,
-  uploadedShapePath,
   type RasterImage,
   type UploadedShapeSettings,
+  uploadedShapePath,
 } from "../core/image-shape";
+import type { LayoutStyle } from "../core/layout";
 import { LIMITS, scalarLength } from "../core/limits";
 import type { SceneModel } from "../core/scene";
 import type { Word, WordSet } from "../core/types";
@@ -17,16 +17,16 @@ import {
 } from "./image-shape-messages";
 
 export interface ImageShapeComparisonProps {
-  presentation: LayoutStyle;
-  scene?: SceneModel;
-  disabled?: boolean;
-  onPreview?: (
+  readonly presentation: LayoutStyle;
+  readonly scene?: SceneModel;
+  readonly disabled?: boolean;
+  readonly onPreview?: (
     presentation: LayoutStyle,
     signal: AbortSignal,
   ) => Promise<SceneModel>;
-  onAdopt?: (presentation: LayoutStyle, scene: SceneModel) => void;
-  wordSet?: WordSet;
-  onWordsChange?: (wordSet: WordSet) => void;
+  readonly onAdopt?: (presentation: LayoutStyle, scene: SceneModel) => void;
+  readonly wordSet?: WordSet;
+  readonly onWordsChange?: (wordSet: WordSet) => void;
 }
 interface Trial {
   title: ImageShapeMessage;
@@ -37,10 +37,10 @@ interface Trial {
 function SceneThumbnail({
   scene,
   label,
-}: {
+}: Readonly<{
   scene: SceneModel;
   label: string;
-}) {
+}>) {
   const id = useId();
   const shape = scene.shape?.id === "uploaded" ? scene.shape : undefined;
   const bounds = shape
@@ -93,6 +93,43 @@ function SceneThumbnail({
   );
 }
 
+function drawPlacedWords(context: CanvasRenderingContext2D, scene: SceneModel) {
+  context.fillStyle = "#000000";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  for (const word of scene.words) {
+    if (word.status !== "placed") continue;
+    context.save();
+    context.translate(word.x + word.width / 2, word.y + word.height / 2);
+    context.rotate((word.angle * Math.PI) / 180);
+    context.font = `500 ${word.fontSize}px ${scene.fontFamily}`;
+    context.fillText(word.term, 0, 0);
+    context.restore();
+  }
+}
+
+function coverageRasterFromInk(
+  mask: Uint8Array,
+  ink: Uint8ClampedArray,
+  raster: RasterImage,
+): { raster: RasterImage; retained: number; covered: number } {
+  const rgba = new Uint8ClampedArray(raster.rgba.length);
+  let retained = 0;
+  let covered = 0;
+  for (let index = 0; index < mask.length; index += 1) {
+    if (!mask[index]) continue;
+    retained += 1;
+    const offset = index * 4;
+    const hasInk = ink[offset + 3] >= 16;
+    if (hasInk) covered += 1;
+    rgba[offset] = hasInk ? 7 : 230;
+    rgba[offset + 1] = hasInk ? 91 : 138;
+    rgba[offset + 2] = hasInk ? 102 : 48;
+    rgba[offset + 3] = hasInk ? 100 : 235;
+  }
+  return { raster: { ...raster, rgba }, retained, covered };
+}
+
 function glyphCoverage(
   shape: UploadedShapeSettings,
   scene: SceneModel,
@@ -111,37 +148,17 @@ function glyphCoverage(
   );
   context.scale(raster.width / bounds.width, raster.height / bounds.height);
   context.translate(-bounds.x, -bounds.y);
-  context.fillStyle = "#000000";
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  for (const word of scene.words) {
-    if (word.status !== "placed") continue;
-    context.save();
-    context.translate(word.x + word.width / 2, word.y + word.height / 2);
-    context.rotate((word.angle * Math.PI) / 180);
-    context.font = `500 ${word.fontSize}px ${scene.fontFamily}`;
-    context.fillText(word.term, 0, 0);
-    context.restore();
-  }
+  drawPlacedWords(context, scene);
   const ink = context.getImageData(0, 0, raster.width, raster.height).data;
-  const rgba = new Uint8ClampedArray(raster.rgba.length);
-  let retained = 0;
-  let covered = 0;
-  for (let index = 0; index < mask.length; index += 1) {
-    if (!mask[index]) continue;
-    retained += 1;
-    const offset = index * 4;
-    const hasInk = ink[offset + 3] >= 16;
-    if (hasInk) covered += 1;
-    rgba[offset] = hasInk ? 7 : 230;
-    rgba[offset + 1] = hasInk ? 91 : 138;
-    rgba[offset + 2] = hasInk ? 102 : 48;
-    rgba[offset + 3] = hasInk ? 100 : 235;
-  }
+  const {
+    raster: coverageRaster,
+    retained,
+    covered,
+  } = coverageRasterFromInk(mask, ink, raster);
   canvas.width = 0;
   canvas.height = 0;
   return {
-    raster: { ...raster, rgba },
+    raster: coverageRaster,
     percent: retained ? ((covered / retained) * 100).toFixed(1) : "0.0",
   };
 }
@@ -149,10 +166,10 @@ function glyphCoverage(
 function Coverage({
   shape,
   scene,
-}: {
+}: Readonly<{
   shape: UploadedShapeSettings;
   scene: SceneModel;
-}) {
+}>) {
   const m = useImageShapeMessages();
   const [coverage, setCoverage] = useState<ReturnType<typeof glyphCoverage>>();
   const [error, setError] = useState("");
@@ -164,10 +181,10 @@ function Coverage({
       if (cancelled) return;
       try {
         setCoverage(glyphCoverage(shape, scene));
-      } catch (failure) {
+      } catch (error_) {
         setError(
-          failure instanceof Error
-            ? failure.message
+          error_ instanceof Error
+            ? error_.message
             : "Word coverage could not be measured.",
         );
       }
@@ -199,7 +216,7 @@ function Coverage({
   );
 }
 
-function PlacementCounts({ scene }: { scene: SceneModel }) {
+function PlacementCounts({ scene }: Readonly<{ scene: SceneModel }>) {
   const m = useImageShapeMessages();
   const counts: { key: ImageShapeMessage; count: number }[] = [
     {
@@ -319,15 +336,73 @@ function parseDerivedWords(
   return { ...previous, words, totalTokens };
 }
 
+function layoutTrialVariations(
+  presentation: LayoutStyle,
+  shape: UploadedShapeSettings,
+): { title: ImageShapeMessage; presentation: LayoutStyle }[] {
+  return [
+    {
+      title: "smaller",
+      presentation: {
+        ...presentation,
+        minFontSize: Math.max(8, Math.round(presentation.minFontSize * 0.75)),
+        maxFontSize: Math.max(24, Math.round(presentation.maxFontSize * 0.75)),
+      },
+    },
+    {
+      title: "horizontal",
+      presentation: { ...presentation, rotations: [0] },
+    },
+    shape.colorBoundary
+      ? {
+          title: "relaxed",
+          presentation: {
+            ...presentation,
+            shape: { ...shape, colorBoundary: false },
+          },
+        }
+      : {
+          title: "alternate",
+          presentation: {
+            ...presentation,
+            fontFamily:
+              presentation.fontFamily === "Georgia" ? "system-ui" : "Georgia",
+          },
+        },
+  ];
+}
+
+async function runLayoutTrials(
+  variations: { title: ImageShapeMessage; presentation: LayoutStyle }[],
+  preview: (
+    presentation: LayoutStyle,
+    signal: AbortSignal,
+  ) => Promise<SceneModel>,
+  signal: AbortSignal,
+  sequence: number,
+  generation: { current: number },
+  onProgress: (index: number) => void,
+  onTrial: (trial: Trial) => void,
+): Promise<void> {
+  for (let index = 0; index < variations.length; index += 1) {
+    if (signal.aborted || sequence !== generation.current) return;
+    onProgress(index + 1);
+    const variation = variations[index];
+    const nextScene = await preview(variation.presentation, signal);
+    if (signal.aborted || sequence !== generation.current) return;
+    onTrial({ ...variation, scene: nextScene });
+  }
+}
+
 function DerivedWordEditor({
   wordSet,
   disabled,
   onChange,
-}: {
+}: Readonly<{
   wordSet: WordSet;
   disabled: boolean;
   onChange: (wordSet: WordSet) => void;
-}) {
+}>) {
   const m = useImageShapeMessages();
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
@@ -367,9 +442,9 @@ function DerivedWordEditor({
             const next = parseDerivedWords(draft, wordSet, m);
             setError("");
             onChange(next);
-          } catch (failure) {
+          } catch (error_) {
             setError(
-              failure instanceof Error ? failure.message : m("wordApplyError"),
+              error_ instanceof Error ? error_.message : m("wordApplyError"),
             );
           }
         }}
@@ -427,58 +502,21 @@ export function ImageShapeComparison({
     const sequence = ++generation.current;
     setTrials([]);
     setError("");
-    const variations: {
-      title: ImageShapeMessage;
-      presentation: LayoutStyle;
-    }[] = [
-      {
-        title: "smaller",
-        presentation: {
-          ...presentation,
-          minFontSize: Math.max(8, Math.round(presentation.minFontSize * 0.75)),
-          maxFontSize: Math.max(
-            24,
-            Math.round(presentation.maxFontSize * 0.75),
-          ),
-        },
-      },
-      {
-        title: "horizontal",
-        presentation: { ...presentation, rotations: [0] },
-      },
-      shape.colorBoundary
-        ? {
-            title: "relaxed",
-            presentation: {
-              ...presentation,
-              shape: { ...shape, colorBoundary: false },
-            },
-          }
-        : {
-            title: "alternate",
-            presentation: {
-              ...presentation,
-              fontFamily:
-                presentation.fontFamily === "Georgia" ? "system-ui" : "Georgia",
-            },
-          },
-    ];
+    const variations = layoutTrialVariations(presentation, shape);
     try {
-      for (let index = 0; index < variations.length; index += 1) {
-        if (abort.signal.aborted || sequence !== generation.current) return;
-        setRunning(index + 1);
-        const variation = variations[index];
-        const nextScene = await preview(variation.presentation, abort.signal);
-        if (abort.signal.aborted || sequence !== generation.current) return;
-        setTrials((current) => [
-          ...current,
-          { ...variation, scene: nextScene },
-        ]);
-      }
-    } catch (failure) {
+      await runLayoutTrials(
+        variations,
+        preview,
+        abort.signal,
+        sequence,
+        generation,
+        (index) => setRunning(index),
+        (trial) => setTrials((current) => [...current, trial]),
+      );
+    } catch (error_) {
       if (!abort.signal.aborted && sequence === generation.current)
         setError(
-          failure instanceof Error ? failure.message : "Layout trials failed.",
+          error_ instanceof Error ? error_.message : "Layout trials failed.",
         );
     } finally {
       if (sequence === generation.current) setRunning(0);
@@ -544,9 +582,9 @@ export function ImageShapeComparison({
         </>
       )}
       {running > 0 && (
-        <p className="image-shape-status" role="status">
+        <output className="image-shape-status">
           {m("trialRunning", { number: running })}
-        </p>
+        </output>
       )}
       {error && (
         <p className="image-shape-error" role="alert">

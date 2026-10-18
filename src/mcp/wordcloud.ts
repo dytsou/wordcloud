@@ -2,19 +2,19 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { DEFAULT_PRESENTATION } from "../app/editor-state";
 import { SNAPSHOT_PREFIX } from "../core/codec";
-import { layoutWordCloud, type LayoutStyle } from "../core/layout";
+import { type LayoutStyle, layoutWordCloud } from "../core/layout";
 import { LIMITS, utf8ByteLength } from "../core/limits";
 import type { FontMetric, FontMetricsTable } from "../core/metrics";
+import type { SceneWord } from "../core/scene";
 import {
   BUILT_IN_SHAPES,
+  type BuiltInShapeId,
   MAX_SHAPE_SCALE,
   MIN_SHAPE_SCALE,
-  type BuiltInShapeId,
 } from "../core/shapes";
-import { buildWordSet } from "../core/word-model";
 import {
-  decodeSnapshotFragment,
   createSnapshot,
+  decodeSnapshotFragment,
   encodeSnapshotPayload,
   type SnapshotPayload,
 } from "../core/snapshot";
@@ -24,8 +24,8 @@ import {
   FIXED_LOCALES,
   tokenize,
 } from "../core/tokenizer";
-import type { TokenRule, TokenizerSettings } from "../core/types";
-import type { SceneWord } from "../core/scene";
+import type { TokenizerSettings, TokenRule } from "../core/types";
+import { buildWordSet } from "../core/word-model";
 import type { SceneSvgOptions } from "../render/svg";
 import { renderSceneSvg } from "../render/svg";
 
@@ -516,7 +516,7 @@ export function createWordcloudMcpServer(): McpServer {
         "Send sourceText to the Worker for in-memory processing and return SVG, a reproducible V fragment, and summary data. The application does not intentionally persist or log the source text; Cloudflare or other platform telemetry or retention may still apply. The returned SVG and V fragment contain derived terms.",
       inputSchema: generateInputSchema,
     },
-    async (input: ParsedGenerateInput) => {
+    (input: ParsedGenerateInput) => {
       try {
         const generated = generateWordcloudFromParsedInput(input);
         return {
@@ -550,7 +550,7 @@ export function createWordcloudMcpServer(): McpServer {
         "Inspect derived word counts, ranks, layout status, and top words from an existing V URL or fragment. Raw source text is never accepted or returned.",
       inputSchema: summaryInputSchema,
     },
-    async ({ vUrl, limit }: SummaryInput) => {
+    ({ vUrl, limit }: SummaryInput) => {
       try {
         const summary = summarizeSnapshot(vUrl, limit);
         return {
@@ -573,7 +573,7 @@ export function createWordcloudMcpServer(): McpServer {
         "Render the validated scene from an existing V URL or fragment as SVG text. Raw source text is never accepted, and external resources are not fetched.",
       inputSchema: renderInputSchema,
     },
-    async ({ vUrl, title, description }: RenderInput) => {
+    ({ vUrl, title, description }: RenderInput) => {
       try {
         const svg = renderSnapshotSvg(vUrl, { title, description });
         return { content: [{ type: "text" as const, text: svg }] };

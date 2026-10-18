@@ -5,8 +5,8 @@ import {
   encodeScenePackFragment,
   snapshotFormatFromFragment,
 } from "./codec";
-import type { LayoutStyle } from "./layout";
 import { validateUploadedShapeSettings } from "./image-shape";
+import type { LayoutStyle } from "./layout";
 import { LIMITS, scalarLength } from "./limits";
 import { SCENE_VERSION, type SceneModel, type SceneWord } from "./scene";
 import {
@@ -676,13 +676,12 @@ export function createSnapshot(
   const shaped = presentation.shape !== undefined;
   const snapshotPresentation = { ...presentation };
   if (!shaped) delete snapshotPresentation.shape;
+  let schemaVersion: "wc-snapshot-v1" | "wc-snapshot-v2" | "wc-snapshot-v3";
+  if (presentation.shape?.id === "uploaded") schemaVersion = "wc-snapshot-v3";
+  else if (shaped) schemaVersion = "wc-snapshot-v2";
+  else schemaVersion = "wc-snapshot-v1";
   return validateSnapshot({
-    schemaVersion:
-      presentation.shape?.id === "uploaded"
-        ? "wc-snapshot-v3"
-        : shaped
-          ? "wc-snapshot-v2"
-          : "wc-snapshot-v1",
+    schemaVersion,
     codecVersion: CODEC_VERSION,
     tokenizerVersion: wordSet.tokenizerVersion,
     layoutVersion: presentation.version,

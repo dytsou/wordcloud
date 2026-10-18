@@ -590,13 +590,7 @@ function subtractSpans(
   return remaining;
 }
 
-export function compileShapeMask(
-  settings: ShapeSettings,
-  canvas: { width: number; height: number },
-): CompiledShapeMask {
-  const definition = getBuiltInShape(settings.id);
-  if (!definition && settings.id !== "uploaded")
-    throw new RangeError("Unknown shape");
+function assertShapeCompileScales(settings: ShapeSettings): void {
   if (
     !Number.isFinite(settings.widthScale) ||
     settings.widthScale < MIN_SHAPE_SCALE ||
@@ -607,6 +601,12 @@ export function compileShapeMask(
   ) {
     throw new RangeError("Shape scales must be between 0.2 and 1");
   }
+}
+
+function assertShapeCompileCanvas(canvas: {
+  width: number;
+  height: number;
+}): void {
   if (
     !Number.isInteger(canvas.width) ||
     !Number.isInteger(canvas.height) ||
@@ -615,6 +615,82 @@ export function compileShapeMask(
   ) {
     throw new RangeError("Canvas dimensions must be positive integers");
   }
+}
+
+function addUploadedMaskSpansForRow(
+  row: MaskSpan[],
+  image: NonNullable<UploadedShapeSettings["image"]>,
+  imagePixels: Uint8Array,
+  sourceRow: number,
+  x: number,
+  width: number,
+  canvasWidth: number,
+): void {
+  if (sourceRow >= image.height) return;
+  for (let column = 0; column < image.width; ) {
+    if (!imagePixels[sourceRow * image.width + column]) {
+      column += 1;
+      continue;
+    }
+    const first = column;
+    while (
+      column < image.width &&
+      imagePixels[sourceRow * image.width + column]
+    )
+      column += 1;
+    const start = Math.max(
+      0,
+      Math.ceil(x + (first / image.width) * width - 0.5),
+    );
+    // The right edge is exclusive: a background cell never receives ink.
+    const end = Math.min(
+      canvasWidth,
+      Math.ceil(x + (column / image.width) * width - 0.5),
+    );
+    if (end > start) row.push({ start, end });
+  }
+}
+
+function addBuiltInMaskSpansForRow(
+  row: MaskSpan[],
+  definition: NonNullable<ReturnType<typeof getBuiltInShape>>,
+  normalizedY: number,
+  x: number,
+  width: number,
+  canvasWidth: number,
+  epsilon: number,
+): void {
+  const regions = mergeSpans(
+    definition.regions.flatMap((region) =>
+      primitiveIntervalsAtY(region, normalizedY),
+    ),
+  );
+  const holes = definition.holes?.flatMap((hole) =>
+    primitiveIntervalsAtY(hole, normalizedY),
+  );
+  const inside = holes ? subtractSpans(regions, holes) : regions;
+  for (const span of inside) {
+    const start = Math.max(
+      0,
+      Math.ceil(x + span.start * width - 0.5 - epsilon),
+    );
+    const end = Math.min(
+      canvasWidth,
+      Math.floor(x + span.end * width - 0.5 + epsilon) + 1,
+    );
+    if (end > start) row.push({ start, end });
+  }
+}
+
+export function compileShapeMask(
+  settings: ShapeSettings,
+  canvas: { width: number; height: number },
+): CompiledShapeMask {
+  const definition = getBuiltInShape(settings.id);
+  if (!definition && settings.id !== "uploaded")
+    throw new RangeError("Unknown shape");
+  assertShapeCompileScales(settings);
+  assertShapeCompileCanvas(canvas);
 
   const image = settings.id === "uploaded" ? settings.image : undefined;
   const imagePixels = image ? decodeImagePixels(image) : undefined;
@@ -630,56 +706,33 @@ export function compileShapeMask(
   const rows: MaskSpan[][] = Array.from({ length: canvas.height }, () => []);
   const epsilon = 1e-9;
 
-  for (let row = 0; row < canvas.height; row++) {
-    const normalizedY = (row + 0.5 - y) / height;
+  for (let rowIndex = 0; rowIndex < canvas.height; rowIndex += 1) {
+    const normalizedY = (rowIndex + 0.5 - y) / height;
     if (normalizedY < 0 || normalizedY > 1) continue;
+    const row = rows[rowIndex];
+    if (!row) continue;
     if (image && imagePixels) {
       const sourceRow = Math.floor(normalizedY * image.height);
-      if (sourceRow >= image.height) continue;
-      for (let column = 0; column < image.width; ) {
-        if (!imagePixels[sourceRow * image.width + column]) {
-          column += 1;
-          continue;
-        }
-        const first = column;
-        while (
-          column < image.width &&
-          imagePixels[sourceRow * image.width + column]
-        )
-          column += 1;
-        const start = Math.max(
-          0,
-          Math.ceil(x + (first / image.width) * width - 0.5),
-        );
-        // The right edge is exclusive: a background cell never receives ink.
-        const end = Math.min(
-          canvas.width,
-          Math.ceil(x + (column / image.width) * width - 0.5),
-        );
-        if (end > start) rows[row]?.push({ start, end });
-      }
+      addUploadedMaskSpansForRow(
+        row,
+        image,
+        imagePixels,
+        sourceRow,
+        x,
+        width,
+        canvas.width,
+      );
       continue;
     }
-    const regions = mergeSpans(
-      definition!.regions.flatMap((region) =>
-        primitiveIntervalsAtY(region, normalizedY),
-      ),
+    addBuiltInMaskSpansForRow(
+      row,
+      definition!,
+      normalizedY,
+      x,
+      width,
+      canvas.width,
+      epsilon,
     );
-    const holes = definition!.holes?.flatMap((hole) =>
-      primitiveIntervalsAtY(hole, normalizedY),
-    );
-    const inside = holes ? subtractSpans(regions, holes) : regions;
-    for (const span of inside) {
-      const start = Math.max(
-        0,
-        Math.ceil(x + span.start * width - 0.5 - epsilon),
-      );
-      const end = Math.min(
-        canvas.width,
-        Math.floor(x + span.end * width - 0.5 + epsilon) + 1,
-      );
-      if (end > start) rows[row]?.push({ start, end });
-    }
   }
 
   const containsSpan = (row: number, start: number, end: number): boolean => {

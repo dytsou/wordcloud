@@ -1,5 +1,5 @@
-import { useI18n } from "../i18n";
 import { WIZARD_STEPS, type WizardStep } from "../app/wizard-route";
+import { useI18n } from "../i18n";
 
 interface WizardStepperProps {
   readonly currentStep: WizardStep;

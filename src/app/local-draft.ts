@@ -1,6 +1,6 @@
-import { LIMITS } from "../core/limits";
 import type { LayoutStyle } from "../core/layout";
-import type { TokenRule, TokenizerSettings } from "../core/types";
+import { LIMITS } from "../core/limits";
+import type { TokenizerSettings, TokenRule } from "../core/types";
 
 export const LOCAL_DRAFT_STORAGE_KEY = "wordcloud-studio:source-draft:v1";
 export const LOCAL_STOP_WORDS_STORAGE_KEY = "wordcloud-studio:stop-words:v1";

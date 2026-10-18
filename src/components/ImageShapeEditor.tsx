@@ -34,15 +34,15 @@ import {
 import "../styles/image-shape.css";
 
 export interface ImageShapeEditorProps {
-  shape?: UploadedShapeSettings;
-  disabled?: boolean;
-  background: string;
-  onApply: (shape: UploadedShapeSettings) => void;
-  onBackgroundChange: (background: string) => void;
-  paletteControls?: ReactNode;
-  backgroundControls?: ReactNode;
-  onRemove: () => void;
-  onPendingChange: (pending: boolean) => void;
+  readonly shape?: UploadedShapeSettings;
+  readonly disabled?: boolean;
+  readonly background: string;
+  readonly onApply: (shape: UploadedShapeSettings) => void;
+  readonly onBackgroundChange: (background: string) => void;
+  readonly paletteControls?: ReactNode;
+  readonly backgroundControls?: ReactNode;
+  readonly onRemove: () => void;
+  readonly onPendingChange: (pending: boolean) => void;
 }
 
 interface EditState {
@@ -58,6 +58,18 @@ interface ImageSession extends EditState {
   asset?: UploadedShapeImage;
 }
 type Tool = "keep" | "remove" | "markKeep" | "markRemove" | "box";
+function defaultBoxCoordinate(
+  key: keyof ImageRect,
+  box: ImageRect | undefined,
+  raster: RasterImage,
+): number {
+  const value = box?.[key];
+  if (value !== undefined) return value;
+  if (key === "width") return raster.width;
+  if (key === "height") return raster.height;
+  return 0;
+}
+
 const TOOL_HELP: Record<Tool, ImageShapeMessage> = {
   keep: "keepHelp",
   remove: "removeHelp",
@@ -72,6 +84,40 @@ function visibleMask(mask: Uint8Array, raster: RasterImage): Uint8Array {
   );
 }
 
+function tintExcludedMaskPixel(
+  rgba: Uint8ClampedArray,
+  sourceRgba: Uint8ClampedArray,
+  index: number,
+) {
+  const offset = index * 4;
+  rgba[offset] = 160;
+  rgba[offset + 1] = 83;
+  rgba[offset + 2] = 83;
+  rgba[offset + 3] = sourceRgba[offset + 3] > 0 ? 55 : 0;
+}
+
+function tintSeedPixel(rgba: Uint8ClampedArray, index: number, seed: number) {
+  const offset = index * 4;
+  const keep = seed === 1;
+  rgba[offset] = keep ? 58 : 238;
+  rgba[offset + 1] = keep ? 211 : 91;
+  rgba[offset + 2] = keep ? 126 : 166;
+  rgba[offset + 3] = 255;
+}
+
+function applyMaskOverlay(
+  rgba: Uint8ClampedArray,
+  sourceRgba: Uint8ClampedArray,
+  mask: Uint8Array,
+  seeds?: Int8Array,
+) {
+  for (let index = 0; index < mask.length; index += 1) {
+    if (!mask[index]) tintExcludedMaskPixel(rgba, sourceRgba, index);
+    const seed = seeds?.[index];
+    if (seed) tintSeedPixel(rgba, index, seed);
+  }
+}
+
 function drawRaster(
   canvas: HTMLCanvasElement,
   raster: RasterImage,
@@ -83,23 +129,7 @@ function drawRaster(
   const context = canvas.getContext("2d");
   if (!context) return;
   const rgba = raster.rgba.slice();
-  if (mask) {
-    for (let index = 0; index < mask.length; index += 1) {
-      const offset = index * 4;
-      if (!mask[index]) {
-        rgba[offset] = 160;
-        rgba[offset + 1] = 83;
-        rgba[offset + 2] = 83;
-        rgba[offset + 3] = raster.rgba[offset + 3] > 0 ? 55 : 0;
-      }
-      if (seeds?.[index]) {
-        rgba[offset] = seeds[index] === 1 ? 58 : 238;
-        rgba[offset + 1] = seeds[index] === 1 ? 211 : 91;
-        rgba[offset + 2] = seeds[index] === 1 ? 126 : 166;
-        rgba[offset + 3] = 255;
-      }
-    }
-  }
+  if (mask) applyMaskOverlay(rgba, raster.rgba, mask, seeds);
   context.putImageData(new ImageData(rgba, raster.width, raster.height), 0, 0);
 }
 
@@ -108,22 +138,17 @@ export function ImageShapeRasterView({
   raster,
   label,
   mask,
-}: {
+}: Readonly<{
   raster: RasterImage;
   label: string;
   mask?: Uint8Array;
-}) {
+}>) {
   const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     if (canvas.current) drawRaster(canvas.current, raster, mask);
   }, [raster, mask]);
   return (
-    <canvas
-      className="image-shape-raster"
-      ref={canvas}
-      role="img"
-      aria-label={label}
-    >
+    <canvas className="image-shape-raster" ref={canvas} aria-label={label}>
       {label}
     </canvas>
   );
@@ -197,7 +222,6 @@ export function ImageShapeEditor({
     const description = m(key);
     return {
       "data-tooltip": description,
-      "aria-description": description,
     };
   };
   const id = useId();
@@ -343,10 +367,10 @@ export function ImageShapeEditor({
         return;
       }
       updateSession(next);
-    } catch (failure) {
+    } catch (error_) {
       if (abort.signal.aborted || sequence !== job.current) return;
       setError(
-        failure instanceof Error ? failure.message : "Image processing failed.",
+        error_ instanceof Error ? error_.message : "Image processing failed.",
       );
     } finally {
       if (sequence === job.current) setBusy(false);
@@ -600,10 +624,10 @@ export function ImageShapeEditor({
         colorBoundary: shape?.colorBoundary ?? true,
         image,
       });
-    } catch (failure) {
+    } catch (error_) {
       setError(
-        failure instanceof Error
-          ? failure.message
+        error_ instanceof Error
+          ? error_.message
           : "The foreground could not be saved.",
       );
     }
@@ -706,9 +730,7 @@ export function ImageShapeEditor({
         </p>
       )}
       {busy && !editing && (
-        <p className="image-shape-status" role="status">
-          {m("processing")}
-        </p>
+        <output className="image-shape-status">{m("processing")}</output>
       )}
       <dialog
         ref={editorDialog}
@@ -737,9 +759,9 @@ export function ImageShapeEditor({
                 </p>
               )}
               {busy && (
-                <p className="image-shape-status" role="status">
+                <output className="image-shape-status">
                   {m("processing")}
-                </p>
+                </output>
               )}
               {editing && session && (
                 <>
@@ -775,11 +797,9 @@ export function ImageShapeEditor({
                         <canvas
                           ref={canvas}
                           className="image-shape-raster image-shape-edit-canvas"
-                          role="img"
                           tabIndex={locked ? -1 : 0}
                           aria-label={`${m("foreground")}: ${kept} / ${session.mask.length}`}
                           aria-describedby={`${id}-keyboard`}
-                          aria-description={m("keyboard")}
                           onPointerDown={pointerDown}
                           onPointerMove={pointerMove}
                           onPointerUp={endGesture}
@@ -889,7 +909,6 @@ export function ImageShapeEditor({
                       max="24"
                       value={radius}
                       disabled={locked}
-                      aria-description={m("radiusHelp")}
                       onChange={(event) =>
                         setRadius(Number(event.target.value))
                       }
@@ -920,7 +939,6 @@ export function ImageShapeEditor({
                           step="1"
                           value={cursor[axis]}
                           disabled={locked}
-                          aria-description={m("cursorHelp")}
                           onChange={(event) => {
                             const value = Number(event.target.value);
                             if (Number.isFinite(value))
@@ -994,15 +1012,13 @@ export function ImageShapeEditor({
                             }
                             step="1"
                             value={Math.round(
-                              session.box?.[key] ??
-                                (key === "width"
-                                  ? session.raster.width
-                                  : key === "height"
-                                    ? session.raster.height
-                                    : 0),
+                              defaultBoxCoordinate(
+                                key,
+                                session.box,
+                                session.raster,
+                              ),
                             )}
                             disabled={locked}
-                            aria-description={m("boxCoordinatesHelp")}
                             onChange={(event) =>
                               setBox(key, Number(event.target.value))
                             }
@@ -1015,9 +1031,7 @@ export function ImageShapeEditor({
                         type="button"
                         className="button button-quiet image-shape-tooltip-target"
                         disabled={
-                          locked ||
-                          (!session.box &&
-                            !session.seeds.some((value) => value === 1))
+                          locked || (!session.box && !session.seeds.includes(1))
                         }
                         {...tooltipAttributes("findHelp")}
                         onClick={findSubject}
@@ -1065,7 +1079,6 @@ export function ImageShapeEditor({
                         max="100"
                         value={tolerance}
                         disabled={locked}
-                        aria-description={m("toleranceHelp")}
                         onChange={(event) =>
                           setTolerance(Number(event.target.value))
                         }
@@ -1079,7 +1092,6 @@ export function ImageShapeEditor({
                         type="checkbox"
                         checked={holes}
                         disabled={locked}
-                        aria-description={m("holesHelp")}
                         onChange={(event) => setHoles(event.target.checked)}
                       />
                       <span>{m("holes")}</span>

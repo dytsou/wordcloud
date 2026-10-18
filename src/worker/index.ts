@@ -52,7 +52,7 @@ function withCspNonce(response: Response): Response {
   // Cloudflare JavaScript Detections copies this nonce to its injected inline script.
   const nonceBytes = crypto.getRandomValues(new Uint8Array(16));
   let nonceInput = "";
-  for (const byte of nonceBytes) nonceInput += String.fromCharCode(byte);
+  for (const byte of nonceBytes) nonceInput += String.fromCodePoint(byte);
   const nonce = btoa(nonceInput);
   const cspWithNonce = contentSecurityPolicy.replace(
     /(^|;)\s*script-src\s+([^;]+)/i,

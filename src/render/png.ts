@@ -1,6 +1,6 @@
 import type { SceneFillDot, SceneModel, SceneWord } from "../core/scene";
 import { buildShapeFillDots, shapeFillDotColor } from "../core/shape-fill";
-import { compileShapeMask, type CompiledShapeMask } from "../core/shapes";
+import { type CompiledShapeMask, compileShapeMask } from "../core/shapes";
 import { assertRenderableScene } from "./safe-scene";
 
 export interface PngRenderPlan {

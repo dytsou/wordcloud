@@ -19,19 +19,19 @@ export function SnapshotImport({ onImport }: SnapshotImportProps) {
     if (file) onImport(file);
   };
 
-  const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
+  const handleDragEnter = (event: DragEvent<HTMLFieldSetElement>) => {
     event.preventDefault();
     dragDepthRef.current += 1;
     setIsDragActive(true);
   };
 
-  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = (event: DragEvent<HTMLFieldSetElement>) => {
     event.preventDefault();
     dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
     if (dragDepthRef.current === 0) setIsDragActive(false);
   };
 
-  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+  const handleDrop = (event: DragEvent<HTMLFieldSetElement>) => {
     event.preventDefault();
     dragDepthRef.current = 0;
     setIsDragActive(false);
@@ -40,13 +40,12 @@ export function SnapshotImport({ onImport }: SnapshotImportProps) {
   };
 
   return (
-    <div
+    <fieldset
       className={
         isDragActive
           ? "snapshot-import snapshot-import--active"
           : "snapshot-import"
       }
-      role="group"
       aria-label={t("importSnapshot", { extension: SNAPSHOT_FILE_EXTENSION })}
       onDragEnter={handleDragEnter}
       onDragOver={(event) => {
@@ -76,6 +75,6 @@ export function SnapshotImport({ onImport }: SnapshotImportProps) {
         aria-label={t("importSnapshot", { extension: SNAPSHOT_FILE_EXTENSION })}
         onChange={handleFileChange}
       />
-    </div>
+    </fieldset>
   );
 }

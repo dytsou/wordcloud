@@ -272,27 +272,33 @@ class PixelQueue {
   }
 }
 
-function subjectSeeds(
+function assertSubjectSelectionBox(
   raster: RasterImage,
-  selection: SubjectSelection,
-): Int8Array {
-  const area = raster.width * raster.height;
-  const seeds = new Int8Array(area);
-  const box = selection.box;
+  box: SubjectSelection["box"],
+): void {
   if (
-    box &&
-    (!validPoint(box) ||
-      !Number.isFinite(box.width) ||
-      !Number.isFinite(box.height) ||
-      box.width <= 0 ||
-      box.height <= 0 ||
-      box.x >= raster.width ||
-      box.y >= raster.height ||
-      box.x + box.width <= 0 ||
-      box.y + box.height <= 0)
+    !box ||
+    (validPoint(box) &&
+      Number.isFinite(box.width) &&
+      Number.isFinite(box.height) &&
+      box.width > 0 &&
+      box.height > 0 &&
+      box.x < raster.width &&
+      box.y < raster.height &&
+      box.x + box.width > 0 &&
+      box.y + box.height > 0)
   ) {
-    throw new RangeError("Subject selection box must intersect the image.");
+    return;
   }
+  throw new RangeError("Subject selection box must intersect the image.");
+}
+
+function markSubjectBorderSeeds(
+  seeds: Int8Array,
+  raster: RasterImage,
+  box: SubjectSelection["box"],
+): void {
+  const area = raster.width * raster.height;
   for (let index = 0; index < area; index += 1) {
     const x = index % raster.width;
     const y = Math.floor(index / raster.width);
@@ -308,20 +314,32 @@ function subjectSeeds(
           y >= box.y + box.height));
     if (outside) seeds[index] = -1;
   }
-  if (selection.seeds) {
-    if (
-      !(selection.seeds instanceof Int8Array) ||
-      selection.seeds.length !== area ||
-      selection.seeds.some(
-        (value) => value !== -1 && value !== 0 && value !== 1,
-      )
-    ) {
+}
+
+function mergeExplicitSubjectSeeds(
+  seeds: Int8Array,
+  marks: Int8Array | undefined,
+  area: number,
+): void {
+  if (!marks) return;
+  if (!(marks instanceof Int8Array) || marks.length !== area) {
+    throw new RangeError("Subject marks contain invalid pixel labels.");
+  }
+  for (const value of marks) {
+    if (value !== -1 && value !== 0 && value !== 1) {
       throw new RangeError("Subject marks contain invalid pixel labels.");
     }
-    selection.seeds.forEach((value, index) => {
-      if (value !== 0) seeds[index] = value;
-    });
   }
+  marks.forEach((value, index) => {
+    if (value !== 0) seeds[index] = value;
+  });
+}
+
+function applySubjectStrokeSeeds(
+  seeds: Int8Array,
+  raster: RasterImage,
+  selection: SubjectSelection,
+): void {
   const radius = selection.seedRadius ?? 2;
   for (const [points, mode] of [
     [selection.keep ?? [], "keep"],
@@ -341,43 +359,70 @@ function subjectSeeds(
       ),
     );
   }
-  if (!seeds.some((value) => value === 1) && box) {
-    const x = Math.max(
-      0,
-      Math.min(raster.width - 1, Math.floor(box.x + box.width / 2)),
-    );
-    const y = Math.max(
-      0,
-      Math.min(raster.height - 1, Math.floor(box.y + box.height / 2)),
-    );
-    let chosen = -1;
-    let nearest = Number.POSITIVE_INFINITY;
-    for (let index = 0; index < area; index += 1) {
-      const column = index % raster.width;
-      const row = Math.floor(index / raster.width);
-      const distance = (column - x) ** 2 + (row - y) ** 2;
-      if (
-        seeds[index] === 0 &&
-        raster.rgba[index * 4 + 3] >= 16 &&
-        distance < nearest &&
-        column >= box.x &&
-        row >= box.y &&
-        column < box.x + box.width &&
-        row < box.y + box.height
-      ) {
-        nearest = distance;
-        chosen = index;
-      }
+}
+
+function seedBoxCenterForeground(
+  seeds: Int8Array,
+  raster: RasterImage,
+  box: NonNullable<SubjectSelection["box"]>,
+): void {
+  const area = raster.width * raster.height;
+  const x = Math.max(
+    0,
+    Math.min(raster.width - 1, Math.floor(box.x + box.width / 2)),
+  );
+  const y = Math.max(
+    0,
+    Math.min(raster.height - 1, Math.floor(box.y + box.height / 2)),
+  );
+  let chosen = -1;
+  let nearest = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < area; index += 1) {
+    const column = index % raster.width;
+    const row = Math.floor(index / raster.width);
+    const distance = (column - x) ** 2 + (row - y) ** 2;
+    if (
+      seeds[index] === 0 &&
+      raster.rgba[index * 4 + 3] >= 16 &&
+      distance < nearest &&
+      column >= box.x &&
+      row >= box.y &&
+      column < box.x + box.width &&
+      row < box.y + box.height
+    ) {
+      nearest = distance;
+      chosen = index;
     }
-    if (chosen >= 0) seeds[chosen] = 1;
   }
-  if (!seeds.some((value) => value === 1)) {
+  if (chosen >= 0) seeds[chosen] = 1;
+}
+
+function maskTransparentSubjectSeeds(
+  seeds: Int8Array,
+  raster: RasterImage,
+): void {
+  for (let index = 0; index < seeds.length; index += 1)
+    if (raster.rgba[index * 4 + 3] < 16) seeds[index] = -1;
+}
+
+function subjectSeeds(
+  raster: RasterImage,
+  selection: SubjectSelection,
+): Int8Array {
+  const area = raster.width * raster.height;
+  const seeds = new Int8Array(area);
+  const box = selection.box;
+  assertSubjectSelectionBox(raster, box);
+  markSubjectBorderSeeds(seeds, raster, box);
+  mergeExplicitSubjectSeeds(seeds, selection.seeds, area);
+  applySubjectStrokeSeeds(seeds, raster, selection);
+  if (!seeds.includes(1) && box) seedBoxCenterForeground(seeds, raster, box);
+  if (!seeds.includes(1)) {
     throw new RangeError(
       "Mark a foreground point or draw a subject selection box first.",
     );
   }
-  for (let index = 0; index < area; index += 1)
-    if (raster.rgba[index * 4 + 3] < 16) seeds[index] = -1;
+  maskTransparentSubjectSeeds(seeds, raster);
   return seeds;
 }
 

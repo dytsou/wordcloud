@@ -369,6 +369,58 @@ function sleep(milliseconds) {
   });
 }
 
+function findGithubDeployRun(
+  runs,
+  revisionSha,
+  deploymentNonce,
+  startedAt,
+) {
+  return runs.find(
+    (candidate) =>
+      candidate.event === "workflow_dispatch" &&
+      candidate.headBranch === "main" &&
+      candidate.headSha === revisionSha &&
+      candidate.displayTitle === "Deploy " + deploymentNonce &&
+      Date.parse(candidate.createdAt) >= startedAt - 5_000,
+  );
+}
+
+function listGithubDeployRuns(repository) {
+  return JSON.parse(
+    capture("gh", [
+      "run",
+      "list",
+      "--workflow",
+      "deploy.yml",
+      "--repo",
+      repository,
+      "--limit",
+      "20",
+      "--json",
+      "databaseId,event,headBranch,headSha,createdAt,displayTitle,url",
+    ]),
+  );
+}
+
+function watchGithubDeployRun(repository, workflowRun) {
+  run("gh", [
+    "run",
+    "watch",
+    String(workflowRun.databaseId),
+    "--repo",
+    repository,
+    "--exit-status",
+  ]);
+  console.log(
+    "\nGitHub deployment completed: " +
+      (workflowRun.url ??
+        "https://github.com/" +
+          repository +
+          "/actions/runs/" +
+          workflowRun.databaseId),
+  );
+}
+
 async function waitForGithubDeployment(
   repository,
   startedAt,
@@ -376,53 +428,26 @@ async function waitForGithubDeployment(
   deploymentNonce,
 ) {
   const timeoutAt = Date.now() + 5 * 60 * 1000;
-  while (Date.now() < timeoutAt) {
-    const runs = JSON.parse(
-      capture("gh", [
-        "run",
-        "list",
-        "--workflow",
-        "deploy.yml",
-        "--repo",
-        repository,
-        "--limit",
-        "20",
-        "--json",
-        "databaseId,event,headBranch,headSha,createdAt,displayTitle,url",
-      ]),
-    );
-    const workflowRun = runs.find(
-      (candidate) =>
-        candidate.event === "workflow_dispatch" &&
-        candidate.headBranch === "main" &&
-        candidate.headSha === revisionSha &&
-        candidate.displayTitle === "Deploy " + deploymentNonce &&
-        Date.parse(candidate.createdAt) >= startedAt - 5_000,
+  async function poll() {
+    if (Date.now() >= timeoutAt) {
+      throw new Error(
+        "Timed out waiting for the GitHub deploy workflow. Check its status with gh run list.",
+      );
+    }
+    const workflowRun = findGithubDeployRun(
+      listGithubDeployRuns(repository),
+      revisionSha,
+      deploymentNonce,
+      startedAt,
     );
     if (workflowRun) {
-      run("gh", [
-        "run",
-        "watch",
-        String(workflowRun.databaseId),
-        "--repo",
-        repository,
-        "--exit-status",
-      ]);
-      console.log(
-        "\nGitHub deployment completed: " +
-          (workflowRun.url ??
-            "https://github.com/" +
-              repository +
-              "/actions/runs/" +
-              workflowRun.databaseId),
-      );
+      watchGithubDeployRun(repository, workflowRun);
       return;
     }
     await sleep(3_000);
+    return poll();
   }
-  throw new Error(
-    "Timed out waiting for the GitHub deploy workflow. Check its status with gh run list.",
-  );
+  return poll();
 }
 
 async function main() {

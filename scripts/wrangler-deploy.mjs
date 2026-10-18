@@ -1,11 +1,21 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+function resolveWranglerCli() {
+  const require = createRequire(import.meta.url);
+  // Resolve via package.json — wrangler does not export bin/ in package exports.
+  return resolve(
+    dirname(require.resolve("wrangler/package.json")),
+    "bin/wrangler.js",
+  );
+}
 
 /** Redact workers.dev URLs and Version IDs from Wrangler deploy logs. */
 export function redactDeployOutput(text) {
@@ -25,9 +35,10 @@ function pipeRedacted(stream, write) {
 }
 
 function main() {
+  // Spawn Node + resolved Wrangler entry (no PATH lookup for the executable).
   const child = spawn(
-    "pnpm",
-    ["exec", "wrangler", "deploy", ...process.argv.slice(2)],
+    process.execPath,
+    [resolveWranglerCli(), "deploy", ...process.argv.slice(2)],
     {
       cwd: root,
       env: process.env,

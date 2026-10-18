@@ -1,5 +1,5 @@
-import type { SceneModel, SceneWord } from "../core/scene";
 import { fitUploadedImageBounds, uploadedShapePath } from "../core/image-shape";
+import type { SceneModel, SceneWord } from "../core/scene";
 import {
   buildShapeFillDots,
   DOT_RADIUS,
@@ -208,13 +208,14 @@ function serializeSceneSvg(
   );
   const placedWords = scene.words.filter((word) => word.status === "placed");
   const fillDots = buildShapeFillDots(scene);
+  const fillDotMarkup = fillDots
+    .map((dot) => {
+      const fillAttribute = dot.color ? ` fill="${escapeXml(dot.color)}"` : "";
+      return `<circle cx="${numberAttribute(dot.x)}" cy="${numberAttribute(dot.y)}" r="${numberAttribute(DOT_RADIUS)}"${fillAttribute}/>`;
+    })
+    .join("");
   const fill = fillDots.length
-    ? `<g id="wordcloud-fill" aria-hidden="true" fill="${escapeXml(shapeFillDotColor(scene))}">${fillDots
-        .map(
-          (dot) =>
-            `<circle cx="${numberAttribute(dot.x)}" cy="${numberAttribute(dot.y)}" r="${numberAttribute(DOT_RADIUS)}"${dot.color ? ` fill="${escapeXml(dot.color)}"` : ""}/>`,
-        )
-        .join("")}</g>`
+    ? `<g id="wordcloud-fill" aria-hidden="true" fill="${escapeXml(shapeFillDotColor(scene))}">${fillDotMarkup}</g>`
     : "";
   const uploadedShape =
     scene.shape?.id === "uploaded" ? scene.shape : undefined;
@@ -237,7 +238,15 @@ function serializeSceneSvg(
     })
     .join("");
   const content = `${fill}<g id="wordcloud-words">${words}</g>`;
-  return `<svg xmlns="${SVG_NAMESPACE}" width="${numberAttribute(scene.canvas.width)}" height="${numberAttribute(scene.canvas.height)}" viewBox="0 0 ${numberAttribute(scene.canvas.width)} ${numberAttribute(scene.canvas.height)}" role="img" aria-labelledby="wordcloud-title wordcloud-description"><title id="wordcloud-title">${title}</title><desc id="wordcloud-description">${description}</desc>${clip}<rect x="0" y="0" width="${numberAttribute(scene.canvas.width)}" height="${numberAttribute(scene.canvas.height)}" fill="${escapeXml(scene.background)}" aria-hidden="true"/>${uploadedShape ? `<g clip-path="url(#wordcloud-uploaded-shape)">${content}</g>` : content}<metadata id="wordcloud-records">${escapeXml(metadataText(scene.words))}</metadata></svg>`;
+  const canvasWidth = numberAttribute(scene.canvas.width);
+  const canvasHeight = numberAttribute(scene.canvas.height);
+  const viewBox = `0 0 ${canvasWidth} ${canvasHeight}`;
+  const backgroundRect = `<rect x="0" y="0" width="${canvasWidth}" height="${canvasHeight}" fill="${escapeXml(scene.background)}" aria-hidden="true"/>`;
+  const wordLayer = uploadedShape
+    ? `<g clip-path="url(#wordcloud-uploaded-shape)">${content}</g>`
+    : content;
+  const metadata = `<metadata id="wordcloud-records">${escapeXml(metadataText(scene.words))}</metadata>`;
+  return `<svg xmlns="${SVG_NAMESPACE}" width="${canvasWidth}" height="${canvasHeight}" viewBox="${viewBox}" role="img" aria-labelledby="wordcloud-title wordcloud-description"><title id="wordcloud-title">${title}</title><desc id="wordcloud-description">${description}</desc>${clip}${backgroundRect}${wordLayer}${metadata}</svg>`;
 }
 
 export function renderSceneSvg(

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LIMITS } from "../core/limits";
-import type { TokenRule, TokenizerSettings } from "../core/types";
+import type { TokenizerSettings, TokenRule } from "../core/types";
 import { useI18n } from "../i18n";
 import { TagInput } from "./TagInput";
 

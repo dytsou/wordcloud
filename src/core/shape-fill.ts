@@ -1,6 +1,6 @@
 import type { SceneFillDot, SceneModel } from "./scene";
 import { sceneWordColor } from "./scene";
-import { compileShapeMask, type CompiledShapeMask } from "./shapes";
+import { type CompiledShapeMask, compileShapeMask } from "./shapes";
 
 const DOT_RADIUS = 2.3;
 // A period's visible ink fits within this conservative 5 × 5 pixel budget.

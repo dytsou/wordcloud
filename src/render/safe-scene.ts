@@ -1,7 +1,7 @@
-import { LIMITS, scalarLength } from "../core/limits";
-import { isSafeFontFamily, isSafeHexColor } from "../core/style-safety";
-import type { SceneModel, SceneWord } from "../core/scene";
 import { assertUploadedShapeSettings } from "../core/image-shape";
+import { LIMITS, scalarLength } from "../core/limits";
+import type { SceneModel, SceneWord } from "../core/scene";
+import { isSafeFontFamily, isSafeHexColor } from "../core/style-safety";
 
 // The control-character range is intentional: render data may be untrusted.
 const FORBIDDEN_TEXT =

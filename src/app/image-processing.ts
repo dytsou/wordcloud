@@ -44,7 +44,7 @@ function sourceDimensions(
   return { width, height };
 }
 function text(bytes: Uint8Array, offset: number, length: number): string {
-  return String.fromCharCode(...bytes.subarray(offset, offset + length));
+  return String.fromCodePoint(...bytes.subarray(offset, offset + length));
 }
 function pngDimensions(bytes: Uint8Array, view: DataView) {
   if (
@@ -65,25 +65,56 @@ function pngDimensions(bytes: Uint8Array, view: DataView) {
   return sourceDimensions(view.getUint32(16), view.getUint32(20));
 }
 const MAX_JPEG_HEADER_MARKER_WORK = 4096;
+const JPEG_FRAME_MARKERS = new Set([0xc0, 0xc1, 0xc2]);
+
+function advanceJpegMarker(
+  bytes: Uint8Array,
+  offset: number,
+  markerWork: number,
+): { marker: number; offset: number; markerWork: number } {
+  if (markerWork >= MAX_JPEG_HEADER_MARKER_WORK)
+    throw new TypeError("JPEG image header contains too many markers.");
+  let work = markerWork + 1;
+  if (bytes[offset++] !== 0xff)
+    throw new TypeError("Invalid JPEG image header.");
+  while (bytes[offset] === 0xff) {
+    work += 1;
+    if (work > MAX_JPEG_HEADER_MARKER_WORK)
+      throw new TypeError("JPEG image header contains too many markers.");
+    offset += 1;
+  }
+  const marker = bytes[offset++];
+  return { marker, offset, markerWork: work };
+}
+
+function readJpegFrameDimensions(
+  bytes: Uint8Array,
+  view: DataView,
+  marker: number,
+  offset: number,
+  length: number,
+  dimensions?: { width: number; height: number },
+): { width: number; height: number } | undefined {
+  if (!JPEG_FRAME_MARKERS.has(marker)) return dimensions;
+  if (length < 8 || bytes[offset + 2] !== 8)
+    throw new TypeError("Unsupported JPEG image frame.");
+  if (dimensions)
+    throw new TypeError("Multiple JPEG frames are not supported.");
+  return sourceDimensions(
+    view.getUint16(offset + 5),
+    view.getUint16(offset + 3),
+  );
+}
 
 function jpegDimensions(bytes: Uint8Array, view: DataView) {
-  const frameMarkers = new Set([0xc0, 0xc1, 0xc2]);
   let offset = 2;
   let markerWork = 0;
   let dimensions: { width: number; height: number } | undefined;
   while (offset < bytes.length) {
-    if (markerWork >= MAX_JPEG_HEADER_MARKER_WORK)
-      throw new TypeError("JPEG image header contains too many markers.");
-    markerWork += 1;
-    if (bytes[offset++] !== 0xff)
-      throw new TypeError("Invalid JPEG image header.");
-    while (bytes[offset] === 0xff) {
-      markerWork += 1;
-      if (markerWork > MAX_JPEG_HEADER_MARKER_WORK)
-        throw new TypeError("JPEG image header contains too many markers.");
-      offset += 1;
-    }
-    const marker = bytes[offset++];
+    const advanced = advanceJpegMarker(bytes, offset, markerWork);
+    markerWork = advanced.markerWork;
+    offset = advanced.offset;
+    const marker = advanced.marker;
     if (marker === 0xd9 || marker === 0xda) break;
     if (marker === 0x01) continue;
     if (marker >= 0xd0 && marker <= 0xd7)
@@ -92,21 +123,69 @@ function jpegDimensions(bytes: Uint8Array, view: DataView) {
     const length = view.getUint16(offset);
     if (length < 2 || offset + length > bytes.length)
       throw new TypeError("Incomplete JPEG image segment.");
-    if (frameMarkers.has(marker)) {
-      if (length < 8 || bytes[offset + 2] !== 8)
-        throw new TypeError("Unsupported JPEG image frame.");
-      if (dimensions)
-        throw new TypeError("Multiple JPEG frames are not supported.");
-      dimensions = sourceDimensions(
-        view.getUint16(offset + 5),
-        view.getUint16(offset + 3),
-      );
-    }
+    dimensions = readJpegFrameDimensions(
+      bytes,
+      view,
+      marker,
+      offset,
+      length,
+      dimensions,
+    );
     offset += length;
   }
   if (!dimensions) throw new TypeError("JPEG image dimensions are missing.");
   return dimensions;
 }
+
+function readWebpVp8xDimensions(
+  bytes: Uint8Array,
+  start: number,
+  length: number,
+  dimensions?: { width: number; height: number },
+): { width: number; height: number } {
+  if (length !== 10 || dimensions)
+    throw new TypeError("Invalid WebP extended image header.");
+  if ((bytes[start] & 2) !== 0)
+    throw new TypeError("Animated images are not supported as image shapes.");
+  return sourceDimensions(
+    1 + bytes[start + 4] + (bytes[start + 5] << 8) + (bytes[start + 6] << 16),
+    1 + bytes[start + 7] + (bytes[start + 8] << 8) + (bytes[start + 9] << 16),
+  );
+}
+
+function readWebpFrameDimensions(
+  bytes: Uint8Array,
+  view: DataView,
+  kind: string,
+  start: number,
+  length: number,
+  frame?: { width: number; height: number },
+): { width: number; height: number } {
+  if (frame) throw new TypeError("Multiple WebP frames are not supported.");
+  if (kind === "VP8L" && length >= 5 && bytes[start] === 0x2f) {
+    return sourceDimensions(
+      1 + bytes[start + 1] + ((bytes[start + 2] & 63) << 8),
+      1 +
+        (bytes[start + 2] >>> 6) +
+        (bytes[start + 3] << 2) +
+        ((bytes[start + 4] & 15) << 10),
+    );
+  }
+  if (
+    kind === "VP8 " &&
+    length >= 10 &&
+    bytes[start + 3] === 0x9d &&
+    bytes[start + 4] === 1 &&
+    bytes[start + 5] === 0x2a
+  ) {
+    return sourceDimensions(
+      view.getUint16(start + 6, true) & 0x3fff,
+      view.getUint16(start + 8, true) & 0x3fff,
+    );
+  }
+  throw new TypeError("Invalid WebP image frame.");
+}
+
 function webpDimensions(bytes: Uint8Array, view: DataView) {
   if (view.getUint32(4, true) + 8 !== bytes.length)
     throw new TypeError("Invalid WebP image length.");
@@ -120,47 +199,10 @@ function webpDimensions(bytes: Uint8Array, view: DataView) {
       throw new TypeError("Incomplete WebP image chunk.");
     if (kind === "ANIM" || kind === "ANMF")
       throw new TypeError("Animated images are not supported as image shapes.");
-    if (kind === "VP8X") {
-      if (length !== 10 || dimensions)
-        throw new TypeError("Invalid WebP extended image header.");
-      if ((bytes[start] & 2) !== 0)
-        throw new TypeError(
-          "Animated images are not supported as image shapes.",
-        );
-      dimensions = sourceDimensions(
-        1 +
-          bytes[start + 4] +
-          (bytes[start + 5] << 8) +
-          (bytes[start + 6] << 16),
-        1 +
-          bytes[start + 7] +
-          (bytes[start + 8] << 8) +
-          (bytes[start + 9] << 16),
-      );
-    }
-    if (kind === "VP8L" || kind === "VP8 ") {
-      if (frame) throw new TypeError("Multiple WebP frames are not supported.");
-      if (kind === "VP8L" && length >= 5 && bytes[start] === 0x2f) {
-        frame = sourceDimensions(
-          1 + bytes[start + 1] + ((bytes[start + 2] & 63) << 8),
-          1 +
-            (bytes[start + 2] >>> 6) +
-            (bytes[start + 3] << 2) +
-            ((bytes[start + 4] & 15) << 10),
-        );
-      } else if (
-        kind === "VP8 " &&
-        length >= 10 &&
-        bytes[start + 3] === 0x9d &&
-        bytes[start + 4] === 1 &&
-        bytes[start + 5] === 0x2a
-      ) {
-        frame = sourceDimensions(
-          view.getUint16(start + 6, true) & 0x3fff,
-          view.getUint16(start + 8, true) & 0x3fff,
-        );
-      } else throw new TypeError("Invalid WebP image frame.");
-    }
+    if (kind === "VP8X")
+      dimensions = readWebpVp8xDimensions(bytes, start, length, dimensions);
+    if (kind === "VP8L" || kind === "VP8 ")
+      frame = readWebpFrameDimensions(bytes, view, kind, start, length, frame);
     offset = start + length + (length % 2);
   }
   if (!frame) throw new TypeError("WebP image dimensions are missing.");
@@ -269,6 +311,61 @@ function bitmapImage(file: File, signal?: AbortSignal): Promise<ImageBitmap> {
   });
 }
 
+async function decodeRasterImage(
+  file: File,
+  signal?: AbortSignal,
+): Promise<ImageBitmap | HTMLImageElement> {
+  try {
+    return typeof createImageBitmap === "function"
+      ? await bitmapImage(file, signal)
+      : await imageElement(file, signal);
+  } catch (error) {
+    abortIfNeeded(signal);
+    if (error instanceof DOMException && error.name === "TimeoutError")
+      throw error;
+    if (typeof Image !== "function" || typeof createImageBitmap !== "function")
+      throw new TypeError("The image could not be decoded.", { cause: error });
+    return imageElement(file, signal);
+  }
+}
+
+function rasterizeDecodedImage(
+  decoded: ImageBitmap | HTMLImageElement,
+): RasterImage {
+  const sourceWidth = "close" in decoded ? decoded.width : decoded.naturalWidth;
+  const sourceHeight =
+    "close" in decoded ? decoded.height : decoded.naturalHeight;
+  sourceDimensions(sourceWidth, sourceHeight);
+  const scale = Math.min(
+    1,
+    IMAGE_SHAPE_LIMITS.maxDimension / Math.max(sourceWidth, sourceHeight),
+  );
+  const width = Math.max(1, Math.round(sourceWidth * scale));
+  const height = Math.max(1, Math.round(sourceHeight * scale));
+  const canvas =
+    typeof OffscreenCanvas === "function"
+      ? new OffscreenCanvas(width, height)
+      : document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { willReadFrequently: true }) as
+    | CanvasRenderingContext2D
+    | OffscreenCanvasRenderingContext2D
+    | null;
+  if (!context) throw new Error("Image processing canvas is unavailable.");
+  try {
+    context.drawImage(decoded, 0, 0, width, height);
+    return {
+      width,
+      height,
+      rgba: context.getImageData(0, 0, width, height).data,
+    };
+  } finally {
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+}
+
 export async function loadImageRaster(
   file: File,
   signal?: AbortSignal,
@@ -281,55 +378,10 @@ export async function loadImageRaster(
   const header = inspectImageBytes(bytes);
   if (file.type && file.type !== header.type)
     throw new TypeError("Image content does not match its file type.");
-  let decoded: ImageBitmap | HTMLImageElement;
-  try {
-    decoded =
-      typeof createImageBitmap === "function"
-        ? await bitmapImage(file, signal)
-        : await imageElement(file, signal);
-  } catch (error) {
-    abortIfNeeded(signal);
-    if (error instanceof DOMException && error.name === "TimeoutError")
-      throw error;
-    if (typeof Image !== "function" || typeof createImageBitmap !== "function")
-      throw new TypeError("The image could not be decoded.", { cause: error });
-    decoded = await imageElement(file, signal);
-  }
+  const decoded = await decodeRasterImage(file, signal);
   try {
     abortIfNeeded(signal);
-    const sourceWidth =
-      "close" in decoded ? decoded.width : decoded.naturalWidth;
-    const sourceHeight =
-      "close" in decoded ? decoded.height : decoded.naturalHeight;
-    sourceDimensions(sourceWidth, sourceHeight);
-    const scale = Math.min(
-      1,
-      IMAGE_SHAPE_LIMITS.maxDimension / Math.max(sourceWidth, sourceHeight),
-    );
-    const width = Math.max(1, Math.round(sourceWidth * scale));
-    const height = Math.max(1, Math.round(sourceHeight * scale));
-    const canvas =
-      typeof OffscreenCanvas === "function"
-        ? new OffscreenCanvas(width, height)
-        : document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext("2d", { willReadFrequently: true }) as
-      | CanvasRenderingContext2D
-      | OffscreenCanvasRenderingContext2D
-      | null;
-    if (!context) throw new Error("Image processing canvas is unavailable.");
-    try {
-      context.drawImage(decoded, 0, 0, width, height);
-      return {
-        width,
-        height,
-        rgba: context.getImageData(0, 0, width, height).data,
-      };
-    } finally {
-      canvas.width = 0;
-      canvas.height = 0;
-    }
+    return rasterizeDecodedImage(decoded);
   } finally {
     if ("close" in decoded) decoded.close();
     else decoded.src = "";

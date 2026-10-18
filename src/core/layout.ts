@@ -1,11 +1,7 @@
-import { LIMITS } from "./limits";
 import { GlyphGrid } from "./glyph-grid";
-import {
-  compileShapeMask,
-  type CompiledShapeMask,
-  type ShapeSettings,
-} from "./shapes";
-import { safeBackground, safeFontFamily, safePalette } from "./style-safety";
+import { uploadedShapeColorBoundaryPenalty } from "./image-shape";
+import { LIMITS } from "./limits";
+import type { FontMetricsTable, GlyphSprite } from "./metrics";
 import {
   metricsFingerprint,
   SCENE_VERSION,
@@ -13,8 +9,12 @@ import {
   type SceneWord,
   sceneWordColor,
 } from "./scene";
-import { uploadedShapeColorBoundaryPenalty } from "./image-shape";
-import type { FontMetricsTable, GlyphSprite } from "./metrics";
+import {
+  type CompiledShapeMask,
+  compileShapeMask,
+  type ShapeSettings,
+} from "./shapes";
+import { safeBackground, safeFontFamily, safePalette } from "./style-safety";
 import type { Word, WordSet } from "./types";
 
 export type FrequencyScale = "sqrt" | "linear" | "log";
@@ -945,29 +945,60 @@ function probeCandidatePoint(
   );
 }
 
-function* searchAnglePlacementSteps(
+type ColorPlacementSearch = {
+  bestPlacement?: WordPlacement;
+  bestPenalty: number;
+  firstFitProbe: number;
+  fittingCandidates: number;
+};
+
+function refineUploadedColorPlacement(
+  placement: WordPlacement | undefined,
+  preferColor: boolean,
+  imageShape: NonNullable<LayoutStyle["shape"]> & { id: "uploaded" },
+  context: LayoutContext,
+  probe: number,
+  search: ColorPlacementSearch,
+): WordPlacement | undefined {
+  if (!placement || !preferColor || !context.shapeMask) return placement;
+  const penalty = uploadedShapeColorBoundaryPenalty(
+    imageShape.image,
+    context.shapeMask.bounds,
+    placement.visual,
+  );
+  search.fittingCandidates += 1;
+  if (!search.bestPlacement) search.firstFitProbe = probe;
+  if (penalty < search.bestPenalty) {
+    search.bestPlacement = placement;
+    search.bestPenalty = penalty;
+  }
+  if (
+    search.bestPenalty > 0.015 &&
+    search.fittingCandidates < 6 &&
+    probe - search.firstFitProbe < 48
+  ) {
+    return undefined;
+  }
+  return search.bestPlacement;
+}
+
+function* searchNearbyAnglePlacements(
   prepared: PreparedWord,
   plan: AnglePlan,
-  angleIndex: number,
   angleBudget: number,
   context: LayoutContext,
-): Generator<void, PlacementSearchResult, void> {
+): Generator<
+  void,
+  {
+    placement?: WordPlacement;
+    terminalReason?: "probe-budget" | "cancelled";
+    angleProbes: number;
+  },
+  void
+> {
   let placement: WordPlacement | undefined;
   let terminalReason: "probe-budget" | "cancelled" | undefined;
-  const renderSize = plan.visualSize;
   let angleProbes = 0;
-  const imageShape =
-    context.style.shape?.id === "uploaded" ? context.style.shape : undefined;
-  const preferColor = Boolean(
-    imageShape?.colorBoundary &&
-      prepared.fontSize >
-        context.style.minFontSize +
-          (context.style.maxFontSize - context.style.minFontSize) * 0.42,
-  );
-  let bestPlacement: WordPlacement | undefined;
-  let bestPenalty = Number.POSITIVE_INFINITY;
-  let firstFitProbe = 0;
-  let fittingCandidates = 0;
   const nearby = nearbyCandidatePoints(
     context,
     plan.collisionSize,
@@ -987,19 +1018,41 @@ function* searchAnglePlacementSteps(
     yield;
     if (placement || terminalReason) break;
   }
+  return { placement, terminalReason, angleProbes };
+}
 
-  const remainingProbeCount = Math.max(0, angleBudget - angleProbes);
+function* searchProbeAnglePlacements(
+  prepared: PreparedWord,
+  plan: AnglePlan,
+  angleIndex: number,
+  angleBudget: number,
+  remainingProbeCount: number,
+  context: LayoutContext,
+  preferColor: boolean,
+  imageShape: LayoutStyle["shape"] | undefined,
+  colorSearch: ColorPlacementSearch,
+  initialPlacement?: WordPlacement,
+  initialTerminalReason?: "probe-budget" | "cancelled",
+): Generator<
+  void,
+  {
+    placement?: WordPlacement;
+    terminalReason?: "probe-budget" | "cancelled";
+  },
+  void
+> {
+  let placement = initialPlacement;
+  let terminalReason = initialTerminalReason;
   for (
     let probe = 0;
     !placement && !terminalReason && probe < remainingProbeCount;
     probe += 1
   ) {
-    if (bestPlacement && probe - firstFitProbe >= 48) {
-      placement = bestPlacement;
+    if (colorSearch.bestPlacement && probe - colorSearch.firstFitProbe >= 48) {
+      placement = colorSearch.bestPlacement;
       break;
     }
     context.probes += 1;
-    angleProbes += 1;
     const reason = placementBudgetFailure(context);
     if (reason) {
       terminalReason = reason;
@@ -1016,30 +1069,76 @@ function* searchAnglePlacementSteps(
     const attempt = attemptPlacement(prepared, plan, centerX, centerY, context);
     placement = attempt.placement;
     terminalReason = attempt.terminalReason;
-    if (placement && preferColor && imageShape && context.shapeMask) {
-      const penalty = uploadedShapeColorBoundaryPenalty(
-        imageShape.image,
-        context.shapeMask.bounds,
-        placement.visual,
+    if (
+      placement &&
+      preferColor &&
+      imageShape?.id === "uploaded" &&
+      context.shapeMask
+    ) {
+      placement = refineUploadedColorPlacement(
+        placement,
+        preferColor,
+        imageShape,
+        context,
+        probe,
+        colorSearch,
       );
-      fittingCandidates += 1;
-      if (!bestPlacement) firstFitProbe = probe;
-      if (penalty < bestPenalty) {
-        bestPlacement = placement;
-        bestPenalty = penalty;
-      }
-      if (
-        bestPenalty > 0.015 &&
-        fittingCandidates < 6 &&
-        probe - firstFitProbe < 48
-      )
-        placement = undefined;
-      else placement = bestPlacement;
     }
     yield;
   }
-  if (bestPlacement && terminalReason !== "cancelled") {
-    placement = bestPlacement;
+  return { placement, terminalReason };
+}
+
+function* searchAnglePlacementSteps(
+  prepared: PreparedWord,
+  plan: AnglePlan,
+  angleIndex: number,
+  angleBudget: number,
+  context: LayoutContext,
+): Generator<void, PlacementSearchResult, void> {
+  const renderSize = plan.visualSize;
+  const imageShape =
+    context.style.shape?.id === "uploaded" ? context.style.shape : undefined;
+  const preferColor = Boolean(
+    imageShape?.colorBoundary &&
+      prepared.fontSize >
+        context.style.minFontSize +
+          (context.style.maxFontSize - context.style.minFontSize) * 0.42,
+  );
+  const colorSearch: ColorPlacementSearch = {
+    bestPenalty: Number.POSITIVE_INFINITY,
+    firstFitProbe: 0,
+    fittingCandidates: 0,
+  };
+  const nearbyResult = yield* searchNearbyAnglePlacements(
+    prepared,
+    plan,
+    angleBudget,
+    context,
+  );
+  let placement = nearbyResult.placement;
+  let terminalReason = nearbyResult.terminalReason;
+  const remainingProbeCount = Math.max(
+    0,
+    angleBudget - nearbyResult.angleProbes,
+  );
+  const probeResult = yield* searchProbeAnglePlacements(
+    prepared,
+    plan,
+    angleIndex,
+    angleBudget,
+    remainingProbeCount,
+    context,
+    preferColor,
+    imageShape,
+    colorSearch,
+    placement,
+    terminalReason,
+  );
+  placement = probeResult.placement ?? placement;
+  terminalReason = probeResult.terminalReason ?? terminalReason;
+  if (colorSearch.bestPlacement && terminalReason !== "cancelled") {
+    placement = colorSearch.bestPlacement;
     terminalReason = undefined;
   }
   return { placement, terminalReason, renderSize };
@@ -1205,21 +1304,27 @@ export function layoutWordCloud(
   return result.value;
 }
 
+async function drainLayoutSteps(
+  steps: Generator<void, SceneModel, void>,
+  yieldedSteps: number,
+): Promise<SceneModel> {
+  const result = steps.next();
+  if (result.done) return result.value;
+  const nextYielded = yieldedSteps + 1;
+  if (nextYielded % 256 === 0) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  }
+  return drainLayoutSteps(steps, nextYielded);
+}
+
 export async function layoutWordCloudAsync(
   wordSet: WordSet,
   style: LayoutStyle,
   metrics: FontMetricsTable,
   options: LayoutOptions = {},
 ): Promise<SceneModel> {
-  const steps = layoutWordCloudSteps(wordSet, style, metrics, options);
-  let result = steps.next();
-  let yieldedSteps = 0;
-  while (!result.done) {
-    yieldedSteps += 1;
-    if (yieldedSteps % 256 === 0) {
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
-    }
-    result = steps.next();
-  }
-  return result.value;
+  return drainLayoutSteps(
+    layoutWordCloudSteps(wordSet, style, metrics, options),
+    0,
+  );
 }

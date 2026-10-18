@@ -1,5 +1,5 @@
-import { useState } from "react";
 import type { KeyboardEvent } from "react";
+import { useState } from "react";
 import { useI18n } from "../i18n";
 
 interface TagInputProps {
