@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
-    "@cloudflare/vite-plugin": "1.64.0",
+    "@cloudflare/vite-plugin": "1.65.0",
     "@playwright/test": "1.64.1",
     "@redocly/cli": "2.65.0",
     "@types/node": "26.6.5",
@@ -49,6 +49,6 @@
     "typescript": "7.0.2",
     "vite": "8.3.4",
     "vitest": "5.0.5",
-    "wrangler": "4.151.2"
+    "wrangler": "4.153.0"
   }
 }
