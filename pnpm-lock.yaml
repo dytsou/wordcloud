@@ -52,8 +52,8 @@ importers:
         specifier: 6.3.0
         version: 6.3.0(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2))
       swagger-ui-dist:
-        specifier: 5.34.1
-        version: 5.34.1
+        specifier: 5.36.0
+        version: 5.36.0
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -1097,8 +1097,8 @@ packages:
     resolution: {integrity: sha512-SS+jx45GF1QjgEXQx4NJZV9ImqmO2NPz5FNsIHrsDjh2YsHnawpan7SNQ1o8NuhrbHZy9AZhIoCUiCeaW/C80g==}
     engines: {node: '>=18'}
 
-  swagger-ui-dist@5.34.1:
-    resolution: {integrity: sha512-VSr8fXfI93obYaQicLJbLUKGRxDojj/SfRJDDLCioGTUBj4BK/Nj4eE9jCeCAnJxVLi7iS+08PbiZLyrQKBkJQ==}
+  swagger-ui-dist@5.36.0:
+    resolution: {integrity: sha512-Lt6/Kb0gXmLdiabLhvso4VdJP9V7qJWB0zh0gzeXUV3+CMOTzMmvpJRSXN7EAjfwixwmoi9ezDbLHiexC7lA9A==}
 
   tinybench@6.2.2:
     resolution: {integrity: sha512-nIZ2N2dFpjBsg2hgitKu7mA+FvsIJuGJOwysRngmVRRmWgR/UyPjwJj8c/fT/dhm8EkHnF5EOogRf+0Z2qrimA==}
@@ -1993,7 +1993,7 @@ snapshots:
 
   supports-color@10.2.2: {}
 
-  swagger-ui-dist@5.34.1:
+  swagger-ui-dist@5.36.0:
     dependencies:
       '@scarf/scarf': 1.4.0
 
